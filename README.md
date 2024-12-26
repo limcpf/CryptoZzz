@@ -1,47 +1,49 @@
-# Money - 암호화폐 자동 거래 시스템
+# Money - Cryptocurrency Automated Trading System
 
-## 소개
-이 프로젝트는 암호화폐 시장 데이터를 수집하고 분석하여 자동으로 거래를 실행하는 시스템입니다. PM2를 사용하여 여러 마이크로서비스를 관리하며, PostgreSQL을 데이터베이스로 사용합니다.
+*Read this in other languages: [한국어](README.ko.md)*
 
-## 주요 기능
-- 실시간 시장 데이터 수집 (Upbit API 사용)
-- 데이터 분석 및 거래 신호 생성
-- 자동 거래 실행
-- Discord를 통한 실시간 알림
-- 계정 관리 및 모니터링
+## Introduction
+This project is a system that collects and analyzes cryptocurrency market data to execute automated trading. It uses PM2 to manage multiple microservices and PostgreSQL as the database.
 
-## 시스템 구성
-- **market-data**: 시장 데이터 수집 서비스
-- **analysis**: 데이터 분석 서비스
-- **trading**: 자동 거래 실행 서비스
-- **account**: 계정 관리 서비스
+## Key Features
+- Real-time market data collection (using Upbit API)
+- Data analysis and trading signal generation
+- Automated trade execution
+- Real-time notifications via Discord
+- Account management and monitoring
 
-## 기술 스택
+## System Components
+- **market-data**: Market data collection service
+- **analysis**: Data analysis service
+- **trading**: Automated trading execution service
+- **account**: Account management service
+
+## Tech Stack
 - Runtime: Bun v1.1.42
-- 프로세스 관리: PM2
-- 데이터베이스: PostgreSQL
-- 언어: TypeScript
-- 크론 작업: node-cron
-- 알림: Discord Webhook
+- Process Management: PM2
+- Database: PostgreSQL
+- Language: TypeScript
+- Cron Jobs: node-cron
+- Notifications: Discord Webhook
 
-## 설치 방법
+## Installation
 
-1. 저장소 클론
+1. Clone repository
 ```bash
 git clone [repository-url]
 cd money
 ```
 
-2. 의존성 설치
+2. Install dependencies
 ```bash
 bun install
 ```
 
-3. 환경 변수 설정
+3. Configure environment variables
 ```bash
 cp .env.example .env
 ```
-필요한 환경 변수:
+Required environment variables:
 - DB_USER
 - DB_HOST
 - DB_NAME
@@ -49,55 +51,54 @@ cp .env.example .env
 - DB_PORT
 - DISCORD_WEBHOOK_URL
 
-## 실행 방법
+## Running the Application
 
-서비스 시작:
+Start services:
 ```bash
 bun run start
 ```
 
-서비스 중지:
+Stop services:
 ```bash
 bun run stop
 ```
 
-서비스 재시작:
+Restart services:
 ```bash
 bun run restart
 ```
 
-로그 확인:
+View logs:
 ```bash
 bun run logs
 ```
 
-## PM2 서비스 구성
-각 서비스는 다음과 같은 특성으로 실행됩니다:
+## PM2 Service Configuration
+Each service runs with the following specifications:
 
 - **market-data**
-  - 메모리 제한: 300MB
-  - 매일 22시 자동 재시작
-  - 최대 재시작 시도: 5회
+  - Memory limit: 300MB
+  - Daily restart at 22:00
+  - Maximum restart attempts: 5
 
 - **analysis**
-  - 메모리 제한: 300MB
-  - 자동 재시작 활성화
+  - Memory limit: 300MB
+  - Auto-restart enabled
 
 - **trading**
-  - 메모리 제한: 250MB
-  - 최대 재시작 시도: 3회
+  - Memory limit: 250MB
+  - Maximum restart attempts: 3
 
 - **account**
-  - 메모리 제한: 200MB
-  - 매일 0시 자동 재시작
+  - Memory limit: 200MB
+  - Daily restart at 00:00
 
-## 라이선스
+## License
 MIT License
 
-## 기여 방법
+## How to Contribute
 1. Fork the repository
 2. Create your feature branch
 3. Commit your changes
 4. Push to the branch
 5. Create a new Pull Request
-```

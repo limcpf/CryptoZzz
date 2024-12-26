@@ -32,7 +32,7 @@ process.on("message", (packet: PM2Packet) => {
 
 			case "exit":
 				sendNotifyDiscord(
-					`❌ [${timestamp}] **${appName}** 서비스가 종료되었습니다.\n종료 코드: ${proc.exit_code}`,
+					`❌ [${timestamp}] **${appName}** 서비스가 종료되었습니다.`,
 				);
 				break;
 

@@ -1,7 +1,11 @@
-import type { msg } from "./msg.const";
+import type { MSG } from "./msg.const";
 
-const messages: msg = {
+const messages: MSG = {
+	CONFIG_ERROR: "⚠️ Failed to load configuration file: ",
+	SERVER_OFF_MESSAGE: "Server is off",
 	CHECK_MESSAGE: "Currently collecting candle chart data normally.",
+	CANDLE_SAVE_API_ERROR: "⚠️ Candle chart data collection failed",
+	CANDLE_SAVE_DB_ERROR: "⚠️ Candle chart data storage failed",
 } as const;
 
 export default messages;

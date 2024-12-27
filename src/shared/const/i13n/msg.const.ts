@@ -1,9 +1,13 @@
 import msgEn from "./msg-en.const";
 import msgKo from "./msg-ko.const";
 
-export type msg = {
+export interface MSG {
+	CONFIG_ERROR: string;
+	SERVER_OFF_MESSAGE: string;
 	CHECK_MESSAGE: string;
-};
+	CANDLE_SAVE_API_ERROR: string;
+	CANDLE_SAVE_DB_ERROR: string;
+}
 
 export const getMsg = (language: string) => {
 	switch (language) {

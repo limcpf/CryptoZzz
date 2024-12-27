@@ -1,21 +1,57 @@
 import cron from "node-cron";
-import { createPool, setupPubSub } from "../../shared/config/database";
+import {
+	createPool,
+	handleNotifications,
+	notify,
+	setupPubSub,
+} from "../../shared/config/database";
 import API_URL from "../../shared/const/api.const";
+import { CHANNEL } from "../../shared/const/channel.const";
+import { getMsg } from "../../shared/const/i13n/msg.const";
 import type { Candle } from "../../shared/types/Candle.type";
-import { sendNotifyDiscord } from "../../shared/utils/webhook";
+import { webhookFactory } from "../../shared/utils/webhook/webhook.factory";
 
+/** 전역변수 */
+
+/**
+ * @name pool
+ * @description Database Pool
+ */
 const pool = createPool();
 
+/**
+ * @name client
+ * @description Database Client
+ */
 const client = await pool.connect();
 
-client.query("LISTEN data_channel");
+/**
+ * @name msg
+ * @description Message
+ */
+const msg = getMsg(process.env.LANGUAGE || "ko");
 
-client.on("notification", (msg) => {
-	sendNotifyDiscord(msg.payload ?? "");
-});
+/**
+ * @name webhook
+ * @description Webhook
+ */
+const webhook = webhookFactory();
 
-// OKX REST API Base URL
-const BASE_URL = "https://api.upbit.com";
+/**
+ * @name IS_CANDLE_ERROR_SENT
+ * @description 5분마다 한번씩만 오류 메시지를 전송하기 위한 구분 값
+ */
+let IS_CANDLE_ERROR_SENT = false;
+
+/**
+ * @name setup
+ * @description Setup
+ */
+async function setup() {
+	IS_CANDLE_ERROR_SENT = false;
+	await setupPubSub(client, [CHANNEL.WEBHOOK_CHANNEL]);
+	handleNotifications(client, (msg) => webhook.send(msg.payload ?? ""));
+}
 
 /**
  * @name getCandleData
@@ -40,18 +76,35 @@ async function getCandleData(count = 3) {
 		});
 
 		if (!response.ok) {
-			throw new Error(`HTTP error! Status: ${response.status}`);
+			throw new Error(
+				`[CANDLE-SAVE] ${msg.CANDLE_SAVE_API_ERROR} : ${response.status}`,
+			);
 		}
 
 		const data = (await response.json()) as [Candle, Candle, Candle];
+
 		await saveMarketData(data); // 데이터베이스에 저장
-		return data;
-	} catch (error) {
-		console.error("API 요청 실패:", error);
+	} catch (error: unknown) {
+		if (!IS_CANDLE_ERROR_SENT) {
+			IS_CANDLE_ERROR_SENT = true;
+			if (error instanceof Error) {
+				await notify(
+					pool,
+					"WEBHOOK_CHANNEL",
+					`[CANDLE-SAVE] ${error.message}\n`,
+				);
+			} else {
+				await notify(
+					pool,
+					"WEBHOOK_CHANNEL",
+					`[CANDLE-SAVE] ${msg.CANDLE_SAVE_API_ERROR}\n`,
+				);
+			}
+		}
 	}
 }
 
-async function saveMarketData(data: Candle[]) {
+async function saveMarketData(data: [Candle, Candle, Candle]) {
 	try {
 		const query = `
 			INSERT INTO Market_Data (symbol, timestamp, open_price, high_price, low_price, close_price, volume)
@@ -78,27 +131,43 @@ async function saveMarketData(data: Candle[]) {
 				]),
 			),
 		);
-
-		console.log("데이터 저장 완료");
-	} catch (error) {
-		pool.query(`NOTIFY data_channel, '⚠️ 데이터베이스 저장 실패\n'`);
-		console.error("데이터베이스 저장 실패:", error);
+	} catch (error: unknown) {
+		if (error instanceof Error) {
+			await notify(pool, "WEBHOOK_CHANNEL", `[CANDLE-SAVE] ${error.message}\n`);
+		} else {
+			await notify(
+				pool,
+				"WEBHOOK_CHANNEL",
+				`[CANDLE-SAVE] ${msg.CANDLE_SAVE_DB_ERROR}\n`,
+			);
+		}
 	}
 }
 
-await setupPubSub(client, ["data_channel"]);
+/**
+ * @name main
+ * @description Main
+ */
+async function main() {
+	await setup();
 
-// 기존 크론 작업 유지
-cron.schedule("*/3 * * * * *", () => {
-	getTickerData();
-});
+	cron.schedule("*/3 * * * * *", () => {
+		getCandleData();
+	});
 
-cron.schedule("0 0 8-21 * * *", () => {
-	pool.query(`NOTIFY data_channel, '${CHECK_MESSAGE}'`);
-});
+	cron.schedule("0 0 8-21 * * *", () => {
+		notify(pool, "WEBHOOK_CHANNEL", msg.CHECK_MESSAGE);
+	});
 
-// 프로그램 종료 시 pool 정리를 위한 이벤트 핸들러 추가
-process.on("SIGINT", async () => {
-	await pool.end();
-	process.exit();
-});
+	cron.schedule(process.env.CANDLE_SAVE_INTERVAL || "0 */5 * * * *", () => {
+		IS_CANDLE_ERROR_SENT = false;
+	});
+
+	process.on("SIGINT", async () => {
+		webhookFactory().send(msg.SERVER_OFF_MESSAGE);
+		await pool.end();
+		process.exit();
+	});
+}
+
+main();

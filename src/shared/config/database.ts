@@ -1,4 +1,5 @@
-import { Pool, type PoolClient } from "pg";
+import { type Notification, Pool, type PoolClient } from "pg";
+import { CHANNEL, type ChannelType } from "../const/channel.const";
 
 export const createPool = () => {
 	return new Pool({
@@ -14,4 +15,19 @@ export const setupPubSub = async (client: PoolClient, channels: string[]) => {
 	for (const channel of channels) {
 		await client.query(`LISTEN ${channel}`);
 	}
+};
+
+export const handleNotifications = (
+	client: PoolClient,
+	callback: (message: Notification) => void,
+) => {
+	client.on("notification", callback);
+};
+
+export const notify = async (
+	pool: Pool,
+	channel: ChannelType,
+	message: string,
+) => {
+	await pool.query(`NOTIFY ${CHANNEL[channel]}, '${message}'`);
 };

@@ -1,4 +1,4 @@
-import { Pool } from "pg";
+import { Pool, type PoolClient } from "pg";
 
 export const createPool = () => {
 	return new Pool({
@@ -10,7 +10,7 @@ export const createPool = () => {
 	});
 };
 
-export const setupPubSub = async (client, channels: string[]) => {
+export const setupPubSub = async (client: PoolClient, channels: string[]) => {
 	for (const channel of channels) {
 		await client.query(`LISTEN ${channel}`);
 	}

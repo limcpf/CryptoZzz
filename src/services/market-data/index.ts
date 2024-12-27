@@ -1,5 +1,6 @@
 import cron from "node-cron";
 import { createPool, setupPubSub } from "../../shared/config/database";
+import type { Candle } from "../../shared/types/Candle.type";
 import { sendNotifyDiscord } from "../../shared/utils/webhook";
 
 const pool = createPool();
@@ -15,19 +16,6 @@ client.on("notification", (msg) => {
 
 // OKX REST API Base URL
 const BASE_URL = "https://api.upbit.com";
-
-type Candle = {
-	market: string;
-	candle_date_time_utc: string;
-	candle_date_time_kst: string;
-	opening_price: number;
-	high_price: number;
-	low_price: number;
-	trade_price: number;
-	timestamp: number;
-	candle_acc_trade_price: number;
-	candle_acc_trade_volume: number;
-};
 
 // BTC-USDT 현재가 정보 가져오기
 async function getTickerData(instId = "KRW-BTC", count = 3) {

@@ -1,8 +1,8 @@
 module.exports = {
 	apps: [
 		{
-			name: "market-data",
-			script: "./src/services/market-data/index.ts",
+			name: "candle-save",
+			script: "./src/services/candle-save/index.ts",
 			instances: 1,
 			exec_mode: "fork",
 			watch: true,
@@ -19,8 +19,8 @@ module.exports = {
 			listen_timeout: 8000,
 			kill_timeout: 5000,
 			merge_logs: true,
-			error_file: "logs/market-data-error.log",
-			out_file: "logs/market-data-out.log",
+			error_file: "logs/candle-save-error.log",
+			out_file: "logs/candle-save-out.log",
 		},
 		{
 			name: "analysis",

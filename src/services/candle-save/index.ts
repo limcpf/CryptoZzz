@@ -1,5 +1,6 @@
 import cron from "node-cron";
 import { createPool, setupPubSub } from "../../shared/config/database";
+import API_URL from "../../shared/const/api.const";
 import type { Candle } from "../../shared/types/Candle.type";
 import { sendNotifyDiscord } from "../../shared/utils/webhook";
 
@@ -17,10 +18,19 @@ client.on("notification", (msg) => {
 // OKX REST API Base URL
 const BASE_URL = "https://api.upbit.com";
 
-// BTC-USDT 현재가 정보 가져오기
-async function getTickerData(instId = "KRW-BTC", count = 3) {
-	const endpoint = `/v1/candles/seconds?market=${instId}&count=${count}`; // Ticker API 엔드포인트
-	const url = `${BASE_URL}${endpoint}`;
+/**
+ * @name getCandleData
+ * @description Get Candle Data / Execute every 3 seconds / Fetch 3 one-second candles and save data
+ * @description 캔들 데이터 가져오기 / 3초마다 실행 / 1초 단위 캔들 3개 가져와서 데이터 저장
+ * @param count
+ */
+async function getCandleData(count = 3) {
+	const endpoint = API_URL.GET_CANDLE_DATA(
+		process.env.CRYPTO_CODE || "",
+		count,
+	);
+
+	const url = `${process.env.MARKET_URL}${endpoint}`;
 
 	try {
 		const response = await fetch(url, {

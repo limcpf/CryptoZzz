@@ -6,7 +6,6 @@ import { sendNotifyDiscord } from "../../shared/utils/webhook";
 
 const pool = createPool();
 
-const CHECK_MESSAGE = "현재 캔들 차트 데이터 정상 수집중입니다.";
 const client = await pool.connect();
 
 client.query("LISTEN data_channel");

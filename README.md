@@ -13,7 +13,7 @@ This project is a system that collects and analyzes cryptocurrency market data t
 - Account management and monitoring
 
 ## System Components
-- **market-data**: Market data collection service
+- **candle-save**: Candle data collection service
 - **analysis**: Data analysis service
 - **trading**: Automated trading execution service
 - **account**: Account management service
@@ -76,7 +76,7 @@ bun run logs
 ## PM2 Service Configuration
 Each service runs with the following specifications:
 
-- **market-data**
+- **candle-save**
   - Memory limit: 300MB
   - Daily restart at 22:00
   - Maximum restart attempts: 5

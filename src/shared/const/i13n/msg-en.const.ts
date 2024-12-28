@@ -6,6 +6,7 @@ const messages: MSG = {
 	CHECK_MESSAGE: "Currently collecting candle chart data normally.",
 	CANDLE_SAVE_API_ERROR: "⚠️ Candle chart data collection failed",
 	CANDLE_SAVE_DB_ERROR: "⚠️ Candle chart data storage failed",
+	CANDLE_SAVE_NORMAL_COLLECTING: "Normal collecting",
 } as const;
 
 export default messages;

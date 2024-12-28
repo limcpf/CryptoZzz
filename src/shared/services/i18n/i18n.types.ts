@@ -1,0 +1,8 @@
+export interface MSG {
+	CONFIG_ERROR: string;
+	SERVER_OFF_MESSAGE: string;
+	CHECK_MESSAGE: string;
+	CANDLE_SAVE_API_ERROR: string;
+	CANDLE_SAVE_DB_ERROR: string;
+	CANDLE_SAVE_NORMAL_COLLECTING: string;
+}

@@ -7,6 +7,7 @@ export interface MSG {
 	CHECK_MESSAGE: string;
 	CANDLE_SAVE_API_ERROR: string;
 	CANDLE_SAVE_DB_ERROR: string;
+	CANDLE_SAVE_NORMAL_COLLECTING: string;
 }
 
 export const getMsg = (language: string) => {

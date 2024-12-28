@@ -23,6 +23,9 @@
 		"start": "pm2 start ecosystem.config.cjs",
 		"stop": "pm2 stop all",
 		"restart": "pm2 restart all",
-		"logs": "pm2 logs"
+		"logs": "pm2 logs",
+		"start:test": "pm2 start ecosystem.test.config.cjs",
+		"start:test:re": "pm2 delete candle-save-test && pm2 start ecosystem.test.config.cjs",
+		"start:candle": "pm2 start ecosystem.test.config.cjs --only candle-save"
 	}
 }

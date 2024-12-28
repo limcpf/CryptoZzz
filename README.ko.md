@@ -14,9 +14,18 @@
 
 ## 시스템 구성
 - **candle-save**: 캔들 데이터 저장 서비스
+  - 3초마다 실시간 시장 데이터 수집
+  - 데이터베이스 자동 저장
+  - 오류 발생 시 Discord 알림
 - **analysis**: 데이터 분석 서비스
+  - 수집된 데이터 실시간 분석
+  - 매매 신호 생성
 - **trading**: 자동 거래 실행 서비스
+  - 분석 결과 기반 자동 매매 실행
+  - 위험 관리 및 포지션 관리
 - **account**: 계정 관리 서비스
+  - 자산 현황 모니터링
+  - 거래 내역 관리
 
 ## 기술 스택
 - Runtime: Bun v1.1.42
@@ -44,33 +53,29 @@ bun install
 cp .env.example .env
 ```
 필요한 환경 변수:
-- DB_USER
-- DB_HOST
-- DB_NAME
-- DB_PASSWORD
-- DB_PORT
-- DISCORD_WEBHOOK_URL
+- DB_USER: 데이터베이스 사용자
+- DB_HOST: 데이터베이스 호스트
+- DB_NAME: 데이터베이스 이름
+- DB_PASSWORD: 데이터베이스 비밀번호
+- DB_PORT: 데이터베이스 포트
+- DISCORD_WEBHOOK_URL: Discord 웹훅 URL
+- MARKET_URL: Upbit API URL
+- CRYPTO_CODE: 거래할 암호화폐 코드 (예: KRW-BTC)
+- WEBHOOK_TYPE: 웹훅 타입 (DISCORD)
+- LANGUAGE: 언어 설정 (ko/en)
 
-## 실행 방법
-
-서비스 시작:
-```bash
-bun run start
-```
-
-서비스 중지:
-```bash
-bun run stop
-```
-
-서비스 재시작:
-```bash
-bun run restart
-```
-
-로그 확인:
-```bash
-bun run logs
+## 데이터베이스 스키마
+```sql
+CREATE TABLE Market_Data (
+    symbol VARCHAR(20),
+    timestamp TIMESTAMP,
+    open_price DECIMAL,
+    high_price DECIMAL,
+    low_price DECIMAL,
+    close_price DECIMAL,
+    volume DECIMAL,
+    PRIMARY KEY (symbol, timestamp)
+);
 ```
 
 ## PM2 서비스 구성
@@ -80,18 +85,37 @@ bun run logs
   - 메모리 제한: 300MB
   - 매일 22시 자동 재시작
   - 최대 재시작 시도: 5회
+  - 로그 파일: logs/candle-save-error.log, logs/candle-save-out.log
 
 - **analysis**
   - 메모리 제한: 300MB
   - 자동 재시작 활성화
+  - 백오프 재시작 지연: 100ms
 
 - **trading**
   - 메모리 제한: 250MB
   - 최대 재시작 시도: 3회
+  - 실시간 모니터링
 
 - **account**
   - 메모리 제한: 200MB
   - 매일 0시 자동 재시작
+  - 자산 현황 자동 업데이트
+
+## 개발 모드 실행
+```bash
+bun run start:test
+```
+
+## 테스트 환경 설정
+```bash
+bun run start:test:re
+```
+
+## 캔들 데이터 수집 서비스만 실행
+```bash
+bun run start:candle
+```
 
 ## 라이선스
 MIT License
@@ -102,4 +126,3 @@ MIT License
 3. Commit your changes
 4. Push to the branch
 5. Create a new Pull Request
-```

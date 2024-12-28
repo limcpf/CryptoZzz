@@ -14,6 +14,7 @@ export const createPool = () => {
 export const setupPubSub = async (client: PoolClient, channels: string[]) => {
 	for (const channel of channels) {
 		await client.query(`LISTEN ${channel}`);
+		console.log(`Listening to ${channel}`);
 	}
 };
 

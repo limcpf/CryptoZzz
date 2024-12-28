@@ -5,12 +5,12 @@ import {
 	notify,
 	setupPubSub,
 } from "../../shared/config/database";
-import API_URL from "../../shared/const/api.const";
 import { CHANNEL } from "../../shared/const/channel.const";
-import { getMsg } from "../../shared/const/i13n/msg.const";
 import { CANDLE_SAVE_QUERY } from "../../shared/const/query/candle-save";
+import API_URL from "../../shared/services/api";
+import i18n from "../../shared/services/i18n";
+import webhook from "../../shared/services/webhook";
 import type { Candle } from "../../shared/types/Candle.type";
-import { webhookFactory } from "../../shared/utils/webhook/webhook.factory";
 
 /** 전역변수 */
 
@@ -25,18 +25,6 @@ const pool = createPool();
  * @description Database Client
  */
 const client = await pool.connect();
-
-/**
- * @name msg
- * @description Message
- */
-const msg = getMsg(process.env.LANGUAGE || "ko");
-
-/**
- * @name webhook
- * @description Webhook
- */
-const webhook = webhookFactory();
 
 /**
  * @name IS_CANDLE_ERROR_SENT
@@ -76,7 +64,7 @@ async function fetchAndSaveCandles(count = 3) {
 
 	if (!response.ok) {
 		throw new Error(
-			`[CANDLE-SAVE] ${msg.CANDLE_SAVE_API_ERROR} : ${response.status}`,
+			`[CANDLE-SAVE] ${i18n.getMessage("CANDLE_SAVE_API_ERROR")} : ${response.status}`,
 		);
 	}
 
@@ -113,55 +101,74 @@ async function saveCandleData(data: [Candle, Candle, Candle]) {
 			await notify(
 				pool,
 				"WEBHOOK_CHANNEL",
-				`[CANDLE-SAVE] ${msg.CANDLE_SAVE_DB_ERROR}\n`,
+				`[CANDLE-SAVE] ${i18n.getMessage("CANDLE_SAVE_DB_ERROR")}\n`,
 			);
 		}
 	}
 }
 
 /**
- * @name main
- * @description Main
+ * @name handleGracefulShutdown
+ * @description 프로세스 종료 처리를 위한 공통 함수
  */
-async function main() {
-	await setup();
-
-	cron.schedule("*/3 * * * * *", async () => {
-		try {
-			await fetchAndSaveCandles();
-		} catch (error: unknown) {
-			if (!IS_CANDLE_ERROR_SENT) {
-				IS_CANDLE_ERROR_SENT = true;
-				if (error instanceof Error) {
-					await notify(
-						pool,
-						"WEBHOOK_CHANNEL",
-						`[CANDLE-SAVE] ${error.message}\n`,
-					);
-				} else {
-					await notify(
-						pool,
-						"WEBHOOK_CHANNEL",
-						`[CANDLE-SAVE] ${msg.CANDLE_SAVE_API_ERROR}\n`,
-					);
-				}
-			}
-		}
-	});
-
-	cron.schedule("0 0 8-21 * * *", () => {
-		notify(pool, "WEBHOOK_CHANNEL", msg.CHECK_MESSAGE);
-	});
-
-	cron.schedule(process.env.CANDLE_SAVE_INTERVAL || "0 */5 * * * *", () => {
-		IS_CANDLE_ERROR_SENT = false;
-	});
-
-	process.on("SIGINT", async () => {
-		webhookFactory().send(msg.SERVER_OFF_MESSAGE);
-		await pool.end();
-		process.exit();
-	});
+async function handleGracefulShutdown() {
+	webhook.send("🛑 서비스 종료 신호 수신");
+	await pool.end();
+	process.exit(0);
 }
 
-main();
+await setup();
+
+cron.schedule("*/3 * * * * *", async () => {
+	try {
+		await fetchAndSaveCandles();
+		if (process.env.NODE_ENV === "development") {
+			console.log(
+				`[${new Date().toISOString()}] [CANDLE-SAVE] ${i18n.getMessage(
+					"CANDLE_SAVE_NORMAL_COLLECTING",
+				)}`,
+			);
+		}
+	} catch (error: unknown) {
+		if (!IS_CANDLE_ERROR_SENT) {
+			IS_CANDLE_ERROR_SENT = true;
+			if (error instanceof Error) {
+				await notify(
+					pool,
+					"WEBHOOK_CHANNEL",
+					`[CANDLE-SAVE] ${error.message}\n`,
+				);
+			} else {
+				await notify(
+					pool,
+					"WEBHOOK_CHANNEL",
+					`[CANDLE-SAVE] ${i18n.getMessage("CANDLE_SAVE_API_ERROR")}\n`,
+				);
+			}
+		}
+	}
+});
+
+cron.schedule("0 0 8-21 * * *", () => {
+	notify(pool, "WEBHOOK_CHANNEL", i18n.getMessage("CHECK_MESSAGE"));
+});
+
+cron.schedule(process.env.CANDLE_SAVE_INTERVAL || "0 */5 * * * *", () => {
+	IS_CANDLE_ERROR_SENT = false;
+});
+
+process.stdin.resume();
+
+process.on("uncaughtException", (error) => {
+	console.error("예상치 못한 에러:", error);
+	webhook.send("⚠️ 예상치 못한 에러 발생");
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+	console.error("처리되지 않은 Promise 거부:", reason);
+	webhook.send("⚠️ 처리되지 않은 Promise 거부 발생");
+});
+
+// SIGINT (Ctrl+C)와 SIGTERM 모두 동일한 종료 처리
+process.on("SIGINT", handleGracefulShutdown);
+process.on("SIGTERM", handleGracefulShutdown);

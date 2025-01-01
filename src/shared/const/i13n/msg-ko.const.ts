@@ -7,6 +7,8 @@ const messages: MSG = {
 	CANDLE_SAVE_API_ERROR: "⚠️ 캔들 차트 데이터 수집 실패",
 	CANDLE_SAVE_DB_ERROR: "⚠️ 캔들 차트 데이터 저장 실패",
 	CANDLE_SAVE_NORMAL_COLLECTING: "정상 수집중",
+	LOCK_ACQUIRE_ERROR: "⚠️ 락 획득 실패",
+	ANALYZE_API_ERROR: "⚠️ 분석 API 호출 실패",
 } as const;
 
 export default messages;

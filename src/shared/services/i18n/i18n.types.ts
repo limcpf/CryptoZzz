@@ -5,4 +5,6 @@ export interface MSG {
 	CANDLE_SAVE_API_ERROR: string;
 	CANDLE_SAVE_DB_ERROR: string;
 	CANDLE_SAVE_NORMAL_COLLECTING: string;
+	LOCK_ACQUIRE_ERROR: string;
+	ANALYZE_API_ERROR: string;
 }

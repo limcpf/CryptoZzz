@@ -1,7 +1,6 @@
 import { type Notification, Pool, type PoolClient } from "pg";
 import { CHANNEL, type ChannelType } from "../const/channel.const";
-import { DATABASE_LOCKS, type DatabaseLockType } from "../const/database.const";
-
+import { DATABASE_LOCKS, type DatabaseLockType } from "../const/lock.const";
 export const createPool = () => {
 	return new Pool({
 		user: process.env.DB_USER || "coin",
@@ -31,14 +30,22 @@ export const notify = async (
 	channel: ChannelType,
 	message = "",
 ) => {
+	if (process.env.NODE_ENV === "development") {
+		console.log(
+			`[${new Date().toISOString()}] [NOTIFY] ${CHANNEL[channel]} ${message}`,
+		);
+	}
 	await pool.query(`NOTIFY ${CHANNEL[channel]}, '${message}'`);
 };
 
 export const acquireAdvisoryLock = async (
 	pool: Pool,
 	lockType: DatabaseLockType,
-) => {
-	await pool.query(`SELECT pg_try_advisory_lock(${DATABASE_LOCKS[lockType]});`);
+): Promise<boolean> => {
+	const result = await pool.query(
+		`SELECT pg_try_advisory_lock(${DATABASE_LOCKS[lockType]});`,
+	);
+	return result.rows[0].pg_try_advisory_lock;
 };
 
 export const releaseAdvisoryLock = async (

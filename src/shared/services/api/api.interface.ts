@@ -1,7 +1,9 @@
+import type { iAccount } from "../../interfaces/iAccount";
+
 export interface Api {
 	MARKET_URL: string;
 
-	getAccount(): Promise<boolean>;
+	getAccount(): Promise<iAccount[]>;
 	getCandles(instId: string, count: number): string;
 	getAuthToken(
 		body: Dict<

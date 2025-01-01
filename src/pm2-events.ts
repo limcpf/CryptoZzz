@@ -1,5 +1,5 @@
 import type { ProcessDescription } from "pm2";
-import { webhookFactory } from "./shared/utils/webhook/webhook.factory";
+import { webhookFactory } from "./shared/services/webhook/webhook.factory";
 
 interface PM2Packet {
 	type: string;

@@ -1,7 +1,7 @@
-import type { Candle } from "../../../shared/types/Candle.type";
+import type { iCandle } from "../../../shared/interfaces/iCandle";
 
 export interface iCandleSaveService {
 	marketUrl: string;
 	getCandleData: (count: number) => void;
-	saveMarketData: (data: Candle[]) => void;
+	saveMarketData: (data: iCandle[]) => void;
 }

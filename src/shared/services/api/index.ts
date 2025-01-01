@@ -2,7 +2,7 @@ import { apiFactory } from "./api.factory";
 
 const api = apiFactory();
 
-const API_URL = {
+const API = {
 	GET_AUTH_TOKEN: (
 		body: Dict<
 			| string
@@ -19,4 +19,4 @@ const API_URL = {
 	GET_ACCOUNT: () => api.getAccount(),
 };
 
-export default API_URL;
+export default API;

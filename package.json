@@ -4,15 +4,15 @@
 	"type": "module",
 	"devDependencies": {
 		"@types/bun": "latest",
+		"@types/jsonwebtoken": "^9.0.7",
 		"@types/node-cron": "^3.0.11",
-		"@types/pg": "^8.11.10"
+		"@types/pg": "^8.11.10",
+		"@types/uuid": "^10.0.0"
 	},
 	"peerDependencies": {
-		"typescript": "^5.0.0"
+		"typescript": "^5.7.2"
 	},
 	"dependencies": {
-		"@types/jsonwebtoken": "^9.0.7",
-		"@types/uuid": "^10.0.0",
 		"jsonwebtoken": "^9.0.2",
 		"node-cron": "^3.0.3",
 		"pg": "^8.13.1",
@@ -26,6 +26,8 @@
 		"logs": "pm2 logs",
 		"start:test": "pm2 start ecosystem.test.config.cjs",
 		"start:test:re": "pm2 delete candle-save-test && pm2 start ecosystem.test.config.cjs",
-		"start:candle": "pm2 start ecosystem.test.config.cjs --only candle-save"
+		"start:candle": "pm2 start ecosystem.test.config.cjs --only candle-save",
+		"build": "tsc --pretty false",
+		"type-check": "tsc --noEmit"
 	}
 }

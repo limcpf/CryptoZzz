@@ -1,4 +1,4 @@
-export type Candle = {
+interface iCandle {
 	market: string;
 	candle_date_time_utc: string;
 	candle_date_time_kst: string;
@@ -9,4 +9,6 @@ export type Candle = {
 	timestamp: number;
 	candle_acc_trade_price: number;
 	candle_acc_trade_volume: number;
-};
+}
+
+export type { iCandle };

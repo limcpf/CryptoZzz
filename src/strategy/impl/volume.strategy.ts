@@ -1,7 +1,8 @@
 import type { Pool } from "pg";
+import { developmentLog } from "../../services/analysis";
 import { QUERIES } from "../../shared/const/query.const";
 import type { iVolumeAnalysisResult } from "../../shared/interfaces/iMarketDataResult";
-import type { Signal, iStrategy } from "../iStrategy";
+import { Signal, type iStrategy } from "../iStrategy";
 
 /**
  * Volume Strategy Implementation
@@ -31,7 +32,7 @@ export class VolumeStrategy implements iStrategy {
 			console.error(
 				`[${new Date().toISOString()}] [VOLUME-STRATEGY] 거래량 데이터 조회 실패`,
 			);
-			return "HOLD";
+			return Signal.HOLD;
 		}
 
 		const { current_volume, avg_volume } = result.rows[0];
@@ -40,15 +41,24 @@ export class VolumeStrategy implements iStrategy {
 
 		// 현재 거래량이 평균 거래량의 1.5배 이상일 때 매수 신호
 		if (current_volume > avg_volume * 1.5) {
-			return "BUY";
+			developmentLog(
+				`[${new Date().toISOString()}] [VOLUME-STRATEGY] 매수 신호 발생`,
+			);
+			return Signal.BUY;
 		}
 
 		// 현재 거래량이 평균 거래량보다 낮을 때 매도 신호
 		if (current_volume < avg_volume) {
-			return "SELL";
+			developmentLog(
+				`[${new Date().toISOString()}] [VOLUME-STRATEGY] 매도 신호 발생`,
+			);
+			return Signal.SELL;
 		}
 
-		return "HOLD";
+		developmentLog(
+			`[${new Date().toISOString()}] [VOLUME-STRATEGY] 홀드 신호 발생`,
+		);
+		return Signal.HOLD;
 	}
 
 	private saveResult(

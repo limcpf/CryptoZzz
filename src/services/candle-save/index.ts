@@ -52,7 +52,7 @@ async function setup() {
 async function fetchAndSaveCandles(count = 3) {
 	const endpoint = API.GET_CANDLE_DATA(process.env.CRYPTO_CODE || "", count);
 
-	const url = `${process.env.MARKET_URL}${endpoint}`;
+	const url = `${API.MARKET_URL}${endpoint}`;
 
 	const response = await fetch(url, {
 		method: "GET",

@@ -9,13 +9,12 @@ import {
 } from "../../shared/config/database";
 import { CHANNEL } from "../../shared/const/channel.const";
 import { QUERIES } from "../../shared/const/query.const";
-import type { iMarketDataResult } from "../../shared/interfaces/iMarketDataResult";
 import API from "../../shared/services/api";
 import webhook from "../../shared/services/webhook";
 import { Signal } from "../../strategy/iStrategy";
 import { StrategyFactory } from "../../strategy/strategy.factory";
 
-const developmentLog =
+export const developmentLog =
 	process.env.NODE_ENV === "development" ? console.log : () => {};
 
 /**
@@ -36,7 +35,7 @@ async function setup() {
 		if (msg.channel.toUpperCase() === CHANNEL.ANALYZE_CHANNEL) {
 			acquireAdvisoryLock(pool, "TRADING").then((b) => {
 				developmentLog(
-					`[${new Date().toISOString()}] [ANALYZE] 알림 수신 후 작업 시작 lock: ${b}`,
+					`[${new Date().toISOString()}] [ANALYZE] 알림 수신 후 작업 시작 lock: ${b ? "성공" : "실패"}`,
 				);
 				try {
 					if (b) main();
@@ -59,10 +58,7 @@ async function checkAccountStatus(): Promise<boolean> {
 	const krwAccount = account.find((account) => account.currency === "KRW");
 	const btcAccount = account.find((account) => account.currency === "BTC");
 
-	// TODO: 테스트 시에는 테스트 데이터로 처리할 수 있게 수정
 	if (btcAccount) {
-		developmentLog(btcAccount);
-
 		if (Number(btcAccount.balance) > 0.00001) {
 			developmentLog(
 				`[${new Date().toISOString()}] [ANALYZE] BTC 보유중입니다. 매도 전략을 실행합니다.`,
@@ -73,8 +69,7 @@ async function checkAccountStatus(): Promise<boolean> {
 	}
 
 	if (krwAccount) {
-		developmentLog(krwAccount);
-		if (Number(krwAccount.balance) > 10000) {
+		if (Number(krwAccount.balance) > 0) {
 			developmentLog(
 				`[${new Date().toISOString()}] [ANALYZE] BTC는 없고, KRW 잔액이 10000원 이상 있습니다. 매수 전략을 실행합니다.`,
 			);
@@ -106,20 +101,32 @@ async function getSignal() {
 
 	if (strategies.length === 0) return;
 
-	let signal: Signal = Signal.HOLD;
+	// 모든 전략을 병렬로 실행
+	const signals = await Promise.all(
+		strategies.map(async (strategy) => {
+			const factory = new StrategyFactory(pool);
+			const strategyInstance = factory.createStrategy(strategy);
+			return strategyInstance.execute(uuid);
+		}),
+	);
 
-	for (const strategy of strategies) {
-		const factory = new StrategyFactory(pool);
+	developmentLog(
+		`[${new Date().toISOString()}] [ANALYZE] 신호: ${signals.join(", ")}`,
+	);
 
-		const strategyInstance = factory.createStrategy(strategy);
-
-		signal = await strategyInstance.execute(uuid);
+	// 모든 신호가 BUY인 경우에만 BUY 신호 반환
+	if (signals.every((signal) => signal === Signal.BUY)) {
+		return Signal.BUY;
 	}
-
-	return signal;
+	// 모든 신호가 SELL인 경우에만 SELL 신호 반환
+	if (signals.every((signal) => signal === Signal.SELL)) {
+		return Signal.SELL;
+	}
+	// 그 외의 경우 HOLD 반환
+	return Signal.HOLD;
 }
 
-async function checkSignal() {
+async function checkBuySignal() {
 	const signal = await getSignal();
 
 	if (signal === Signal.BUY) {
@@ -143,17 +150,12 @@ async function main() {
 	let signal: Signal = Signal.HOLD;
 
 	if (await checkAccountStatus()) {
-		signal = (await checkSellSignal()) || Signal.HOLD;
+		signal = (await checkBuySignal()) || Signal.HOLD;
 	} else {
-		signal = (await checkSignal()) || Signal.HOLD;
+		signal = (await checkSellSignal()) || Signal.HOLD;
 	}
 
-	if (signal === Signal.HOLD) {
-		releaseAdvisoryLock(pool, "TRADING");
-		developmentLog(
-			`[${new Date().toISOString()}] [ANALYZE] HOLD 신호 발생으로 작업 완료 후 잠금 해제`,
-		);
-	}
+	releaseAdvisoryLock(pool, "TRADING");
 }
 
 await setup();

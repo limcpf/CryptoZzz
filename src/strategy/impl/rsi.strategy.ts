@@ -1,7 +1,8 @@
 import type { Pool } from "pg";
+import { developmentLog } from "../../services/analysis";
 import { QUERIES } from "../../shared/const/query.const";
 import type { iRSIResult } from "../../shared/interfaces/iMarketDataResult";
-import type { Signal, iStrategy } from "../iStrategy";
+import { Signal, type iStrategy } from "../iStrategy";
 
 /**
  * RSI (Relative Strength Index) Strategy Implementation
@@ -30,22 +31,31 @@ export class RsiStrategy implements iStrategy {
 			console.error(
 				`[${new Date().toISOString()}] [RSI-STRATEGY] RSI 지표 조회 실패`,
 			);
-			return "HOLD";
+			return Signal.HOLD;
 		}
 
-		const rsi = result.rows[0].rsi;
+		const rsi = Number(result.rows[0].rsi);
 
 		this.saveResult(uuid, rsi);
 
 		if (rsi < 30) {
-			return "BUY";
+			developmentLog(
+				`[${new Date().toISOString()}] [RSI-STRATEGY] 매수 신호 발생`,
+			);
+			return Signal.BUY;
 		}
 
 		if (rsi > 70) {
-			return "SELL";
+			developmentLog(
+				`[${new Date().toISOString()}] [RSI-STRATEGY] 매도 신호 발생`,
+			);
+			return Signal.SELL;
 		}
 
-		return "HOLD";
+		developmentLog(
+			`[${new Date().toISOString()}] [RSI-STRATEGY] 홀드 신호 발생`,
+		);
+		return Signal.HOLD;
 	}
 
 	private saveResult(uuid: string, data: unknown): void {

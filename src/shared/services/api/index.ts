@@ -3,6 +3,7 @@ import { apiFactory } from "./api.factory";
 const api = apiFactory();
 
 const API = {
+	MARKET_URL: api.MARKET_URL,
 	GET_AUTH_TOKEN: (
 		body: Dict<
 			| string

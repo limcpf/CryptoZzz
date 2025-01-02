@@ -1,7 +1,8 @@
 import type { Pool } from "pg";
+import { developmentLog } from "../../services/analysis";
 import { QUERIES } from "../../shared/const/query.const";
 import type { iMovingAveragesResult } from "../../shared/interfaces/iMarketDataResult";
-import type { Signal, iStrategy } from "../iStrategy";
+import { Signal, type iStrategy } from "../iStrategy";
 
 /**
  * MA (Moving Average) Strategy Implementation
@@ -32,7 +33,7 @@ export class MaStrategy implements iStrategy {
 			console.error(
 				`[${new Date().toISOString()}] [MA-STRATEGY] MA 지표 조회 실패`,
 			);
-			return "HOLD";
+			return Signal.HOLD;
 		}
 
 		const { short_ma, long_ma } = result.rows[0];
@@ -41,15 +42,24 @@ export class MaStrategy implements iStrategy {
 
 		// 단기 이동평균이 장기 이동평균을 상향 돌파
 		if (short_ma > long_ma) {
-			return "BUY";
+			developmentLog(
+				`[${new Date().toISOString()}] [MA-STRATEGY] 매수 신호 발생`,
+			);
+			return Signal.BUY;
 		}
 
 		// 단기 이동평균이 장기 이동평균을 하향 돌파
 		if (short_ma < long_ma) {
-			return "SELL";
+			developmentLog(
+				`[${new Date().toISOString()}] [MA-STRATEGY] 매도 신호 발생`,
+			);
+			return Signal.SELL;
 		}
 
-		return "HOLD";
+		developmentLog(
+			`[${new Date().toISOString()}] [MA-STRATEGY] 홀드 신호 발생`,
+		);
+		return Signal.HOLD;
 	}
 
 	private saveResult(

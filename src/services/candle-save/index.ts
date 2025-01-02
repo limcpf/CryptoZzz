@@ -1,16 +1,18 @@
 import cron from "node-cron";
 import {
+	acquireAdvisoryLock,
 	createPool,
 	handleNotifications,
 	notify,
 	setupPubSub,
 } from "../../shared/config/database";
 import { CHANNEL } from "../../shared/const/channel.const";
-import { CANDLE_SAVE_QUERY } from "../../shared/const/query/candle-save";
-import API_URL from "../../shared/services/api";
+import { DATABASE_LOCKS } from "../../shared/const/lock.const";
+import { QUERIES } from "../../shared/const/query.const";
+import type { iCandle } from "../../shared/interfaces/iCandle";
+import API from "../../shared/services/api";
 import i18n from "../../shared/services/i18n";
 import webhook from "../../shared/services/webhook";
-import type { Candle } from "../../shared/types/Candle.type";
 
 /** 전역변수 */
 
@@ -48,10 +50,7 @@ async function setup() {
  * @param count 가져올 캔들의 수
  */
 async function fetchAndSaveCandles(count = 3) {
-	const endpoint = API_URL.GET_CANDLE_DATA(
-		process.env.CRYPTO_CODE || "",
-		count,
-	);
+	const endpoint = API.GET_CANDLE_DATA(process.env.CRYPTO_CODE || "", count);
 
 	const url = `${process.env.MARKET_URL}${endpoint}`;
 
@@ -68,7 +67,8 @@ async function fetchAndSaveCandles(count = 3) {
 		);
 	}
 
-	const data = (await response.json()) as [Candle, Candle, Candle];
+	const data = (await response.json()) as [iCandle, iCandle, iCandle];
+
 	await saveCandleData(data);
 }
 
@@ -77,11 +77,11 @@ async function fetchAndSaveCandles(count = 3) {
  * @description 캔들 데이터를 데이터베이스에 저장하는 핵심 로직
  * @param data 저장할 캔들 데이터
  */
-async function saveCandleData(data: [Candle, Candle, Candle]) {
+async function saveCandleData(data: [iCandle, iCandle, iCandle]) {
 	try {
 		await Promise.all(
 			data.map((candle) =>
-				client.query(CANDLE_SAVE_QUERY.UPSERT_MARKET_DATA, [
+				client.query<[iCandle, iCandle, iCandle]>(QUERIES.UPSERT_MARKET_DATA, [
 					candle.market,
 					new Date(candle.candle_date_time_kst),
 					candle.opening_price,
@@ -91,9 +91,25 @@ async function saveCandleData(data: [Candle, Candle, Candle]) {
 					candle.candle_acc_trade_volume,
 				]),
 			),
-		).then(() => {
-			// TODO : NOTIFY 매수/매도 판단
-		});
+		);
+
+		if (process.env.NODE_ENV === "development") {
+			console.log(
+				`[${new Date().toISOString()}] [CANDLE-SAVE] ${i18n.getMessage(
+					"CANDLE_SAVE_NORMAL_COLLECTING",
+				)}`,
+			);
+		}
+
+		if (await acquireAdvisoryLock(pool, "ANALYZE")) {
+			notify(pool, CHANNEL.ANALYZE_CHANNEL);
+		} else if (process.env.NODE_ENV === "development") {
+			console.log(
+				`[${new Date().toISOString()}] [CANDLE-SAVE] ${i18n.getMessage(
+					"LOCK_ACQUIRE_ERROR",
+				)} : ${DATABASE_LOCKS.ANALYZE}`,
+			);
+		}
 	} catch (error: unknown) {
 		if (error instanceof Error) {
 			await notify(pool, "WEBHOOK_CHANNEL", `[CANDLE-SAVE] ${error.message}\n`);
@@ -112,7 +128,9 @@ async function saveCandleData(data: [Candle, Candle, Candle]) {
  * @description 프로세스 종료 처리를 위한 공통 함수
  */
 async function handleGracefulShutdown() {
-	webhook.send("🛑 서비스 종료 신호 수신");
+	webhook.send(
+		`[${new Date().toISOString()}] [CANDLE-SAVE] 🛑 서비스 종료 신호 수신`,
+	);
 	await pool.end();
 	process.exit(0);
 }
@@ -122,13 +140,6 @@ await setup();
 cron.schedule("*/3 * * * * *", async () => {
 	try {
 		await fetchAndSaveCandles();
-		if (process.env.NODE_ENV === "development") {
-			console.log(
-				`[${new Date().toISOString()}] [CANDLE-SAVE] ${i18n.getMessage(
-					"CANDLE_SAVE_NORMAL_COLLECTING",
-				)}`,
-			);
-		}
 	} catch (error: unknown) {
 		if (!IS_CANDLE_ERROR_SENT) {
 			IS_CANDLE_ERROR_SENT = true;

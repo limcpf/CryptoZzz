@@ -1,7 +1,7 @@
 import type { Pool } from "pg";
 import { QUERIES } from "../../shared/const/query.const";
 import type { iVolumeAnalysisResult } from "../../shared/interfaces/iMarketDataResult";
-import type { Singnal, iStrategy } from "../iStrategy";
+import type { Signal, iStrategy } from "../iStrategy";
 
 /**
  * Volume Strategy Implementation
@@ -22,7 +22,7 @@ export class VolumeStrategy implements iStrategy {
 		this.pool = pool;
 	}
 
-	async execute(uuid: string): Promise<Singnal> {
+	async execute(uuid: string): Promise<Signal> {
 		const result = await this.pool.query<iVolumeAnalysisResult>(
 			QUERIES.GET_VOLUME_ANALYSIS,
 		);

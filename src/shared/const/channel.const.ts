@@ -1,6 +1,7 @@
 export const CHANNEL = {
 	WEBHOOK_CHANNEL: "WEBHOOK_CHANNEL",
 	ANALYZE_CHANNEL: "ANALYZE_CHANNEL",
+	TRADING_CHANNEL: "TRADING_CHANNEL",
 } as const;
 
 export type ChannelType = keyof typeof CHANNEL;

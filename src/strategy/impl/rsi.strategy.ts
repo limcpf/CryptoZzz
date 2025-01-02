@@ -1,7 +1,7 @@
 import type { Pool } from "pg";
 import { QUERIES } from "../../shared/const/query.const";
 import type { iRSIResult } from "../../shared/interfaces/iMarketDataResult";
-import type { Singnal, iStrategy } from "../iStrategy";
+import type { Signal, iStrategy } from "../iStrategy";
 
 /**
  * RSI (Relative Strength Index) Strategy Implementation
@@ -23,7 +23,7 @@ export class RsiStrategy implements iStrategy {
 		this.pool = pool;
 	}
 
-	async execute(uuid: string): Promise<Singnal> {
+	async execute(uuid: string): Promise<Signal> {
 		const result = await this.pool.query<iRSIResult>(QUERIES.GET_RSI_INDICATOR);
 
 		if (result.rowCount === 0) {

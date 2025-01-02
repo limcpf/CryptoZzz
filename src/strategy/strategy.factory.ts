@@ -15,7 +15,7 @@ import { VolumeStrategy } from "./impl/volume.strategy";
 export class StrategyFactory {
 	constructor(private pool: Pool) {}
 
-	createStrategy(strategyName: StrategyName): iStrategy {
+	createStrategy(strategyName: string): iStrategy {
 		switch (strategyName) {
 			case StrategyName.RSI:
 				return new RsiStrategy(this.pool);

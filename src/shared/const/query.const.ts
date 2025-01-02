@@ -18,20 +18,16 @@ export const QUERIES = {
           close_price = EXCLUDED.close_price,
           volume = EXCLUDED.volume;
     `,
-	GET_TECHNICAL_INDICATORS: `
+	GET_RSI_INDICATOR: `
     WITH hourly_data AS (
         SELECT
             symbol,
             date_trunc('hour', timestamp) AS hour_time,
-            AVG(close_price) AS avg_close_price,
-            SUM(volume) AS total_volume
+            AVG(close_price) AS avg_close_price
         FROM Market_Data
         WHERE symbol = 'KRW-BTC'
-        GROUP BY 
-            symbol, 
-            date_trunc('hour', timestamp)
+        GROUP BY symbol, date_trunc('hour', timestamp)
     ),
-
     price_changes AS (
         SELECT
             symbol,
@@ -47,7 +43,6 @@ export const QUERIES = {
             ) AS loss
         FROM hourly_data
     ),
-
     avg_gain_loss AS (
         SELECT
             symbol,
@@ -63,54 +58,80 @@ export const QUERIES = {
                 ROWS BETWEEN 13 PRECEDING AND CURRENT ROW
             ) AS avg_loss
         FROM price_changes
-    ),
-
-    moving_averages AS (
-        SELECT
-            symbol,
-            hour_time,
-            AVG(avg_close_price) OVER (
-                PARTITION BY symbol 
-                ORDER BY hour_time 
-                ROWS BETWEEN 4 PRECEDING AND CURRENT ROW
-            ) AS short_ma,
-            AVG(avg_close_price) OVER (
-                PARTITION BY symbol 
-                ORDER BY hour_time 
-                ROWS BETWEEN 19 PRECEDING AND CURRENT ROW
-            ) AS long_ma
-        FROM hourly_data
-    ),
-
-    volume_avg AS (
-        SELECT
-            symbol,
-            hour_time,
-            AVG(total_volume) OVER (
-                PARTITION BY symbol 
-                ORDER BY hour_time 
-                ROWS BETWEEN 9 PRECEDING AND CURRENT ROW
-            ) AS avg_volume,
-            total_volume AS current_volume
-        FROM hourly_data
     )
-
     SELECT
-        m.symbol,
-        m.hour_time,
-        100 - (100 / (1 + (agl.avg_gain / NULLIF(agl.avg_loss, 0)))) AS rsi,
-        m.short_ma,
-        m.long_ma, 
-        v.current_volume,
-        v.avg_volume
-    FROM moving_averages m
-    JOIN avg_gain_loss agl 
-        ON m.hour_time = agl.hour_time 
-        AND m.symbol = agl.symbol
-    JOIN volume_avg v 
-        ON m.hour_time = v.hour_time 
-        AND m.symbol = v.symbol
-    ORDER BY m.hour_time DESC
+        symbol,
+        hour_time,
+        100 - (100 / (1 + (avg_gain / NULLIF(avg_loss, 0)))) AS rsi
+    FROM avg_gain_loss
+    ORDER BY hour_time DESC
     LIMIT 1;
+  `,
+	GET_MOVING_AVERAGES: `
+    WITH hourly_data AS (
+        SELECT
+            symbol,
+            date_trunc('hour', timestamp) AS hour_time,
+            AVG(close_price) AS avg_close_price
+        FROM Market_Data
+        WHERE symbol = 'KRW-BTC'
+        GROUP BY symbol, date_trunc('hour', timestamp)
+    )
+    SELECT
+        symbol,
+        hour_time,
+        AVG(avg_close_price) OVER (
+            PARTITION BY symbol 
+            ORDER BY hour_time 
+            ROWS BETWEEN 4 PRECEDING AND CURRENT ROW
+        ) AS short_ma,
+        AVG(avg_close_price) OVER (
+            PARTITION BY symbol 
+            ORDER BY hour_time 
+            ROWS BETWEEN 19 PRECEDING AND CURRENT ROW
+        ) AS long_ma
+    FROM hourly_data
+    ORDER BY hour_time DESC
+    LIMIT 1;
+  `,
+	GET_VOLUME_ANALYSIS: `
+    WITH hourly_data AS (
+        SELECT
+            symbol,
+            date_trunc('hour', timestamp) AS hour_time,
+            SUM(volume) AS total_volume
+        FROM Market_Data
+        WHERE symbol = 'KRW-BTC'
+        GROUP BY symbol, date_trunc('hour', timestamp)
+    )
+    SELECT
+        symbol,
+        hour_time,
+        total_volume AS current_volume,
+        AVG(total_volume) OVER (
+            PARTITION BY symbol 
+            ORDER BY hour_time 
+            ROWS BETWEEN 9 PRECEDING AND CURRENT ROW
+        ) AS avg_volume
+    FROM hourly_data
+    ORDER BY hour_time DESC
+    LIMIT 1;
+  `,
+	INSERT_SIGNAL_LOG: `
+        INSERT INTO SignalLog (symbol, hour_time)
+        VALUES ($1, $2)
+        RETURNING id;
+    `,
+	INSERT_RSI_SIGNAL: `
+        INSERT INTO RsiSignal (signal_id, rsi)
+        VALUES ($1, $2);
+    `,
+	INSERT_MA_SIGNAL: `
+        INSERT INTO MaSignal (signal_id, short_ma, long_ma)
+        VALUES ($1, $2, $3);
+    `,
+	INSERT_VOLUME_SIGNAL: `
+        INSERT INTO VolumeSignal (signal_id, current_volume, avg_volume)
+        VALUES ($1, $2, $3);
     `,
 };

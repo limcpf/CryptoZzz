@@ -1,11 +1,32 @@
-interface iMarketDataResult {
-	symbol: string; // 심볼 (예: 'KRW-BTC')
-	hour_time: Date; // 시간 단위로 잘린 타임스탬프
-	rsi: number; // RSI 지표 (0-100 사이 값)
-	short_ma: number; // 단기 이동평균
-	long_ma: number; // 장기 이동평균
-	current_volume: number; // 현재 거래량
-	avg_volume: number; // 평균 거래량
+interface iRSIResult {
+	symbol: string;
+	hour_time: Date;
+	rsi: number;
 }
 
-export type { iMarketDataResult };
+interface iMovingAveragesResult {
+	symbol: string;
+	hour_time: Date;
+	short_ma: number;
+	long_ma: number;
+}
+
+interface iVolumeAnalysisResult {
+	symbol: string;
+	hour_time: Date;
+	current_volume: number;
+	avg_volume: number;
+}
+
+// 기존 인터페이스는 모든 결과를 포함하는 통합 인터페이스로 유지할 수 있습니다
+interface iMarketDataResult
+	extends iRSIResult,
+		iMovingAveragesResult,
+		iVolumeAnalysisResult {}
+
+export type {
+	iRSIResult,
+	iMovingAveragesResult,
+	iVolumeAnalysisResult,
+	iMarketDataResult,
+};

@@ -1,4 +1,4 @@
-import { getMsg } from "../../const/i13n/msg.const";
+import { getMsg } from "../i18n/msg/msg.const";
 import { WebhookDiscord } from "./impl/webhook.discord";
 import { WEBHOOK_ENUM } from "./webhook.enum";
 

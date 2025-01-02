@@ -1,4 +1,4 @@
-import { getMsg } from "../../const/i13n/msg.const";
+import { getMsg } from "../i18n/msg/msg.const";
 import { MARKET_ENUM } from "./api.enum";
 import { UpbitApi } from "./impl/api.upbit";
 

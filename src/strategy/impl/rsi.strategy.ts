@@ -22,7 +22,7 @@ export class RsiStrategy implements iStrategy {
 
 		const rsi = result.rows[0].rsi;
 
-		await this.saveResult(uuid, rsi);
+		this.saveResult(uuid, rsi);
 
 		if (rsi < 30) {
 			return "BUY";
@@ -35,9 +35,9 @@ export class RsiStrategy implements iStrategy {
 		return "HOLD";
 	}
 
-	async saveResult(uuid: string, data: unknown): Promise<void> {
+	private saveResult(uuid: string, data: unknown): void {
 		if (data && typeof data === "number") {
-			await this.pool.query(QUERIES.INSERT_RSI_SIGNAL, [uuid, data]);
+			this.pool.query(QUERIES.INSERT_RSI_SIGNAL, [uuid, data]);
 		}
 	}
 }

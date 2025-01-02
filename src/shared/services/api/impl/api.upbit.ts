@@ -10,7 +10,7 @@ export class UpbitApi implements Api {
 	MARKET_URL: string;
 
 	constructor() {
-		this.MARKET_URL = process.env.MARKET_URL || "";
+		this.MARKET_URL = process.env.UPBIT_API_URL || "https://api.upbit.com";
 	}
 
 	getAuthToken(

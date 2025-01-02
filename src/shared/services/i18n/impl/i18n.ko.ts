@@ -1,6 +1,6 @@
-import messages from "../../../const/i13n/msg-ko.const";
 import type { I18n } from "../i18n.interface";
-import type { MSG } from "../i18n.types";
+import messages from "../msg/msg-ko.const";
+import type { MSG } from "../msg/msg.const";
 
 export class KoreanI18n implements I18n {
 	language = "ko";

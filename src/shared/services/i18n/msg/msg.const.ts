@@ -10,6 +10,7 @@ export interface MSG {
 	CANDLE_SAVE_NORMAL_COLLECTING: string;
 	LOCK_ACQUIRE_ERROR: string;
 	ANALYZE_API_ERROR: string;
+	INVALID_STRATEGY_ERROR: string;
 }
 
 export const getMsg = (language: string) => {

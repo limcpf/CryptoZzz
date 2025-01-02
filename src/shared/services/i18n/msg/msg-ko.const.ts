@@ -9,6 +9,7 @@ const messages: MSG = {
 	CANDLE_SAVE_NORMAL_COLLECTING: "정상 수집중",
 	LOCK_ACQUIRE_ERROR: "⚠️ 락 획득 실패",
 	ANALYZE_API_ERROR: "⚠️ 분석 API 호출 실패",
+	INVALID_STRATEGY_ERROR: "⚠️ 유효하지 않은 전략 이름: ",
 } as const;
 
 export default messages;

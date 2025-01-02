@@ -1,6 +1,6 @@
-import messages from "../../../const/i13n/msg-en.const";
 import type { I18n } from "../i18n.interface";
-import type { MSG } from "../i18n.types";
+import messages from "../msg/msg-en.const";
+import type { MSG } from "../msg/msg.const";
 
 export class EnglishI18n implements I18n {
 	language = "en";

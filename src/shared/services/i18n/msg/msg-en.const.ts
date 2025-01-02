@@ -9,6 +9,7 @@ const messages: MSG = {
 	CANDLE_SAVE_NORMAL_COLLECTING: "Normal collecting",
 	LOCK_ACQUIRE_ERROR: "⚠️ Failed to acquire lock",
 	ANALYZE_API_ERROR: "⚠️ Failed to call analyze API",
+	INVALID_STRATEGY_ERROR: "⚠️ Invalid strategy name: ",
 } as const;
 
 export default messages;

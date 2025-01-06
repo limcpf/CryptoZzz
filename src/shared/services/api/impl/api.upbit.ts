@@ -3,6 +3,7 @@ import querystring from "node:querystring";
 import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
 import type { iAccount } from "../../../interfaces/iAccount";
+import type { iCandle } from "../../../interfaces/iCandle";
 import i18n from "../../i18n";
 import type { Api } from "../api.interface";
 
@@ -61,7 +62,7 @@ export class UpbitApi implements Api {
 
 		if (!response.ok) {
 			throw new Error(
-				`[UPBIT] ${i18n.getMessage("ANALYZE_API_ERROR")} : ${response.status}`,
+				`[${new Date().toISOString()}] [UPBIT-GET_ACCOUNT] ${i18n.getMessage("ANALYZE_API_ERROR")} : ${response.status}`,
 			);
 		}
 
@@ -70,7 +71,24 @@ export class UpbitApi implements Api {
 		return data;
 	}
 
-	getCandles(instId: string, count: number): string {
-		return `/v1/candles/seconds?market=${instId}&count=${count}`;
+	async getCandles(instId: string, count: number): Promise<iCandle[]> {
+		const endpoint = `/v1/candles/seconds?market=${instId}&count=${count}`;
+		const url = `${this.MARKET_URL}${endpoint}`;
+
+		const response = await fetch(url, {
+			method: "GET",
+			headers: {
+				"Content-Type": "application/json",
+			},
+		});
+
+		if (!response.ok) {
+			throw new Error(
+				`[${new Date().toISOString()}] [UPBIT-GET_CANDLE_DATA] ${i18n.getMessage("CANDLE_SAVE_API_ERROR")} : ${response.status}`,
+			);
+		}
+
+		const data = (await response.json()) as iCandle[];
+		return data;
 	}
 }

@@ -50,24 +50,7 @@ async function setup() {
  * @param count 가져올 캔들의 수
  */
 async function fetchAndSaveCandles(count = 3) {
-	const endpoint = API.GET_CANDLE_DATA(process.env.CRYPTO_CODE || "", count);
-
-	const url = `${API.MARKET_URL}${endpoint}`;
-
-	const response = await fetch(url, {
-		method: "GET",
-		headers: {
-			"Content-Type": "application/json",
-		},
-	});
-
-	if (!response.ok) {
-		throw new Error(
-			`[CANDLE-SAVE] ${i18n.getMessage("CANDLE_SAVE_API_ERROR")} : ${response.status}`,
-		);
-	}
-
-	const data = (await response.json()) as [iCandle, iCandle, iCandle];
+	const data = await API.GET_CANDLE_DATA(process.env.CRYPTO_CODE || "", count);
 
 	await saveCandleData(data);
 }
@@ -77,11 +60,11 @@ async function fetchAndSaveCandles(count = 3) {
  * @description 캔들 데이터를 데이터베이스에 저장하는 핵심 로직
  * @param data 저장할 캔들 데이터
  */
-async function saveCandleData(data: [iCandle, iCandle, iCandle]) {
+async function saveCandleData(data: iCandle[]) {
 	try {
 		await Promise.all(
 			data.map((candle) =>
-				client.query<[iCandle, iCandle, iCandle]>(QUERIES.UPSERT_MARKET_DATA, [
+				client.query<iCandle>(QUERIES.UPSERT_MARKET_DATA, [
 					candle.market,
 					new Date(candle.candle_date_time_kst),
 					candle.opening_price,

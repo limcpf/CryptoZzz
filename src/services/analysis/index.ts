@@ -49,10 +49,12 @@ async function main() {
 	if (await checkAccountStatus()) {
 		if ((await executeBuySignal(pool)) === Signal.BUY) {
 			notify(pool, CHANNEL.TRADING_CHANNEL, "BUY");
+			return;
 		}
 	} else {
 		if ((await executeSellSignal(pool)) === Signal.SELL) {
 			notify(pool, CHANNEL.TRADING_CHANNEL, "SELL");
+			return;
 		}
 	}
 

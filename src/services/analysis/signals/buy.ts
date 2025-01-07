@@ -6,20 +6,22 @@ import { developmentLog } from "../index";
 
 export async function executeBuySignal(pool: Pool): Promise<Signal> {
 	// 부모 신호 로그 생성
-	const analyzeParent = await pool.query<{ id: string }>(
+	const buyParent = await pool.query<{ id: string }>(
 		QUERIES.INSERT_SIGNAL_LOG,
 		["KRW-BTC", new Date()],
 	);
 
-	const uuid = analyzeParent.rows[0].id;
+	const uuid = buyParent.rows[0].id;
 
 	if (!uuid) {
-		console.error("부모 신호 로그 생성 실패");
+		console.error(
+			`[${new Date().toISOString()}] [BUY-SIGNAL] 부모 신호 로그 생성 실패`,
+		);
 		return Signal.HOLD;
 	}
 
 	developmentLog(
-		`[${new Date().toISOString()}] [ANALYZE] 부모 신호 로그 생성 성공: ${uuid}`,
+		`[${new Date().toISOString()}] [BUY-SIGNAL] 부모 신호 로그 생성 성공: ${uuid}`,
 	);
 
 	const strategies = process.env.STRATEGIES?.split(",") || [];
@@ -36,7 +38,7 @@ export async function executeBuySignal(pool: Pool): Promise<Signal> {
 	);
 
 	developmentLog(
-		`[${new Date().toISOString()}] [ANALYZE] 신호: ${signals.join(", ")}`,
+		`[${new Date().toISOString()}] [BUY-SIGNAL] 신호: ${signals.join(", ")}`,
 	);
 
 	return signals.every((signal) => signal === Signal.BUY)

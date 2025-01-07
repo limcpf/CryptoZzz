@@ -1,10 +1,12 @@
 import type { Pool } from "pg";
+import { QUERIES } from "../../../shared/const/query.const";
 import API from "../../../shared/services/api";
 import { Signal } from "../../../strategy/iStrategy";
+import { StrategyFactory } from "../../../strategy/strategy.factory";
 import { developmentLog } from "../index";
 
-const TAKE_PROFIT = 5; // 익절 기준: 5% 이상 수익
-const STOP_LOSS = -3; // 손절 기준: -3% 이하 손실
+const TAKE_PROFIT = Number(process.env.TAKE_PROFIT) || 5; // 익절 기준: 5% 이상 수익
+const STOP_LOSS = Number(process.env.STOP_LOSS) || -3; // 손절 기준: -3% 이하 손실
 
 export async function executeSellSignal(pool: Pool): Promise<Signal> {
 	// 현재 BTC 가격 조회
@@ -32,22 +34,47 @@ export async function executeSellSignal(pool: Pool): Promise<Signal> {
 	const profitRate = ((currentPriceNum - avgBuyPrice) / avgBuyPrice) * 100;
 
 	developmentLog(
-		`[${new Date().toISOString()}] [ANALYZE] 현재 수익률: ${profitRate.toFixed(2)}%`,
+		`[${new Date().toISOString()}] [SELL-SIGNAL] 현재 수익률: ${profitRate.toFixed(2)}%`,
 	);
 
 	if (profitRate >= TAKE_PROFIT) {
 		developmentLog(
-			`[${new Date().toISOString()}] [ANALYZE] 익절 기준 도달: ${profitRate.toFixed(2)}%`,
+			`[${new Date().toISOString()}] [SELL-SIGNAL] 익절 기준 도달: ${profitRate.toFixed(2)}%`,
 		);
 		return Signal.SELL;
 	}
 
 	if (profitRate <= STOP_LOSS) {
 		developmentLog(
-			`[${new Date().toISOString()}] [ANALYZE] 손절 기준 도달: ${profitRate.toFixed(2)}%`,
+			`[${new Date().toISOString()}] [SELL-SIGNAL] 손절 기준 도달: ${profitRate.toFixed(2)}%`,
 		);
 		return Signal.SELL;
 	}
 
-	return Signal.HOLD;
+	const analyzeParent = await pool.query<{ id: string }>(
+		QUERIES.INSERT_SIGNAL_LOG,
+		["KRW-BTC", new Date()],
+	);
+
+	const uuid = analyzeParent.rows[0].id;
+
+	const strategies = process.env.STRATEGIES?.split(",") || [];
+
+	if (strategies.length === 0) return Signal.HOLD;
+
+	const signals = await Promise.all(
+		strategies.map(async (strategy) => {
+			const factory = new StrategyFactory(pool);
+			const strategyInstance = factory.createStrategy(strategy);
+			return strategyInstance.execute(uuid);
+		}),
+	);
+
+	developmentLog(
+		`[${new Date().toISOString()}] [SELL-SIGNAL] 신호: ${signals.join(", ")}`,
+	);
+
+	return signals.every((signal) => signal === Signal.SELL)
+		? Signal.SELL
+		: Signal.HOLD;
 }

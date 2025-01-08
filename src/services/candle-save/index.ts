@@ -84,15 +84,7 @@ async function saveCandleData(data: iCandle[]) {
 			);
 		}
 
-		if (await acquireAdvisoryLock(pool, "ANALYZE")) {
-			notify(pool, CHANNEL.ANALYZE_CHANNEL);
-		} else if (process.env.NODE_ENV === "development") {
-			console.log(
-				`[${new Date().toISOString()}] [CANDLE-SAVE] ${i18n.getMessage(
-					"LOCK_ACQUIRE_ERROR",
-				)} : ${DATABASE_LOCKS.ANALYZE}`,
-			);
-		}
+		notify(pool, CHANNEL.ANALYZE_CHANNEL);
 	} catch (error: unknown) {
 		if (error instanceof Error) {
 			await notify(pool, "WEBHOOK_CHANNEL", `[CANDLE-SAVE] ${error.message}\n`);

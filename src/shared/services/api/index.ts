@@ -18,6 +18,13 @@ const API = {
 	GET_CANDLE_DATA: (instId: string, count: number) =>
 		api.getCandles(instId, count),
 	GET_ACCOUNT: () => api.getAccount(),
+	ORDER: (
+		market: string,
+		side: "bid" | "ask",
+		volume: string,
+		price: string,
+		ord_type: "price" | "market",
+	) => api.order(market, side, volume, price, ord_type),
 };
 
 export default API;

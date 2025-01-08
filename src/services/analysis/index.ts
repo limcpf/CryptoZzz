@@ -1,9 +1,7 @@
 import {
-	acquireAdvisoryLock,
 	createPool,
 	handleNotifications,
 	notify,
-	releaseAdvisoryLock,
 	setupPubSub,
 } from "../../shared/config/database";
 import { CHANNEL } from "../../shared/const/channel.const";
@@ -14,6 +12,8 @@ import { executeBuySignal, executeSellSignal } from "./signals";
 
 export const developmentLog =
 	process.env.NODE_ENV === "development" ? console.log : () => {};
+
+let isRunning = false;
 
 /**
  * @name pool
@@ -31,34 +31,29 @@ async function setup() {
 	await setupPubSub(client, [CHANNEL.ANALYZE_CHANNEL]);
 	handleNotifications(client, (msg) => {
 		if (msg.channel.toUpperCase() === CHANNEL.ANALYZE_CHANNEL) {
-			acquireAdvisoryLock(pool, "TRADING").then((b) => {
-				developmentLog(
-					`[${new Date().toISOString()}] [ANALYZE] 알림 수신 후 작업 시작 lock: ${b ? "성공" : "실패"}`,
-				);
-				try {
-					if (b) main();
-				} catch (error) {
-					console.error(error);
-				}
-			});
+			if (isRunning) return;
+			isRunning = true;
+			main();
 		}
 	});
 }
 
 async function main() {
-	if (await checkAccountStatus()) {
-		if ((await executeBuySignal(pool)) === Signal.BUY) {
-			notify(pool, CHANNEL.TRADING_CHANNEL, "BUY");
-			return;
+	try {
+		if (await checkAccountStatus()) {
+			if ((await executeBuySignal(pool)) === Signal.BUY) {
+				notify(pool, CHANNEL.TRADING_CHANNEL, "BUY");
+			}
+		} else {
+			if ((await executeSellSignal(pool)) === Signal.SELL) {
+				notify(pool, CHANNEL.TRADING_CHANNEL, "SELL");
+			}
 		}
-	} else {
-		if ((await executeSellSignal(pool)) === Signal.SELL) {
-			notify(pool, CHANNEL.TRADING_CHANNEL, "SELL");
-			return;
-		}
+	} catch (error) {
+		console.error(error);
+	} finally {
+		isRunning = false;
 	}
-
-	releaseAdvisoryLock(pool, "TRADING");
 }
 
 await setup();

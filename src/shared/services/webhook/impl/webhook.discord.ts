@@ -13,9 +13,18 @@ export class WebhookDiscord implements Webhook {
 		});
 		fetch(this.WEBHOOK_URL, {
 			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
 			body: JSON.stringify({
-				content: [`[${timestamp}] ${message}`],
+				content: `[${timestamp}] ${message}`,
 			}),
-		});
+		})
+			.then((res) => {
+				console.log(res);
+			})
+			.catch((err) => {
+				console.error(err);
+			});
 	}
 }

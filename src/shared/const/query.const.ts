@@ -83,7 +83,7 @@ export const QUERIES = {
         AVG(avg_close_price) OVER (
             PARTITION BY symbol 
             ORDER BY hour_time 
-            ROWS BETWEEN 4 PRECEDING AND CURRENT ROW
+            ROWS BETWEEN 9 PRECEDING AND CURRENT ROW
         ) AS short_ma,
         AVG(avg_close_price) OVER (
             PARTITION BY symbol 
@@ -133,5 +133,34 @@ export const QUERIES = {
 	INSERT_VOLUME_SIGNAL: `
         INSERT INTO VolumeSignal (signal_id, current_volume, avg_volume)
         VALUES ($1, $2, $3);
+    `,
+	INSERT_ORDER: `
+        INSERT INTO Orders (
+            id,
+            symbol,
+            buy_price,
+            quantity,
+            status,
+            created_at,
+            updated_at,
+            order_type
+        )
+        VALUES (
+            gen_random_uuid(),
+            $1,
+            $2,
+            $3,
+            'PENDING',
+            NOW(),
+            NOW(),
+            $4
+        )
+        RETURNING id;
+    `,
+	UPDATE_ORDER: `
+        UPDATE Orders
+        SET sell_price = $2, status = $3, updated_at = NOW()
+        WHERE id = $1;
+        RETURNING id, quantity, buy_price, sell_price;
     `,
 };

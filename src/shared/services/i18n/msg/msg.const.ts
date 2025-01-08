@@ -11,6 +11,7 @@ export interface MSG {
 	LOCK_ACQUIRE_ERROR: string;
 	ANALYZE_API_ERROR: string;
 	INVALID_STRATEGY_ERROR: string;
+	ORDER_API_ERROR: string;
 }
 
 export const getMsg = (language: string) => {

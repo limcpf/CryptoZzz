@@ -10,6 +10,7 @@ const messages: MSG = {
 	LOCK_ACQUIRE_ERROR: "⚠️ 락 획득 실패",
 	ANALYZE_API_ERROR: "⚠️ 분석 API 호출 실패",
 	INVALID_STRATEGY_ERROR: "⚠️ 유효하지 않은 전략 이름: ",
+	ORDER_API_ERROR: "⚠️ 주문 API 호출 실패",
 } as const;
 
 export default messages;

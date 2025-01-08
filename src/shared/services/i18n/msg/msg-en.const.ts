@@ -10,6 +10,7 @@ const messages: MSG = {
 	LOCK_ACQUIRE_ERROR: "⚠️ Failed to acquire lock",
 	ANALYZE_API_ERROR: "⚠️ Failed to call analyze API",
 	INVALID_STRATEGY_ERROR: "⚠️ Invalid strategy name: ",
+	ORDER_API_ERROR: "⚠️ Failed to call order API",
 } as const;
 
 export default messages;

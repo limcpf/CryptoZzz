@@ -42,8 +42,9 @@ export const acquireAdvisoryLock = async (
 	pool: Pool,
 	lockType: DatabaseLockType,
 ): Promise<boolean> => {
+	console.log("acquireAdvisoryLock", DATABASE_LOCKS[lockType]);
 	const result = await pool.query(
-		`SELECT pg_try_advisory_lock(${DATABASE_LOCKS[lockType]});`,
+		`SELECT pg_try_advisory_lock(1, ${DATABASE_LOCKS[lockType]});`,
 	);
 	return result.rows[0].pg_try_advisory_lock;
 };
@@ -52,5 +53,8 @@ export const releaseAdvisoryLock = async (
 	pool: Pool,
 	lockType: DatabaseLockType,
 ) => {
-	await pool.query(`SELECT pg_advisory_unlock(${DATABASE_LOCKS[lockType]});`);
+	console.log("releaseAdvisoryLock", DATABASE_LOCKS[lockType]);
+	await pool.query(
+		`SELECT pg_advisory_unlock(1, ${DATABASE_LOCKS[lockType]});`,
+	);
 };

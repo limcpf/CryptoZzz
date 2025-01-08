@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
 import type { iAccount } from "../../../interfaces/iAccount";
 import type { iCandle } from "../../../interfaces/iCandle";
+import type { OrderResponse, iOrder } from "../../../interfaces/iOrder";
 import i18n from "../../i18n";
 import type { Api } from "../api.interface";
 
@@ -89,6 +90,46 @@ export class UpbitApi implements Api {
 		}
 
 		const data = (await response.json()) as iCandle[];
+		return data;
+	}
+
+	async order(
+		market: string,
+		side: "bid" | "ask",
+		volume: string,
+		price: string,
+		ord_type: "price" | "market",
+	): Promise<OrderResponse> {
+		const endpoint = "/v1/orders";
+		const url = `${this.MARKET_URL}${endpoint}`;
+
+		const body = {
+			market: market,
+			side: side,
+			volume: volume,
+			price: price,
+			ord_type: ord_type,
+		};
+
+		const token = this.getAuthToken(body);
+
+		const response = await fetch(url, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${token}`,
+			},
+			body: JSON.stringify(body),
+		});
+
+		if (!response.ok) {
+			throw new Error(
+				`[${new Date().toISOString()}] [UPBIT-ORDER] ${i18n.getMessage("ORDER_API_ERROR")} : ${response.status}`,
+			);
+		}
+
+		const data = (await response.json()) as OrderResponse;
+
 		return data;
 	}
 }

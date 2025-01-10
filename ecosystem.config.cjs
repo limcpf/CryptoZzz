@@ -12,6 +12,7 @@ module.exports = {
 			env: {
 				NODE_ENV: "production",
 				TZ: "Asia/Seoul",
+				PATH: `${process.env.HOME}/.bun/bin:${process.env.PATH}`, // Add "~/.bun/bin/bun" to PATH
 			},
 			exp_backoff_restart_delay: 100,
 			max_restarts: 3,
@@ -32,6 +33,7 @@ module.exports = {
 			env: {
 				NODE_ENV: "production",
 				TZ: "Asia/Seoul",
+				PATH: `${process.env.HOME}/.bun/bin:${process.env.PATH}`, // Add "~/.bun/bin/bun" to PATH
 			},
 			exp_backoff_restart_delay: 100,
 			group: "analysis",
@@ -53,6 +55,7 @@ module.exports = {
 			env: {
 				NODE_ENV: "production",
 				TZ: "Asia/Seoul",
+				PATH: `${process.env.HOME}/.bun/bin:${process.env.PATH}`, // Add "~/.bun/bin/bun" to PATH
 			},
 			exp_backoff_restart_delay: 100,
 			max_restarts: 3,
@@ -62,6 +65,9 @@ module.exports = {
 			out_file: "logs/trading-out.log",
 		},
 	],
+	env: {
+		PATH: `${process.env.HOME}/.bun/bin:${process.env.PATH}`, // Add "~/.bun/bin/bun" to PATH
+	},
 	interpreter: "bun",
 	watch: ["./src/pm2-events.ts"],
 	ignore_watch: ["node_modules", "logs"],

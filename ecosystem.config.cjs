@@ -4,6 +4,7 @@ module.exports = {
 			name: "candle-save",
 			script: "./src/services/candle-save/index.ts",
 			instances: 1,
+			interpreter: "bun",
 			exec_mode: "fork",
 			watch: false,
 			reload: false,
@@ -22,6 +23,7 @@ module.exports = {
 		{
 			name: "analysis-test",
 			script: "./src/services/analysis/index.ts",
+			interpreter: "bun",
 			instances: 1,
 			exec_mode: "fork",
 			watch: false,
@@ -42,6 +44,7 @@ module.exports = {
 		{
 			name: "trading-test",
 			script: "./src/services/trading/index.ts",
+			interpreter: "bun",
 			instances: 1,
 			exec_mode: "fork",
 			watch: false,
@@ -59,6 +62,7 @@ module.exports = {
 			out_file: "logs/trading-out.log",
 		},
 	],
+	interpreter: "bun",
 	watch: ["./src/pm2-events.ts"],
 	ignore_watch: ["node_modules", "logs"],
 	instance_var: "INSTANCE_ID",

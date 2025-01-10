@@ -41,6 +41,7 @@ let IS_CANDLE_ERROR_SENT = false;
  */
 async function setup() {
 	IS_CANDLE_ERROR_SENT = false;
+	await client.query(QUERIES.INIT);
 }
 
 /**

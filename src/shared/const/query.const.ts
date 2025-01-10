@@ -1,4 +1,78 @@
 export const QUERIES = {
+	INIT: `
+        CREATE TABLE IF NOT EXISTS Market_Data (
+        symbol VARCHAR(10),
+        timestamp TIMESTAMPTZ,
+        open_price NUMERIC,
+        high_price NUMERIC,
+        low_price NUMERIC,
+        close_price NUMERIC,
+        volume NUMERIC,
+        PRIMARY KEY (symbol, timestamp)
+        );
+
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'market_data') THEN
+                PERFORM create_hypertable('Market_Data', 'timestamp');
+            END IF;
+        END $$;
+
+        CREATE TABLE IF NOT EXISTS Orders (
+            id UUID PRIMARY KEY,
+            symbol VARCHAR(10) NOT NULL,
+            buy_price NUMERIC NOT NULL,
+            sell_price NUMERIC,
+            quantity NUMERIC NOT NULL,
+            status VARCHAR(10) NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL,
+            updated_at TIMESTAMPTZ NOT NULL,
+            CONSTRAINT order_type_check CHECK (status IN ('BUY', 'SELL')),
+            CONSTRAINT status_check CHECK (status IN ('PENDING', 'FILLED', 'CANCELLED'))
+        );
+
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'orders' AND indexname = 'idx_orders_symbol') THEN
+                CREATE INDEX idx_orders_symbol ON Orders(symbol);
+            END IF;
+
+            IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'orders' AND indexname = 'idx_orders_status') THEN
+                CREATE INDEX idx_orders_status ON Orders(status);
+            END IF;
+
+            IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'orders' AND indexname = 'idx_orders_created_at') THEN
+                CREATE INDEX idx_orders_created_at ON Orders(created_at);
+            END IF;
+        END $$;
+
+        CREATE TABLE IF NOT EXISTS SignalLog (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            symbol VARCHAR(10) NOT NULL,
+            hour_time TIMESTAMP NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS RsiSignal (
+            signal_id UUID PRIMARY KEY,
+            rsi NUMERIC NOT NULL,
+            FOREIGN KEY (signal_id) REFERENCES SignalLog(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS MaSignal (
+            signal_id UUID PRIMARY KEY,
+            short_ma NUMERIC NOT NULL,
+            long_ma NUMERIC NOT NULL,
+            FOREIGN KEY (signal_id) REFERENCES SignalLog(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS VolumeSignal (
+            signal_id UUID PRIMARY KEY,
+            current_volume NUMERIC NOT NULL,
+            avg_volume NUMERIC NOT NULL,
+            FOREIGN KEY (signal_id) REFERENCES SignalLog(id)
+        );
+    `,
 	UPSERT_MARKET_DATA: `
       INSERT INTO Market_Data (
         symbol, 

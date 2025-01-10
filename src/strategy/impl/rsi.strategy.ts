@@ -59,8 +59,6 @@ export class RsiStrategy implements iStrategy {
 	}
 
 	private saveResult(uuid: string, data: unknown): void {
-		if (data && typeof data === "number") {
-			this.pool.query(QUERIES.INSERT_RSI_SIGNAL, [uuid, data]);
-		}
+		this.pool.query(QUERIES.INSERT_RSI_SIGNAL, [uuid, data]);
 	}
 }

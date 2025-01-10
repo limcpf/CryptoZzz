@@ -59,7 +59,7 @@ module.exports = {
 			out_file: "logs/test/trading-out.log",
 		},
 	],
-	watch: ["src/pm2-events.ts"],
+	watch: ["./src/pm2-events.ts"],
 	ignore_watch: ["node_modules", "logs"],
 	instance_var: "INSTANCE_ID",
 	pmx: true,

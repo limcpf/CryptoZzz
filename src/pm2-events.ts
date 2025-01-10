@@ -1,4 +1,5 @@
 import type { ProcessDescription } from "pm2";
+import webhook from "./shared/services/webhook";
 import { webhookFactory } from "./shared/services/webhook/webhook.factory";
 
 interface PM2Packet {
@@ -10,11 +11,12 @@ interface PM2Packet {
 }
 
 process.on("message", (packet: PM2Packet) => {
+	webhook.send(
+		`🔔 **${packet.data.process.name}** 서비스가 이벤트를 받았습니다. : ${packet.data.event}`,
+	);
 	if (packet.type === "process:event") {
 		const { event, process: proc } = packet.data;
 		const appName = proc.name;
-
-		const webhook = webhookFactory();
 
 		switch (event) {
 			case "restart":
@@ -38,7 +40,9 @@ process.on("message", (packet: PM2Packet) => {
 				break;
 
 			default:
-				console.log(event);
+				webhook.send(
+					`🔔 **${appName}** 서비스가 이벤트를 받았습니다. : ${event}`,
+				);
 				break;
 		}
 	}

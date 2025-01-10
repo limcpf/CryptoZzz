@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from "uuid";
 import {
 	createPool,
 	handleNotifications,
@@ -9,7 +10,6 @@ import webhook from "../../shared/services/webhook";
 import { Signal } from "../../strategy/iStrategy";
 import { checkAccountStatus } from "./services/check-account-status";
 import { executeBuySignal, executeSellSignal } from "./signals";
-
 export const developmentLog =
 	process.env.NODE_ENV === "development" ? console.log : () => {};
 
@@ -61,13 +61,15 @@ await setup();
 process.stdin.resume();
 
 process.on("uncaughtException", (error) => {
-	console.error("예상치 못한 에러:", error);
-	webhook.send("⚠️ 예상치 못한 에러 발생");
+	const uuid = uuidv4();
+	console.error(`${uuid} ${error}`);
+	webhook.send(`[ANALYZE] ⚠️ 예상치 못한 에러 발생 : ${uuid}`);
 });
 
 process.on("unhandledRejection", (reason, promise) => {
-	console.error("처리되지 않은 Promise 거부:", reason);
-	webhook.send("⚠️ 처리되지 않은 Promise 거부 발생");
+	const uuid = uuidv4();
+	console.error(`${uuid} ${reason}`);
+	webhook.send(`[ANALYZE] ⚠️ 처리되지 않은 Promise 거부 발생 : ${uuid}`);
 });
 
 /**
@@ -75,9 +77,7 @@ process.on("unhandledRejection", (reason, promise) => {
  * @description 프로세스 종료 처리를 위한 공통 함수
  */
 async function handleGracefulShutdown() {
-	webhook.send(
-		`[${new Date().toISOString()}] [ANALYZE] 🛑 서비스 종료 신호 수신`,
-	);
+	webhook.send("[ANALYZE] 🛑 서비스 종료 신호 수신");
 	await pool.end();
 	process.exit(0);
 }

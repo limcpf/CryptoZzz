@@ -1,4 +1,5 @@
 import cron from "node-cron";
+import { v4 as uuidv4 } from "uuid";
 import {
 	acquireAdvisoryLock,
 	createPool,
@@ -40,8 +41,6 @@ let IS_CANDLE_ERROR_SENT = false;
  */
 async function setup() {
 	IS_CANDLE_ERROR_SENT = false;
-	await setupPubSub(client, [CHANNEL.WEBHOOK_CHANNEL]);
-	handleNotifications(client, (msg) => webhook.send(msg.payload ?? ""));
 }
 
 /**
@@ -87,13 +86,9 @@ async function saveCandleData(data: iCandle[]) {
 		notify(pool, CHANNEL.ANALYZE_CHANNEL);
 	} catch (error: unknown) {
 		if (error instanceof Error) {
-			await notify(pool, "WEBHOOK_CHANNEL", `[CANDLE-SAVE] ${error.message}\n`);
+			webhook.send(`[CANDLE-SAVE] ${error.message}`);
 		} else {
-			await notify(
-				pool,
-				"WEBHOOK_CHANNEL",
-				`[CANDLE-SAVE] ${i18n.getMessage("CANDLE_SAVE_DB_ERROR")}\n`,
-			);
+			webhook.send(`[CANDLE-SAVE] ${i18n.getMessage("CANDLE_SAVE_DB_ERROR")}`);
 		}
 	}
 }
@@ -103,9 +98,7 @@ async function saveCandleData(data: iCandle[]) {
  * @description 프로세스 종료 처리를 위한 공통 함수
  */
 async function handleGracefulShutdown() {
-	webhook.send(
-		`[${new Date().toISOString()}] [CANDLE-SAVE] 🛑 서비스 종료 신호 수신`,
-	);
+	webhook.send("[CANDLE-SAVE] 🛑 서비스 종료 신호 수신");
 	await pool.end();
 	process.exit(0);
 }
@@ -119,16 +112,10 @@ cron.schedule("*/3 * * * * *", async () => {
 		if (!IS_CANDLE_ERROR_SENT) {
 			IS_CANDLE_ERROR_SENT = true;
 			if (error instanceof Error) {
-				await notify(
-					pool,
-					"WEBHOOK_CHANNEL",
-					`[CANDLE-SAVE] ${error.message}\n`,
-				);
+				webhook.send(`[CANDLE-SAVE] ${error.message}`);
 			} else {
-				await notify(
-					pool,
-					"WEBHOOK_CHANNEL",
-					`[CANDLE-SAVE] ${i18n.getMessage("CANDLE_SAVE_API_ERROR")}\n`,
+				webhook.send(
+					`[CANDLE-SAVE] ${i18n.getMessage("CANDLE_SAVE_API_ERROR")}`,
 				);
 			}
 		}
@@ -136,7 +123,7 @@ cron.schedule("*/3 * * * * *", async () => {
 });
 
 cron.schedule("0 0 8-21 * * *", () => {
-	notify(pool, "WEBHOOK_CHANNEL", i18n.getMessage("CHECK_MESSAGE"));
+	webhook.send(i18n.getMessage("CHECK_MESSAGE"));
 });
 
 cron.schedule(process.env.CANDLE_SAVE_INTERVAL || "0 */5 * * * *", () => {
@@ -146,13 +133,15 @@ cron.schedule(process.env.CANDLE_SAVE_INTERVAL || "0 */5 * * * *", () => {
 process.stdin.resume();
 
 process.on("uncaughtException", (error) => {
-	console.error("예상치 못한 에러:", error);
-	webhook.send("⚠️ 예상치 못한 에러 발생");
+	const uuid = uuidv4();
+	console.error(`${uuid} ${error}`);
+	webhook.send(`[CANDLE-SAVE] ⚠️ 예상치 못한 에러 발생 : ${uuid}`);
 });
 
 process.on("unhandledRejection", (reason, promise) => {
-	console.error("처리되지 않은 Promise 거부:", reason);
-	webhook.send("⚠️ 처리되지 않은 Promise 거부 발생");
+	const uuid = uuidv4();
+	console.error(`${uuid} ${reason}`);
+	webhook.send(`[CANDLE-SAVE] ⚠️ 처리되지 않은 Promise 거부 발생 : ${uuid}`);
 });
 
 // SIGINT (Ctrl+C)와 SIGTERM 모두 동일한 종료 처리

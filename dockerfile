@@ -22,4 +22,4 @@ ENV TZ=Asia/Seoul
 ENV PM2_RUNTIME_NODE_PATH=bun
 
 # Run PM2 in no-daemon mode with bun
-CMD ["pm2-runtime", "--interpreter", "bun", "ecosystem.config.cjs"]
+CMD ["bun", "run", "start"]

@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: money-trading
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs
+      - ./src:/app/src
+      - ./.env:/app/.env  # .env 파일을 볼륨으로 연결
+    depends_on:
+      - db
+    networks:
+      - money-network
+
+  db:
+    image: timescale/timescaledb:latest-pg13
+    container_name: money-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - money-network
+
+networks:
+  money-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

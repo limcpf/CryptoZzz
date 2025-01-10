@@ -130,13 +130,21 @@ export const QUERIES = {
                 PARTITION BY symbol 
                 ORDER BY hour_time 
                 ROWS BETWEEN 13 PRECEDING AND CURRENT ROW
-            ) AS avg_loss
+            ) AS avg_loss,
+            COUNT(*) OVER (
+                PARTITION BY symbol 
+                ORDER BY hour_time 
+                ROWS BETWEEN 13 PRECEDING AND CURRENT ROW
+            ) AS data_points
         FROM price_changes
     )
     SELECT
         symbol,
         hour_time,
-        100 - (100 / (1 + (avg_gain / NULLIF(avg_loss, 0)))) AS rsi
+        CASE 
+            WHEN data_points >= 14 THEN 100 - (100 / (1 + (avg_gain / NULLIF(avg_loss, 0))))
+            ELSE NULL
+        END AS rsi
     FROM avg_gain_loss
     ORDER BY hour_time DESC
     LIMIT 1;

@@ -1,4 +1,4 @@
-FROM oven/bun:slim
+FROM oven/bun:1.1.42
 
 WORKDIR /app
 
@@ -14,12 +14,11 @@ RUN bun install
 # Copy source code
 COPY . .
 
+# Create log directory
+RUN mkdir -p logs logs/test
+
 # Set environment variables
-ENV NODE_ENV=production
 ENV TZ=Asia/Seoul
 
-# Create log directory
-RUN mkdir -p logs
-
-# Default command
-CMD ["bun", "run", "start"]
+# Run PM2 in no-daemon mode
+CMD ["pm2-runtime", "ecosystem.config.cjs"]

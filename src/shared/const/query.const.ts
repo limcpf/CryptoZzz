@@ -177,27 +177,37 @@ export const QUERIES = {
     LIMIT 1;
   `,
 	GET_VOLUME_ANALYSIS: `
-    WITH hourly_data AS (
-        SELECT
-            symbol,
-            date_trunc('hour', timestamp) AS hour_time,
-            SUM(volume) AS total_volume
-        FROM Market_Data
-        WHERE symbol = 'KRW-BTC'
-        GROUP BY symbol, date_trunc('hour', timestamp)
-    )
-    SELECT
-        symbol,
-        hour_time,
-        total_volume AS current_volume,
-        AVG(total_volume) OVER (
-            PARTITION BY symbol 
-            ORDER BY hour_time 
-            ROWS BETWEEN 9 PRECEDING AND CURRENT ROW
-        ) AS avg_volume
-    FROM hourly_data
-    ORDER BY hour_time DESC
-    LIMIT 1;
+        WITH minute_data AS (
+            SELECT
+                symbol,
+                date_trunc('minute', timestamp) AS minute_time,
+                SUM(volume) AS total_volume
+            FROM Market_Data
+            WHERE 
+                symbol = 'KRW-BTC'
+                AND timestamp > NOW() - INTERVAL '10 hours'
+            GROUP BY symbol, date_trunc('minute', timestamp)
+        ),
+        hourly_groups AS (
+            SELECT
+                symbol,
+                FLOOR(EXTRACT(EPOCH FROM (NOW() - minute_time)) / 3600) AS hours_ago,
+                SUM(total_volume) AS hour_volume
+            FROM minute_data
+            GROUP BY 
+                symbol,
+                FLOOR(EXTRACT(EPOCH FROM (NOW() - minute_time)) / 3600)
+        )
+        SELECT 
+            h1.symbol,
+            h1.hour_volume as current_volume,
+            (
+                SELECT AVG(h2.hour_volume) 
+                FROM hourly_groups h2 
+                WHERE h2.hours_ago > 0
+            ) as avg_volume
+        FROM hourly_groups h1
+        WHERE h1.hours_ago = 0;
   `,
 	INSERT_SIGNAL_LOG: `
         INSERT INTO SignalLog (symbol, hour_time)

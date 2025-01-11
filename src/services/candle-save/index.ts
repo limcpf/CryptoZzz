@@ -9,7 +9,6 @@ import type { iStrategyInfo } from "../../shared/interfaces/iStrategy";
 import API from "../../shared/services/api";
 import i18n from "../../shared/services/i18n";
 import webhook from "../../shared/services/webhook";
-import type { iStrategy } from "../../strategy/iStrategy";
 
 /** 전역변수 */
 

@@ -184,13 +184,14 @@ async function checkAndSendStatus() {
 			`[CANDLE-SAVE 상태 체크 🔍]\n 
 				현재 원화: ${status.krwBalance}\n
 				현재 ${process.env.CRYPTO_CODE}: ${status.cryptoBalance}\n
+				${status.cryptoBalance > 0 && `평가 금액: ${status.cryptoEvalAmount}`}\n
 				거래 탐지 상태: ${status.tradingStatus}\n
 				기준 시간: ${strategy.hour_time}\n
 				RSI: ${strategy.rsi}\n
-				단기 MA: ${strategy.shortMa}\n
-				장기 MA: ${strategy.longMa}\n
-				현재 거래량: ${strategy.currentVolume}\n
-				평균 거래량: ${strategy.avgVolume}`,
+				단기 MA: ${strategy.short_ma}\n
+				장기 MA: ${strategy.long_ma}\n
+				현재 거래량: ${strategy.current_volume}\n
+				평균 거래량: ${strategy.avg_volume}`,
 		);
 	} catch (error) {
 		console.error(`[${new Date().toLocaleString()}] ⚠️ [CANDLE-SAVE] ${error}`);

@@ -113,7 +113,7 @@ process.stdin.resume();
 process.on("uncaughtException", (error) => {
 	const uuid = uuidv4();
 	console.error(
-		`[${new Date().toLocaleString()}] [ANALYZE] ⚠️ 예상치 못한 에러 발생 : ${uuid}`,
+		`[${new Date().toLocaleString()}] [ANALYZE] ${uuid} : ${error}`,
 	);
 	webhook.send(`[ANALYZE] ⚠️ 예상치 못한 에러 발생 : ${uuid}`);
 });
@@ -121,7 +121,7 @@ process.on("uncaughtException", (error) => {
 process.on("unhandledRejection", (reason, promise) => {
 	const uuid = uuidv4();
 	console.error(
-		`[${new Date().toLocaleString()}] [ANALYZE] ⚠️ 처리되지 않은 Promise 거부 발생 : ${uuid}`,
+		`[${new Date().toLocaleString()}] [ANALYZE] ${uuid} : ${reason}`,
 	);
 	webhook.send(`[ANALYZE] ⚠️ 처리되지 않은 Promise 거부 발생 : ${uuid}`);
 });

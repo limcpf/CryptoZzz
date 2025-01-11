@@ -7,9 +7,10 @@ interface iAccount {
 	unit_currency: string;
 }
 
-export interface iAccountStatus {
+interface iAccountStatus {
 	krwBalance: number;
 	cryptoBalance: number;
+	cryptoEvalAmount: number;
 	tradingStatus: string;
 }
 

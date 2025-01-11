@@ -257,7 +257,7 @@ export const QUERIES = {
     `,
 	GET_LATEST_STRATEGY: `
         SELECT 
-            sl.id
+            sl.id,
             sl.hour_time,
             rs.rsi,
             ms.short_ma,

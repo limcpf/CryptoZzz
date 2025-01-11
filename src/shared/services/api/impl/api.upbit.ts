@@ -135,13 +135,10 @@ export class UpbitApi implements Api {
 
 	async getAccountStatus(): Promise<iAccountStatus> {
 		const accounts = await this.getAccount();
-		console.log(
-			`[${new Date().toLocaleString()}] [UPBIT-GET_ACCOUNT_STATUS] ${accounts}`,
-		);
 		const [krwAccount, cryptoAccount] = accounts.reduce(
 			(acc, account) => {
 				if (account.currency === "KRW") acc[0] = account;
-				if (account.currency === process.env.CRYPTO_CODE) acc[1] = account;
+				if (account.currency === "BTC") acc[1] = account;
 				return acc;
 			},
 			[undefined, undefined] as [iAccount | undefined, iAccount | undefined],
@@ -150,8 +147,13 @@ export class UpbitApi implements Api {
 		return {
 			krwBalance: Number(krwAccount?.balance || 0),
 			cryptoBalance: Number(cryptoAccount?.balance || 0),
+			cryptoEvalAmount:
+				Number(cryptoAccount?.avg_buy_price || 0) *
+				Number(cryptoAccount?.balance || 0),
 			tradingStatus:
-				cryptoAccount && Number(cryptoAccount.balance) > 0 ? "매수" : "매도",
+				cryptoAccount && Number(cryptoAccount.balance) > 0
+					? "매도 전략 실행중"
+					: "매수 전략 실행중",
 		};
 	}
 }

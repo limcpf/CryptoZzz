@@ -7,7 +7,7 @@ export const createPool = () => {
 		host: process.env.DB_HOST || "localhost",
 		database: process.env.DB_NAME || "BTC_KRW",
 		password: process.env.DB_PASSWORD || "230308",
-		port: Number(process.env.DB_PORT) || 5432,
+		port: Number(process.env.DB_PORT) || 5433,
 	});
 };
 

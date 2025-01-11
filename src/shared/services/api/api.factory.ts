@@ -8,7 +8,9 @@ export const apiFactory = () => {
 			return new UpbitApi();
 		default:
 			console.error(
-				`${getMsg(process.env.LANGUAGE as string).CONFIG_ERROR} : MARKET`,
+				`[${new Date().toISOString()}] ⚠️ ${
+					getMsg(process.env.LANGUAGE as string).CONFIG_ERROR
+				} : MARKET`,
 			);
 			process.exit(1);
 	}

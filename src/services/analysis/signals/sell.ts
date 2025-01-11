@@ -23,7 +23,9 @@ export async function executeSellSignal(pool: Pool): Promise<Signal> {
 	const btcAccount = account.find((acc) => acc.currency === "BTC");
 
 	if (!btcAccount || !btcAccount.avg_buy_price) {
-		console.error("BTC 계좌 정보를 찾을 수 없습니다.");
+		console.error(
+			`[${new Date().toISOString()}] [SELL-SIGNAL] BTC 계좌 정보를 찾을 수 없습니다.`,
+		);
 		return Signal.HOLD;
 	}
 

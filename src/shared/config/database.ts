@@ -1,6 +1,6 @@
 import { type Notification, Pool, type PoolClient } from "pg";
 import { CHANNEL, type ChannelType } from "../const/channel.const";
-import { DATABASE_LOCKS, type DatabaseLockType } from "../const/lock.const";
+
 export const createPool = () => {
 	return new Pool({
 		user: process.env.DB_USER || "coin",
@@ -14,7 +14,9 @@ export const createPool = () => {
 export const setupPubSub = async (client: PoolClient, channels: string[]) => {
 	for (const channel of channels) {
 		await client.query(`LISTEN ${channel}`);
-		console.log(`Listening to ${channel}`);
+		console.log(
+			`[${new Date().toISOString()}] [LISTEN] Listening to ${channel}`,
+		);
 	}
 };
 
@@ -36,25 +38,4 @@ export const notify = async (
 		);
 	}
 	await pool.query(`NOTIFY ${CHANNEL[channel]}, '${message}'`);
-};
-
-export const acquireAdvisoryLock = async (
-	pool: Pool,
-	lockType: DatabaseLockType,
-): Promise<boolean> => {
-	console.log("acquireAdvisoryLock", DATABASE_LOCKS[lockType]);
-	const result = await pool.query(
-		`SELECT pg_try_advisory_lock(1, ${DATABASE_LOCKS[lockType]});`,
-	);
-	return result.rows[0].pg_try_advisory_lock;
-};
-
-export const releaseAdvisoryLock = async (
-	pool: Pool,
-	lockType: DatabaseLockType,
-) => {
-	console.log("releaseAdvisoryLock", DATABASE_LOCKS[lockType]);
-	await pool.query(
-		`SELECT pg_advisory_unlock(1, ${DATABASE_LOCKS[lockType]});`,
-	);
 };

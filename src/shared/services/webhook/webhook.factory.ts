@@ -8,7 +8,9 @@ export const webhookFactory = () => {
 			return new WebhookDiscord();
 		default:
 			console.error(
-				`${getMsg(process.env.LANGUAGE as string).CONFIG_ERROR} : WEBHOOK_TYPE`,
+				`[${new Date().toISOString()}] ⚠️ ${
+					getMsg(process.env.LANGUAGE as string).CONFIG_ERROR
+				} : WEBHOOK_TYPE`,
 			);
 			process.exit(1);
 	}

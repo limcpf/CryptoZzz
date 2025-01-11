@@ -1,14 +1,8 @@
 import cron from "node-cron";
+import type { PoolClient } from "pg";
 import { v4 as uuidv4 } from "uuid";
-import {
-	acquireAdvisoryLock,
-	createPool,
-	handleNotifications,
-	notify,
-	setupPubSub,
-} from "../../shared/config/database";
+import { createPool, notify } from "../../shared/config/database";
 import { CHANNEL } from "../../shared/const/channel.const";
-import { DATABASE_LOCKS } from "../../shared/const/lock.const";
 import { QUERIES } from "../../shared/const/query.const";
 import type { iCandle } from "../../shared/interfaces/iCandle";
 import API from "../../shared/services/api";
@@ -22,12 +16,10 @@ import webhook from "../../shared/services/webhook";
  * @description Database Pool
  */
 const pool = createPool();
+let client: PoolClient;
 
-/**
- * @name client
- * @description Database Client
- */
-const client = await pool.connect();
+const MAX_RECONNECT_ATTEMPTS = 5;
+let reconnectAttempts = 0;
 
 /**
  * @name IS_CANDLE_ERROR_SENT
@@ -40,8 +32,57 @@ let IS_CANDLE_ERROR_SENT = false;
  * @description Setup
  */
 async function setup() {
-	IS_CANDLE_ERROR_SENT = false;
-	await client.query(QUERIES.INIT);
+	try {
+		IS_CANDLE_ERROR_SENT = false;
+		client = await pool.connect();
+		await client.query(QUERIES.INIT);
+
+		// 연결 에러 핸들링 추가
+		client.on("error", async (err) => {
+			console.error(
+				`[${new Date().toISOString()}] [CANDLE-SAVE] ⚠️ 데이터베이스 연결 에러: ${err}`,
+			);
+			webhook.send("[CANDLE-SAVE] ⚠️ DB 연결 에러 발생");
+			await reconnect();
+		});
+	} catch (error) {
+		console.error(
+			`[${new Date().toISOString()}] [CANDLE-SAVE] ⚠️ 초기 설정 중 에러: ${error}`,
+		);
+		await reconnect();
+	}
+}
+
+async function reconnect() {
+	try {
+		if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+			console.error(
+				`[${new Date().toISOString()}] [CANDLE-SAVE] ⚠️ 최대 재연결 시도 횟수(${MAX_RECONNECT_ATTEMPTS}회) 초과`,
+			);
+			webhook.send(
+				`[CANDLE-SAVE] ⚠️ DB 연결 실패 - ${MAX_RECONNECT_ATTEMPTS}회 재시도 후 서비스를 종료합니다.`,
+			);
+			await handleGracefulShutdown();
+			return;
+		}
+
+		reconnectAttempts++;
+		console.log(
+			`[${new Date().toISOString()}] [CANDLE-SAVE] 🔄 DB 재연결 시도 ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}`,
+		);
+
+		if (client) {
+			await client.release();
+		}
+		await setup();
+
+		reconnectAttempts = 0;
+	} catch (error) {
+		console.error(
+			`[${new Date().toISOString()}] [CANDLE-SAVE] ⚠️ 재연결 중 에러: ${error}`,
+		);
+		setTimeout(reconnect, 5000);
+	}
 }
 
 /**
@@ -135,13 +176,13 @@ process.stdin.resume();
 
 process.on("uncaughtException", (error) => {
 	const uuid = uuidv4();
-	console.error(`${uuid} ${error}`);
+	console.error(`[${new Date().toISOString()}] ⚠️ ${uuid} ${error}`);
 	webhook.send(`[CANDLE-SAVE] ⚠️ 예상치 못한 에러 발생 : ${uuid}`);
 });
 
 process.on("unhandledRejection", (reason, promise) => {
 	const uuid = uuidv4();
-	console.error(`${uuid} ${reason}`);
+	console.error(`[${new Date().toISOString()}] ⚠️ ${uuid} ${reason}`);
 	webhook.send(`[CANDLE-SAVE] ⚠️ 처리되지 않은 Promise 거부 발생 : ${uuid}`);
 });
 

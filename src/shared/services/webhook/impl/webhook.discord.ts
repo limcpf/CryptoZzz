@@ -19,12 +19,10 @@ export class WebhookDiscord implements Webhook {
 			body: JSON.stringify({
 				content: `[${timestamp}] ${message}`,
 			}),
-		})
-			.then((res) => {
-				console.log(res);
-			})
-			.catch((err) => {
-				console.error(err);
-			});
+		}).catch((err) => {
+			console.error(
+				`[${new Date().toISOString()}] ⚠️ ${err.status} ${err.message}`,
+			);
+		});
 	}
 }

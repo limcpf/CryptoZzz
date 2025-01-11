@@ -65,10 +65,12 @@ export class VolumeStrategy implements iStrategy {
 		uuid: string,
 		data: { current_volume: number; avg_volume: number },
 	): void {
-		this.pool.query(QUERIES.INSERT_VOLUME_SIGNAL, [
-			uuid,
-			data.current_volume,
-			data.avg_volume,
-		]);
+		if (data.current_volume && data.avg_volume) {
+			this.pool.query(QUERIES.INSERT_VOLUME_SIGNAL, [
+				uuid,
+				data.current_volume,
+				data.avg_volume,
+			]);
+		}
 	}
 }

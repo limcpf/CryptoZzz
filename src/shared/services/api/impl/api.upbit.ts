@@ -63,7 +63,7 @@ export class UpbitApi implements Api {
 
 		if (!response.ok) {
 			throw new Error(
-				`[${new Date().toISOString()}] [UPBIT-GET_ACCOUNT] ${i18n.getMessage("ANALYZE_API_ERROR")} : ${response.status}`,
+				`[${new Date().toLocaleString()}] [UPBIT-GET_ACCOUNT] ${i18n.getMessage("ANALYZE_API_ERROR")} : ${response.status}`,
 			);
 		}
 
@@ -85,7 +85,7 @@ export class UpbitApi implements Api {
 
 		if (!response.ok) {
 			throw new Error(
-				`[${new Date().toISOString()}] [UPBIT-GET_CANDLE_DATA] ${i18n.getMessage("CANDLE_SAVE_API_ERROR")} : ${response.status}`,
+				`[${new Date().toLocaleString()}] [UPBIT-GET_CANDLE_DATA] ${i18n.getMessage("CANDLE_SAVE_API_ERROR")} : ${response.status}`,
 			);
 		}
 
@@ -124,7 +124,7 @@ export class UpbitApi implements Api {
 
 		if (!response.ok) {
 			throw new Error(
-				`[${new Date().toISOString()}] [UPBIT-ORDER] ${i18n.getMessage("ORDER_API_ERROR")} : ${response.status}`,
+				`[${new Date().toLocaleString()}] [UPBIT-ORDER] ${i18n.getMessage("ORDER_API_ERROR")} : ${response.status}`,
 			);
 		}
 

@@ -13,14 +13,14 @@ export async function checkAccountStatus(): Promise<boolean> {
 
 	if (btcAccount && Number(btcAccount.balance) > 0.00001) {
 		developmentLog(
-			`[${new Date().toISOString()}] [ANALYZE] BTC 보유중입니다. 매도 전략을 실행합니다.`,
+			`[${new Date().toLocaleString()}] [ANALYZE] BTC 보유중입니다. 매도 전략을 실행합니다.`,
 		);
 		return false;
 	}
 
 	if (krwAccount && Number(krwAccount.balance) > 10000) {
 		developmentLog(
-			`[${new Date().toISOString()}] [ANALYZE] BTC는 없고, KRW 잔액이 10000원 이상 있습니다. 매수 전략을 실행합니다.`,
+			`[${new Date().toLocaleString()}] [ANALYZE] BTC는 없고, KRW 잔액이 10000원 이상 있습니다. 매수 전략을 실행합니다.`,
 		);
 		return true;
 	}

@@ -40,14 +40,14 @@ async function setup() {
 		// 연결 에러 핸들링 추가
 		client.on("error", async (err) => {
 			console.error(
-				`[${new Date().toISOString()}] [TRADING] ⚠️ 데이터베이스 연결 에러: ${err}`,
+				`[${new Date().toLocaleString()}] [TRADING] ⚠️ 데이터베이스 연결 에러: ${err}`,
 			);
 			webhook.send("[TRADING] ⚠️ DB 연결 에러 발생");
 			await reconnect();
 		});
 	} catch (error) {
 		console.error(
-			`[${new Date().toISOString()}] [TRADING] ⚠️ 초기 설정 중 에러: ${error}`,
+			`[${new Date().toLocaleString()}] [TRADING] ⚠️ 초기 설정 중 에러: ${error}`,
 		);
 		await reconnect();
 	}
@@ -57,7 +57,7 @@ async function reconnect() {
 	try {
 		if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
 			console.error(
-				`[${new Date().toISOString()}] [TRADING] ⚠️ 최대 재연결 시도 횟수(${MAX_RECONNECT_ATTEMPTS}회) 초과`,
+				`[${new Date().toLocaleString()}] [TRADING] ⚠️ 최대 재연결 시도 횟수(${MAX_RECONNECT_ATTEMPTS}회) 초과`,
 			);
 			webhook.send(
 				`[TRADING] ⚠️ DB 연결 실패 - ${MAX_RECONNECT_ATTEMPTS}회 재시도 후 서비스를 종료합니다.`,
@@ -68,7 +68,7 @@ async function reconnect() {
 
 		reconnectAttempts++;
 		console.log(
-			`[${new Date().toISOString()}] [TRADING] 🔄 DB 재연결 시도 ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}`,
+			`[${new Date().toLocaleString()}] [TRADING] 🔄 DB 재연결 시도 ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}`,
 		);
 
 		if (client) {
@@ -79,7 +79,7 @@ async function reconnect() {
 		reconnectAttempts = 0;
 	} catch (error) {
 		console.error(
-			`[${new Date().toISOString()}] [TRADING] ⚠️ 재연결 중 에러: ${error}`,
+			`[${new Date().toLocaleString()}] [TRADING] ⚠️ 재연결 중 에러: ${error}`,
 		);
 		setTimeout(reconnect, 5000);
 	}
@@ -118,7 +118,7 @@ async function executeOrder(signal: string) {
 			);
 
 			developmentLog(
-				`[${new Date().toISOString()}] [TRADING] 매수 주문 실행: ${availableKRW}KRW`,
+				`[${new Date().toLocaleString()}] [TRADING] 매수 주문 실행: ${availableKRW}KRW`,
 			);
 			webhook.send(`✅ 매수 주문 실행: ${availableKRW}KRW`);
 		} catch (error) {
@@ -169,7 +169,7 @@ async function executeOrder(signal: string) {
 			);
 
 			developmentLog(
-				`[${new Date().toISOString()}] [TRADING] 매도 주문 실행: ${availableBTC}BTC`,
+				`[${new Date().toLocaleString()}] [TRADING] 매도 주문 실행: ${availableBTC}BTC`,
 			);
 			webhook.send(`✅ 매도 주문 실행: ${availableBTC}BTC`);
 		} catch (error) {
@@ -188,13 +188,13 @@ process.stdin.resume();
 
 process.on("uncaughtException", (error) => {
 	const uuid = uuidv4();
-	console.error(`[${new Date().toISOString()}] ⚠️ ${uuid} ${error}`);
+	console.error(`[${new Date().toLocaleString()}] ⚠️ ${uuid} ${error}`);
 	webhook.send(` [TRADING] ⚠️ 예상치 못한 에러 발생 : ${uuid}`);
 });
 
 process.on("unhandledRejection", (reason, promise) => {
 	const uuid = uuidv4();
-	console.error(`[${new Date().toISOString()}] ⚠️ ${uuid} ${reason}`);
+	console.error(`[${new Date().toLocaleString()}] ⚠️ ${uuid} ${reason}`);
 	webhook.send(`[TRADING] ⚠️ 처리되지 않은 Promise 거부 발생 : ${uuid}`);
 });
 

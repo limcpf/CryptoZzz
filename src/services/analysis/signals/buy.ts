@@ -15,13 +15,13 @@ export async function executeBuySignal(pool: Pool): Promise<Signal> {
 
 	if (!uuid) {
 		console.error(
-			`[${new Date().toISOString()}] [BUY-SIGNAL] 부모 신호 로그 생성 실패`,
+			`[${new Date().toLocaleString()}] [BUY-SIGNAL] 부모 신호 로그 생성 실패`,
 		);
 		return Signal.HOLD;
 	}
 
 	developmentLog(
-		`[${new Date().toISOString()}] [BUY-SIGNAL] 부모 신호 로그 생성 성공: ${uuid}`,
+		`[${new Date().toLocaleString()}] [BUY-SIGNAL] 부모 신호 로그 생성 성공: ${uuid}`,
 	);
 
 	const strategies = process.env.STRATEGIES?.split(",") || [];
@@ -38,7 +38,7 @@ export async function executeBuySignal(pool: Pool): Promise<Signal> {
 	);
 
 	developmentLog(
-		`[${new Date().toISOString()}] [BUY-SIGNAL] 신호: ${signals.join(", ")}`,
+		`[${new Date().toLocaleString()}] [BUY-SIGNAL] 신호: ${signals.join(", ")}`,
 	);
 
 	return signals.every((signal) => signal === Signal.BUY)

@@ -8,7 +8,7 @@ export const apiFactory = () => {
 			return new UpbitApi();
 		default:
 			console.error(
-				`[${new Date().toISOString()}] ⚠️ ${
+				`[${new Date().toLocaleString()}] ⚠️ ${
 					getMsg(process.env.LANGUAGE as string).CONFIG_ERROR
 				} : MARKET`,
 			);

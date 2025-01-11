@@ -15,7 +15,7 @@ export const setupPubSub = async (client: PoolClient, channels: string[]) => {
 	for (const channel of channels) {
 		await client.query(`LISTEN ${channel}`);
 		console.log(
-			`[${new Date().toISOString()}] [LISTEN] Listening to ${channel}`,
+			`[${new Date().toLocaleString()}] [LISTEN] Listening to ${channel}`,
 		);
 	}
 };
@@ -34,7 +34,7 @@ export const notify = async (
 ) => {
 	if (process.env.NODE_ENV === "development") {
 		console.log(
-			`[${new Date().toISOString()}] [NOTIFY] ${CHANNEL[channel]} ${message}`,
+			`[${new Date().toLocaleString()}] [NOTIFY] ${CHANNEL[channel]} ${message}`,
 		);
 	}
 	await pool.query(`NOTIFY ${CHANNEL[channel]}, '${message}'`);

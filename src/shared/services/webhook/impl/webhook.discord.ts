@@ -21,7 +21,7 @@ export class WebhookDiscord implements Webhook {
 			}),
 		}).catch((err) => {
 			console.error(
-				`[${new Date().toISOString()}] ⚠️ ${err.status} ${err.message}`,
+				`[${new Date().toLocaleString()}] ⚠️ ${err.status} ${err.message}`,
 			);
 		});
 	}

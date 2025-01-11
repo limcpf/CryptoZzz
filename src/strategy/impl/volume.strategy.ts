@@ -30,7 +30,7 @@ export class VolumeStrategy implements iStrategy {
 
 		if (result.rowCount === 0) {
 			console.error(
-				`[${new Date().toISOString()}] [VOLUME-STRATEGY] 거래량 데이터 조회 실패`,
+				`[${new Date().toLocaleString()}] [VOLUME-STRATEGY] 거래량 데이터 조회 실패`,
 			);
 			return Signal.HOLD;
 		}
@@ -42,7 +42,7 @@ export class VolumeStrategy implements iStrategy {
 		// 현재 거래량이 평균 거래량의 1.5배 이상일 때 매수 신호
 		if (current_volume > avg_volume * 1.5) {
 			developmentLog(
-				`[${new Date().toISOString()}] [VOLUME-STRATEGY] 매수 신호 발생`,
+				`[${new Date().toLocaleString()}] [VOLUME-STRATEGY] 매수 신호 발생`,
 			);
 			return Signal.BUY;
 		}
@@ -50,13 +50,13 @@ export class VolumeStrategy implements iStrategy {
 		// 현재 거래량이 평균 거래량보다 낮을 때 매도 신호
 		if (current_volume < avg_volume) {
 			developmentLog(
-				`[${new Date().toISOString()}] [VOLUME-STRATEGY] 매도 신호 발생`,
+				`[${new Date().toLocaleString()}] [VOLUME-STRATEGY] 매도 신호 발생`,
 			);
 			return Signal.SELL;
 		}
 
 		developmentLog(
-			`[${new Date().toISOString()}] [VOLUME-STRATEGY] 홀드 신호 발생`,
+			`[${new Date().toLocaleString()}] [VOLUME-STRATEGY] 홀드 신호 발생`,
 		);
 		return Signal.HOLD;
 	}

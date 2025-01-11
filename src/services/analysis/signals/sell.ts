@@ -24,7 +24,7 @@ export async function executeSellSignal(pool: Pool): Promise<Signal> {
 
 	if (!btcAccount || !btcAccount.avg_buy_price) {
 		console.error(
-			`[${new Date().toISOString()}] [SELL-SIGNAL] BTC 계좌 정보를 찾을 수 없습니다.`,
+			`[${new Date().toLocaleString()}] [SELL-SIGNAL] BTC 계좌 정보를 찾을 수 없습니다.`,
 		);
 		return Signal.HOLD;
 	}
@@ -36,19 +36,19 @@ export async function executeSellSignal(pool: Pool): Promise<Signal> {
 	const profitRate = ((currentPriceNum - avgBuyPrice) / avgBuyPrice) * 100;
 
 	developmentLog(
-		`[${new Date().toISOString()}] [SELL-SIGNAL] 현재 수익률: ${profitRate.toFixed(2)}%`,
+		`[${new Date().toLocaleString()}] [SELL-SIGNAL] 현재 수익률: ${profitRate.toFixed(2)}%`,
 	);
 
 	if (profitRate >= TAKE_PROFIT) {
 		developmentLog(
-			`[${new Date().toISOString()}] [SELL-SIGNAL] 익절 기준 도달: ${profitRate.toFixed(2)}%`,
+			`[${new Date().toLocaleString()}] [SELL-SIGNAL] 익절 기준 도달: ${profitRate.toFixed(2)}%`,
 		);
 		return Signal.SELL;
 	}
 
 	if (profitRate <= STOP_LOSS) {
 		developmentLog(
-			`[${new Date().toISOString()}] [SELL-SIGNAL] 손절 기준 도달: ${profitRate.toFixed(2)}%`,
+			`[${new Date().toLocaleString()}] [SELL-SIGNAL] 손절 기준 도달: ${profitRate.toFixed(2)}%`,
 		);
 		return Signal.SELL;
 	}
@@ -73,7 +73,7 @@ export async function executeSellSignal(pool: Pool): Promise<Signal> {
 	);
 
 	developmentLog(
-		`[${new Date().toISOString()}] [SELL-SIGNAL] 신호: ${signals.join(", ")}`,
+		`[${new Date().toLocaleString()}] [SELL-SIGNAL] 신호: ${signals.join(", ")}`,
 	);
 
 	return signals.every((signal) => signal === Signal.SELL)

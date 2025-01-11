@@ -29,7 +29,7 @@ export class RsiStrategy implements iStrategy {
 
 		if (result.rowCount === 0) {
 			console.error(
-				`[${new Date().toISOString()}] [RSI-STRATEGY] RSI 지표 조회 실패`,
+				`[${new Date().toLocaleString()}] [RSI-STRATEGY] RSI 지표 조회 실패`,
 			);
 			return Signal.HOLD;
 		}
@@ -40,20 +40,20 @@ export class RsiStrategy implements iStrategy {
 
 		if (rsi < 30) {
 			developmentLog(
-				`[${new Date().toISOString()}] [RSI-STRATEGY] 매수 신호 발생`,
+				`[${new Date().toLocaleString()}] [RSI-STRATEGY] 매수 신호 발생`,
 			);
 			return Signal.BUY;
 		}
 
 		if (rsi > 70) {
 			developmentLog(
-				`[${new Date().toISOString()}] [RSI-STRATEGY] 매도 신호 발생`,
+				`[${new Date().toLocaleString()}] [RSI-STRATEGY] 매도 신호 발생`,
 			);
 			return Signal.SELL;
 		}
 
 		developmentLog(
-			`[${new Date().toISOString()}] [RSI-STRATEGY] 홀드 신호 발생`,
+			`[${new Date().toLocaleString()}] [RSI-STRATEGY] 홀드 신호 발생`,
 		);
 		return Signal.HOLD;
 	}

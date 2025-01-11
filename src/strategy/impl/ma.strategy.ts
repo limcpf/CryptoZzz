@@ -31,7 +31,7 @@ export class MaStrategy implements iStrategy {
 
 		if (result.rowCount === 0) {
 			console.error(
-				`[${new Date().toISOString()}] [MA-STRATEGY] MA 지표 조회 실패`,
+				`[${new Date().toLocaleString()}] [MA-STRATEGY] MA 지표 조회 실패`,
 			);
 			return Signal.HOLD;
 		}
@@ -43,7 +43,7 @@ export class MaStrategy implements iStrategy {
 		// 단기 이동평균이 장기 이동평균을 상향 돌파
 		if (short_ma > long_ma) {
 			developmentLog(
-				`[${new Date().toISOString()}] [MA-STRATEGY] 매수 신호 발생`,
+				`[${new Date().toLocaleString()}] [MA-STRATEGY] 매수 신호 발생`,
 			);
 			return Signal.BUY;
 		}
@@ -51,13 +51,13 @@ export class MaStrategy implements iStrategy {
 		// 단기 이동평균이 장기 이동평균을 하향 돌파
 		if (short_ma < long_ma) {
 			developmentLog(
-				`[${new Date().toISOString()}] [MA-STRATEGY] 매도 신호 발생`,
+				`[${new Date().toLocaleString()}] [MA-STRATEGY] 매도 신호 발생`,
 			);
 			return Signal.SELL;
 		}
 
 		developmentLog(
-			`[${new Date().toISOString()}] [MA-STRATEGY] 홀드 신호 발생`,
+			`[${new Date().toLocaleString()}] [MA-STRATEGY] 홀드 신호 발생`,
 		);
 		return Signal.HOLD;
 	}

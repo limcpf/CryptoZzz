@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import querystring from "node:querystring";
 import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
-import type { iAccount } from "../../../interfaces/iAccount";
+import type { iAccount, iAccountStatus } from "../../../interfaces/iAccount";
 import type { iCandle } from "../../../interfaces/iCandle";
 import type { OrderResponse, iOrder } from "../../../interfaces/iOrder";
 import i18n from "../../i18n";
@@ -131,5 +131,27 @@ export class UpbitApi implements Api {
 		const data = (await response.json()) as OrderResponse;
 
 		return data;
+	}
+
+	async getAccountStatus(): Promise<iAccountStatus> {
+		const accounts = await this.getAccount();
+		console.log(
+			`[${new Date().toLocaleString()}] [UPBIT-GET_ACCOUNT_STATUS] ${accounts}`,
+		);
+		const [krwAccount, cryptoAccount] = accounts.reduce(
+			(acc, account) => {
+				if (account.currency === "KRW") acc[0] = account;
+				if (account.currency === process.env.CRYPTO_CODE) acc[1] = account;
+				return acc;
+			},
+			[undefined, undefined] as [iAccount | undefined, iAccount | undefined],
+		);
+
+		return {
+			krwBalance: Number(krwAccount?.balance || 0),
+			cryptoBalance: Number(cryptoAccount?.balance || 0),
+			tradingStatus:
+				cryptoAccount && Number(cryptoAccount.balance) > 0 ? "매수" : "매도",
+		};
 	}
 }

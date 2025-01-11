@@ -1,4 +1,4 @@
-import type { iAccount } from "../../interfaces/iAccount";
+import type { iAccount, iAccountStatus } from "../../interfaces/iAccount";
 import type { iCandle } from "../../interfaces/iCandle";
 import type { OrderResponse, iOrder } from "../../interfaces/iOrder";
 
@@ -25,4 +25,5 @@ export interface Api {
 			| null
 		>,
 	): string;
+	getAccountStatus(): Promise<iAccountStatus>;
 }

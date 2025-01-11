@@ -25,6 +25,7 @@ const API = {
 		price: string,
 		ord_type: "price" | "market",
 	) => api.order(market, side, volume, price, ord_type),
+	GET_ACCOUNT_STATUS: () => api.getAccountStatus(),
 };
 
 export default API;

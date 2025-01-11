@@ -245,4 +245,20 @@ export const QUERIES = {
         WHERE id = $1;
         RETURNING id, quantity, buy_price, sell_price;
     `,
+	GET_LATEST_STRATEGY: `
+        SELECT 
+            sl.id
+            sl.hour_time,
+            rs.rsi,
+            ms.short_ma,
+            ms.long_ma,
+            vs.current_volume,
+            vs.avg_volume
+        FROM SignalLog sl
+        LEFT JOIN RsiSignal rs ON sl.id = rs.signal_id
+        LEFT JOIN MaSignal ms ON sl.id = ms.signal_id
+        LEFT JOIN VolumeSignal vs ON sl.id = vs.signal_id
+        ORDER BY sl.hour_time DESC
+        LIMIT 1;
+    `,
 };

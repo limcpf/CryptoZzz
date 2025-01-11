@@ -5,9 +5,11 @@ import { createPool, notify } from "../../shared/config/database";
 import { CHANNEL } from "../../shared/const/channel.const";
 import { QUERIES } from "../../shared/const/query.const";
 import type { iCandle } from "../../shared/interfaces/iCandle";
+import type { iStrategyInfo } from "../../shared/interfaces/iStrategy";
 import API from "../../shared/services/api";
 import i18n from "../../shared/services/i18n";
 import webhook from "../../shared/services/webhook";
+import type { iStrategy } from "../../strategy/iStrategy";
 
 /** 전역변수 */
 
@@ -167,6 +169,37 @@ cron.schedule("*/3 * * * * *", async () => {
 cron.schedule("0 0 8-21 * * *", () => {
 	webhook.send(i18n.getMessage("CHECK_MESSAGE"));
 });
+
+async function checkAndSendStatus() {
+	try {
+		const status = await API.GET_ACCOUNT_STATUS();
+		const strategyQuery = await client.query<iStrategyInfo>(
+			QUERIES.GET_LATEST_STRATEGY,
+		);
+		const strategy = strategyQuery.rows[0];
+
+		webhook.send(
+			`[상태 체크 🔍]\n 
+				현재 원화: ${status.krwBalance}\n
+				현재 ${process.env.CRYPTO_CODE}: ${status.cryptoBalance}\n
+				거래 탐지 상태: ${status.tradingStatus}\n
+				기준 시간: ${strategy.hour_time}\n
+				RSI: ${strategy.rsi}\n
+				단기 MA: ${strategy.shortMa}\n
+				장기 MA: ${strategy.longMa}\n
+				현재 거래량: ${strategy.currentVolume}\n
+				평균 거래량: ${strategy.avgVolume}`,
+		);
+	} catch (error) {
+		webhook.send("[상태 체크] ⚠️ 상태 조회 중 오류 발생");
+	}
+}
+
+// 주간 시간대 (8-21시): 30분 간격
+cron.schedule("*/30 8-21 * * *", checkAndSendStatus);
+
+// 야간 시간대 (21-8시): 1시간 간격
+cron.schedule("0 21-23,0-7 * * *", checkAndSendStatus);
 
 cron.schedule(process.env.CANDLE_SAVE_INTERVAL || "0 */5 * * * *", () => {
 	IS_CANDLE_ERROR_SENT = false;

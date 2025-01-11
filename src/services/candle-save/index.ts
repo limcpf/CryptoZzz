@@ -38,7 +38,9 @@ async function setup() {
 		client = await pool.connect();
 		await client.query(QUERIES.INIT);
 
-		webhook.send("[CANDLE-SAVE] ⚠️ 구동 완동");
+		webhook.send(
+			"[CANDLE-SAVE] 🚀 자동매매를 위한 CANDLE-SAVE 서비스를 시작합니다.",
+		);
 		checkAndSendStatus();
 
 		// 연결 에러 핸들링 추가
@@ -185,20 +187,28 @@ async function checkAndSendStatus() {
 		);
 		const { close_price } = currentPriceQuery.rows[0];
 
+		const fluctuationRate = Number(
+			(
+				((close_price - status.cryptoBuyPrice) / status.cryptoBuyPrice) *
+				100
+			).toFixed(2),
+		);
+
 		webhook.send(
-			`[CANDLE-SAVE 상태 체크 🔍] 
-				현재 원화: ${status.krwBalance}
-				현재 ${process.env.CRYPTO_CODE}: ${status.cryptoBalance}
-				${status.cryptoBalance > 0 && `평균 매수 금액: ${status.cryptoBuyPrice}`}
-				${status.cryptoBalance > 0 && `등락율: ${((close_price - status.cryptoBuyPrice) / status.cryptoBuyPrice) * 100}%`}
-				${status.cryptoBalance > 0 && `평가 금액: ${status.cryptoEvalAmount}`}
-				거래 탐지 상태: ${status.tradingStatus}
-				기준 시간: ${strategy.hour_time}
-				RSI: ${strategy.rsi}
-				단기 MA: ${strategy.short_ma}
-				장기 MA: ${strategy.long_ma}
-				현재 거래량: ${strategy.current_volume}
-				평균 거래량: ${strategy.avg_volume}`,
+			`
+### [CANDLE-SAVE 상태 체크 🔍] 
+**현재 원화**: ${status.krwBalance}
+**현재 ${process.env.CRYPTO_CODE}**: ${status.cryptoBalance}
+${status.cryptoBalance > 0 && `**평균 매수 금액**: ${status.cryptoBuyPrice}`}
+${status.cryptoBalance > 0 && `**등락율**: ${fluctuationRate > 0 ? "🔼😊" : "🔽😢"} ${fluctuationRate}%`}
+${status.cryptoBalance > 0 && `**평가 금액**: ${status.cryptoEvalAmount}`}
+**거래 탐지 상태**: ${status.tradingStatus}
+**기준 시간**: ${strategy.hour_time}
+**RSI**: ${strategy.rsi}
+**단기 MA**: ${strategy.short_ma}
+**장기 MA**: ${strategy.long_ma}
+**현재 거래량**: ${strategy.current_volume}
+**평균 거래량**: ${strategy.avg_volume}`,
 		);
 	} catch (error) {
 		console.error(`[${new Date().toLocaleString()}] ⚠️ [CANDLE-SAVE] ${error}`);

@@ -39,6 +39,10 @@ async function setup() {
 			}
 		});
 
+		webhook.send(
+			"[ANALYZE] 🚀 자동매매 분석을 위한 ANALYZE 서비스를 시작합니다.",
+		);
+
 		// 연결 에러 핸들링 추가
 		client.on("error", async (err) => {
 			console.error(

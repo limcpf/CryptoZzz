@@ -37,6 +37,10 @@ async function setup() {
 			}
 		});
 
+		webhook.send(
+			"[TRADING] 🚀 자동매매 주문을 위한 TRADING 서비스를 시작합니다.",
+		);
+
 		// 연결 에러 핸들링 추가
 		client.on("error", async (err) => {
 			console.error(

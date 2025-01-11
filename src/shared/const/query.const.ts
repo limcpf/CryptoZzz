@@ -271,4 +271,7 @@ export const QUERIES = {
         ORDER BY sl.hour_time DESC
         LIMIT 1;
     `,
+	GET_CURRENT_PRICE: `
+        SELECT close_price FROM Market_Data WHERE symbol = 'KRW-BTC' ORDER BY timestamp DESC LIMIT 1;
+    `,
 };

@@ -10,6 +10,7 @@ interface iAccount {
 interface iAccountStatus {
 	krwBalance: number;
 	cryptoBalance: number;
+	cryptoBuyPrice: number;
 	cryptoEvalAmount: number;
 	tradingStatus: string;
 }

@@ -147,6 +147,7 @@ export class UpbitApi implements Api {
 		return {
 			krwBalance: Number(krwAccount?.balance || 0),
 			cryptoBalance: Number(cryptoAccount?.balance || 0),
+			cryptoBuyPrice: Number(cryptoAccount?.avg_buy_price || 0),
 			cryptoEvalAmount:
 				Number(cryptoAccount?.avg_buy_price || 0) *
 				Number(cryptoAccount?.balance || 0),

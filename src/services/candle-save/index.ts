@@ -38,6 +38,9 @@ async function setup() {
 		client = await pool.connect();
 		await client.query(QUERIES.INIT);
 
+		webhook.send("[CANDLE-SAVE] ⚠️ 구동 완동");
+		checkAndSendStatus();
+
 		// 연결 에러 핸들링 추가
 		client.on("error", async (err) => {
 			console.error(
@@ -178,7 +181,7 @@ async function checkAndSendStatus() {
 		const strategy = strategyQuery.rows[0];
 
 		webhook.send(
-			`[상태 체크 🔍]\n 
+			`[CANDLE-SAVE 상태 체크 🔍]\n 
 				현재 원화: ${status.krwBalance}\n
 				현재 ${process.env.CRYPTO_CODE}: ${status.cryptoBalance}\n
 				거래 탐지 상태: ${status.tradingStatus}\n
@@ -190,7 +193,8 @@ async function checkAndSendStatus() {
 				평균 거래량: ${strategy.avgVolume}`,
 		);
 	} catch (error) {
-		webhook.send("[상태 체크] ⚠️ 상태 조회 중 오류 발생");
+		console.error(`[${new Date().toLocaleString()}] ⚠️ [CANDLE-SAVE] ${error}`);
+		webhook.send("[CANDLE-SAVE 상태 체크 🔍] ⚠️ 상태 조회 중 오류 발생");
 	}
 }
 

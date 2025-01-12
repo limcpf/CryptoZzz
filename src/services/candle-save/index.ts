@@ -200,8 +200,9 @@ async function checkAndSendStatus() {
 **현재 원화**: ${status.krwBalance}
 **현재 ${process.env.CRYPTO_CODE}**: ${status.cryptoBalance}
 ${status.cryptoBalance > 0 && `**평균 매수 금액**: ${status.cryptoBuyPrice}`}
+${status.cryptoBalance > 0 && `**총 매수 금액**: ${status.cryptoEvalAmount}`}
+${status.cryptoBalance > 0 && `**현재 평가 금액**: ${status.cryptoBalance * close_price}`}
 ${status.cryptoBalance > 0 && `**등락율**: ${fluctuationRate > 0 ? "🔼😊" : "🔽😢"} ${fluctuationRate}%`}
-${status.cryptoBalance > 0 && `**평가 금액**: ${status.cryptoEvalAmount}`}
 **거래 탐지 상태**: ${status.tradingStatus}
 **기준 시간**: ${strategy.hour_time}
 **RSI**: ${strategy.rsi}

@@ -12,6 +12,13 @@ export interface MSG {
 	ANALYZE_API_ERROR: string;
 	INVALID_STRATEGY_ERROR: string;
 	ORDER_API_ERROR: string;
+	RECONNECT_ATTEMPTS: string;
+	RECONNECT_ERROR: string;
+	ANALYZE_START: string;
+	DB_CONNECTION_ERROR: string;
+	INIT_SETUP_ERROR: string;
+	UNEXPECTED_ERROR: string;
+	SERVICE_SHUTDOWN: string;
 }
 
 export const getMsg = (language: string) => {

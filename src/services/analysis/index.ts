@@ -1,3 +1,4 @@
+import { sleepSync } from "bun";
 import type { PoolClient } from "pg";
 import { v4 as uuidv4 } from "uuid";
 import {
@@ -6,6 +7,7 @@ import {
 	notify,
 	setupPubSub,
 } from "../../shared/config/database";
+import logger from "../../shared/config/logger";
 import { CHANNEL } from "../../shared/const/channel.const";
 import webhook from "../../shared/services/webhook";
 import { Signal } from "../../strategy/iStrategy";
@@ -16,6 +18,7 @@ export const developmentLog =
 	process.env.NODE_ENV === "development" ? console.log : () => {};
 
 let isRunning = false;
+const loggerPrefix = "[ANALYZE]";
 
 /**
  * @name pool
@@ -39,22 +42,15 @@ async function setup() {
 			}
 		});
 
-		webhook.send(
-			"[ANALYZE] 🚀 자동매매 분석을 위한 ANALYZE 서비스를 시작합니다.",
-		);
+		logger.warn("ANALYZE_START", loggerPrefix);
 
 		// 연결 에러 핸들링 추가
 		client.on("error", async (err) => {
-			console.error(
-				`[${new Date().toLocaleString()}] [ANALYZE] ⚠️ 데이터베이스 연결 에러: ${err}`,
-			);
-			webhook.send("[ANALYZE] ⚠️ DB 연결 에러 발생");
+			logger.error("DB_CONNECTION_ERROR", loggerPrefix);
 			await reconnect();
 		});
 	} catch (error) {
-		console.error(
-			`[${new Date().toLocaleString()}] [ANALYZE] ⚠️ 초기 설정 중 에러: ${error}`,
-		);
+		logger.error("INIT_SETUP_ERROR", loggerPrefix);
 		await reconnect();
 	}
 }
@@ -62,20 +58,17 @@ async function setup() {
 async function reconnect() {
 	try {
 		if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-			console.error(
-				`[${new Date().toLocaleString()}] [ANALYZE] ⚠️ 최대 재연결 시도 횟수(${MAX_RECONNECT_ATTEMPTS}회) 초과`,
-			);
-			webhook.send(
-				`[ANALYZE] ⚠️ DB 연결 실패 - ${MAX_RECONNECT_ATTEMPTS}회 재시도 후 서비스를 종료합니다.`,
+			logger.error(
+				"DB_CONNECTION_ERROR",
+				loggerPrefix,
+				`최대 재연결 시도 횟수(${MAX_RECONNECT_ATTEMPTS}회) 초과`,
 			);
 			await handleGracefulShutdown();
 			return;
 		}
 
 		reconnectAttempts++;
-		console.log(
-			`[${new Date().toLocaleString()}] [ANALYZE] 🔄 DB 재연결 시도 ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}`,
-		);
+		logger.info("RECONNECT_ATTEMPTS", loggerPrefix);
 
 		if (client) {
 			await client.release();
@@ -85,10 +78,8 @@ async function reconnect() {
 		// 연결 성공시 재시도 카운트 초기화
 		reconnectAttempts = 0;
 	} catch (error) {
-		console.error(
-			`[${new Date().toLocaleString()}] [ANALYZE] ⚠️ 재연결 중 에러: ${error}`,
-		);
-		setTimeout(reconnect, 5000);
+		logger.error("RECONNECT_ERROR", loggerPrefix);
+		sleepSync(5000);
 	}
 }
 
@@ -103,8 +94,12 @@ async function main() {
 				notify(pool, CHANNEL.TRADING_CHANNEL, "SELL");
 			}
 		}
-	} catch (error) {
-		console.error(`[${new Date().toLocaleString()}] ⚠️ ${error}`);
+	} catch (error: unknown) {
+		if (error instanceof Error) {
+			logger.error("UNEXPECTED_ERROR", loggerPrefix, error.message);
+		} else {
+			logger.error("UNEXPECTED_ERROR", loggerPrefix);
+		}
 	} finally {
 		isRunning = false;
 	}
@@ -115,19 +110,29 @@ await setup();
 process.stdin.resume();
 
 process.on("uncaughtException", (error) => {
-	const uuid = uuidv4();
-	console.error(
-		`[${new Date().toLocaleString()}] [ANALYZE] ${uuid} : ${error}`,
+	logger.error(
+		"UNEXPECTED_ERROR",
+		`${loggerPrefix} ${uuidv4()}`,
+		error.message,
 	);
-	webhook.send(`[ANALYZE] ⚠️ 예상치 못한 에러 발생 : ${uuid}`);
 });
 
 process.on("unhandledRejection", (reason, promise) => {
-	const uuid = uuidv4();
-	console.error(
-		`[${new Date().toLocaleString()}] [ANALYZE] ${uuid} : ${reason}`,
-	);
-	webhook.send(`[ANALYZE] ⚠️ 처리되지 않은 Promise 거부 발생 : ${uuid}`);
+	if (reason instanceof Error) {
+		logger.error(
+			"UNEXPECTED_ERROR",
+			`${loggerPrefix} ${uuidv4()}`,
+			reason.message,
+		);
+	} else if (typeof reason === "string") {
+		logger.error("UNEXPECTED_ERROR", `${loggerPrefix} ${uuidv4()}`, reason);
+	} else {
+		logger.error(
+			"UNEXPECTED_ERROR",
+			`${loggerPrefix} ${uuidv4()}`,
+			"unhandledRejection",
+		);
+	}
 });
 
 /**
@@ -135,10 +140,12 @@ process.on("unhandledRejection", (reason, promise) => {
  * @description 프로세스 종료 처리를 위한 공통 함수
  */
 async function handleGracefulShutdown() {
-	webhook.send("[ANALYZE] 🛑 서비스 종료 신호 수신");
+	logger.warn("SERVICE_SHUTDOWN", loggerPrefix);
+
 	if (client) {
 		await client.release();
 	}
+
 	await pool.end();
 	process.exit(0);
 }

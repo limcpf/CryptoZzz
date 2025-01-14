@@ -18,6 +18,9 @@ const messages: MSG = {
 	INIT_SETUP_ERROR: "⚠️ Error during initial setup",
 	UNEXPECTED_ERROR: "⚠️ Unexpected error occurred",
 	SERVICE_SHUTDOWN: "🛑 Service shutdown signal received",
+	CANDLE_SAVE_START: "🚀 Start CANDLE-SAVE service for automatic trading",
+	FETCH_CANDLE_DATA_ERROR: "⚠️ Failed to fetch candle chart data",
+	CHECK_STATUS_ERROR: "⚠️ Error occurred while checking status",
 } as const;
 
 export default messages;

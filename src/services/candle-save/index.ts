@@ -1,7 +1,9 @@
+import { sleepSync } from "bun";
 import cron from "node-cron";
 import type { PoolClient } from "pg";
 import { v4 as uuidv4 } from "uuid";
 import { createPool, notify } from "../../shared/config/database";
+import logger from "../../shared/config/logger";
 import { CHANNEL } from "../../shared/const/channel.const";
 import { QUERIES } from "../../shared/const/query.const";
 import type { iCandle } from "../../shared/interfaces/iCandle";
@@ -28,6 +30,8 @@ let reconnectAttempts = 0;
  */
 let IS_CANDLE_ERROR_SENT = false;
 
+const loggerPrefix = `CANDLE-SAVE_${process.env.CRYPTO_CODE}`;
+
 /**
  * @name setup
  * @description Setup
@@ -38,23 +42,21 @@ async function setup() {
 		client = await pool.connect();
 		await client.query(QUERIES.INIT);
 
-		webhook.send(
-			"[CANDLE-SAVE] 🚀 자동매매를 위한 CANDLE-SAVE 서비스를 시작합니다.",
-		);
+		logger.warn("CANDLE_SAVE_START", loggerPrefix);
+
 		checkAndSendStatus();
 
 		// 연결 에러 핸들링 추가
 		client.on("error", async (err) => {
-			console.error(
-				`[${new Date().toLocaleString()}] [CANDLE-SAVE] ⚠️ 데이터베이스 연결 에러: ${err}`,
-			);
-			webhook.send("[CANDLE-SAVE] ⚠️ DB 연결 에러 발생");
+			logger.error("DB_CONNECTION_ERROR", loggerPrefix, err.message);
 			await reconnect();
 		});
 	} catch (error) {
-		console.error(
-			`[${new Date().toLocaleString()}] [CANDLE-SAVE] ⚠️ 초기 설정 중 에러: ${error}`,
-		);
+		if (error instanceof Error) {
+			logger.error("INIT_SETUP_ERROR", loggerPrefix, error.message);
+		} else {
+			logger.error("INIT_SETUP_ERROR", loggerPrefix);
+		}
 		await reconnect();
 	}
 }
@@ -62,20 +64,13 @@ async function setup() {
 async function reconnect() {
 	try {
 		if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-			console.error(
-				`[${new Date().toLocaleString()}] [CANDLE-SAVE] ⚠️ 최대 재연결 시도 횟수(${MAX_RECONNECT_ATTEMPTS}회) 초과`,
-			);
-			webhook.send(
-				`[CANDLE-SAVE] ⚠️ DB 연결 실패 - ${MAX_RECONNECT_ATTEMPTS}회 재시도 후 서비스를 종료합니다.`,
-			);
+			logger.error("RECONNECT_ERROR", loggerPrefix);
 			await handleGracefulShutdown();
 			return;
 		}
 
 		reconnectAttempts++;
-		console.log(
-			`[${new Date().toLocaleString()}] [CANDLE-SAVE] 🔄 DB 재연결 시도 ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}`,
-		);
+		logger.info("RECONNECT_ATTEMPTS", loggerPrefix);
 
 		if (client) {
 			await client.release();
@@ -84,10 +79,8 @@ async function reconnect() {
 
 		reconnectAttempts = 0;
 	} catch (error) {
-		console.error(
-			`[${new Date().toLocaleString()}] [CANDLE-SAVE] ⚠️ 재연결 중 에러: ${error}`,
-		);
-		setTimeout(reconnect, 5000);
+		logger.error("RECONNECT_ERROR", loggerPrefix);
+		sleepSync(5000);
 	}
 }
 
@@ -97,9 +90,16 @@ async function reconnect() {
  * @param count 가져올 캔들의 수
  */
 async function fetchAndSaveCandles(count = 3) {
-	const data = await API.GET_CANDLE_DATA(process.env.CRYPTO_CODE || "", count);
+	try {
+		const data = await API.GET_CANDLE_DATA(
+			process.env.CRYPTO_CODE || "",
+			count,
+		);
 
-	await saveCandleData(data);
+		await saveCandleData(data);
+	} catch (error) {
+		logger.error("FETCH_CANDLE_DATA_ERROR", loggerPrefix);
+	}
 }
 
 /**
@@ -124,11 +124,7 @@ async function saveCandleData(data: iCandle[]) {
 		);
 
 		if (process.env.NODE_ENV === "development") {
-			console.log(
-				`[${new Date().toLocaleString()}] [CANDLE-SAVE] ${i18n.getMessage(
-					"CANDLE_SAVE_NORMAL_COLLECTING",
-				)}`,
-			);
+			logger.info("CANDLE_SAVE_NORMAL_COLLECTING", loggerPrefix);
 		}
 
 		notify(pool, CHANNEL.ANALYZE_CHANNEL);
@@ -146,7 +142,7 @@ async function saveCandleData(data: iCandle[]) {
  * @description 프로세스 종료 처리를 위한 공통 함수
  */
 async function handleGracefulShutdown() {
-	webhook.send("[CANDLE-SAVE] 🛑 서비스 종료 신호 수신");
+	webhook.send(i18n.getMessage("SERVICE_SHUTDOWN"));
 	await pool.end();
 	process.exit(0);
 }
@@ -160,18 +156,12 @@ cron.schedule("*/3 * * * * *", async () => {
 		if (!IS_CANDLE_ERROR_SENT) {
 			IS_CANDLE_ERROR_SENT = true;
 			if (error instanceof Error) {
-				webhook.send(`[CANDLE-SAVE] ${error.message}`);
+				logger.error("CANDLE_SAVE_API_ERROR", loggerPrefix, error.message);
 			} else {
-				webhook.send(
-					`[CANDLE-SAVE] ${i18n.getMessage("CANDLE_SAVE_API_ERROR")}`,
-				);
+				logger.error("CANDLE_SAVE_API_ERROR", loggerPrefix);
 			}
 		}
 	}
-});
-
-cron.schedule("0 0 8-21 * * *", () => {
-	webhook.send(i18n.getMessage("CHECK_MESSAGE"));
 });
 
 async function checkAndSendStatus() {
@@ -194,15 +184,20 @@ async function checkAndSendStatus() {
 			).toFixed(2),
 		);
 
+		let additionalInfo = "";
+		if (status.cryptoBalance > 0) {
+			additionalInfo = `
+**평균 매� 금액**: ${status.cryptoBuyPrice}
+**총 매수 금액**: ${status.cryptoEvalAmount}
+**현재 평가 금액**: ${status.cryptoBalance * close_price}
+**등락율**: ${fluctuationRate > 0 ? "🔼😊" : "🔽😢"} ${fluctuationRate}%`;
+		}
+
 		webhook.send(
 			`
 ### [CANDLE-SAVE 상태 체크 🔍] 
 **현재 원화**: ${status.krwBalance}
-**현재 ${process.env.CRYPTO_CODE}**: ${status.cryptoBalance}
-${status.cryptoBalance > 0 && `**평균 매수 금액**: ${status.cryptoBuyPrice}`}
-${status.cryptoBalance > 0 && `**총 매수 금액**: ${status.cryptoEvalAmount}`}
-${status.cryptoBalance > 0 && `**현재 평가 금액**: ${status.cryptoBalance * close_price}`}
-${status.cryptoBalance > 0 && `**등락율**: ${fluctuationRate > 0 ? "🔼😊" : "🔽😢"} ${fluctuationRate}%`}
+**현재 ${process.env.CRYPTO_CODE}**: ${status.cryptoBalance}${additionalInfo}
 **거래 탐지 상태**: ${status.tradingStatus}
 **기준 시간**: ${strategy.hour_time}
 **RSI**: ${strategy.rsi}
@@ -212,8 +207,7 @@ ${status.cryptoBalance > 0 && `**등락율**: ${fluctuationRate > 0 ? "🔼😊"
 **평균 거래량**: ${strategy.avg_volume}`,
 		);
 	} catch (error) {
-		console.error(`[${new Date().toLocaleString()}] ⚠️ [CANDLE-SAVE] ${error}`);
-		webhook.send("[CANDLE-SAVE 상태 체크 🔍] ⚠️ 상태 조회 중 오류 발생");
+		logger.error("CHECK_STATUS_ERROR", loggerPrefix);
 	}
 }
 
@@ -230,15 +224,29 @@ cron.schedule(process.env.CANDLE_SAVE_INTERVAL || "0 */5 * * * *", () => {
 process.stdin.resume();
 
 process.on("uncaughtException", (error) => {
-	const uuid = uuidv4();
-	console.error(`[${new Date().toLocaleString()}] ⚠️ ${uuid} ${error}`);
-	webhook.send(`[CANDLE-SAVE] ⚠️ 예상치 못한 에러 발생 : ${uuid}`);
+	logger.error(
+		"UNEXPECTED_ERROR",
+		`${loggerPrefix} ${uuidv4()}`,
+		error.message,
+	);
 });
 
 process.on("unhandledRejection", (reason, promise) => {
-	const uuid = uuidv4();
-	console.error(`[${new Date().toLocaleString()}] ⚠️ ${uuid} ${reason}`);
-	webhook.send(`[CANDLE-SAVE] ⚠️ 처리되지 않은 Promise 거부 발생 : ${uuid}`);
+	if (reason instanceof Error) {
+		logger.error(
+			"UNEXPECTED_ERROR",
+			`${loggerPrefix} ${uuidv4()}`,
+			reason.message,
+		);
+	} else if (typeof reason === "string") {
+		logger.error("UNEXPECTED_ERROR", `${loggerPrefix} ${uuidv4()}`, reason);
+	} else {
+		logger.error(
+			"UNEXPECTED_ERROR",
+			`${loggerPrefix} ${uuidv4()}`,
+			"unhandledRejection",
+		);
+	}
 });
 
 // SIGINT (Ctrl+C)와 SIGTERM 모두 동일한 종료 처리

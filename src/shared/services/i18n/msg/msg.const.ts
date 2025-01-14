@@ -15,10 +15,13 @@ export interface MSG {
 	RECONNECT_ATTEMPTS: string;
 	RECONNECT_ERROR: string;
 	ANALYZE_START: string;
+	CANDLE_SAVE_START: string;
 	DB_CONNECTION_ERROR: string;
 	INIT_SETUP_ERROR: string;
 	UNEXPECTED_ERROR: string;
 	SERVICE_SHUTDOWN: string;
+	FETCH_CANDLE_DATA_ERROR: string;
+	CHECK_STATUS_ERROR: string;
 }
 
 export const getMsg = (language: string) => {

@@ -256,20 +256,26 @@ export const QUERIES = {
         RETURNING id, quantity, buy_price, sell_price;
     `,
 	GET_LATEST_STRATEGY: `
-        SELECT 
-            sl.id,
-            sl.hour_time,
-            rs.rsi,
-            ms.short_ma,
-            ms.long_ma,
-            vs.current_volume,
-            vs.avg_volume
-        FROM SignalLog sl
-        LEFT JOIN RsiSignal rs ON sl.id = rs.signal_id
-        LEFT JOIN MaSignal ms ON sl.id = ms.signal_id
-        LEFT JOIN VolumeSignal vs ON sl.id = vs.signal_id
-        ORDER BY sl.hour_time DESC
-        LIMIT 1;
+SELECT 
+    sl.id,
+    sl.hour_time,
+    rs.rsi,
+    ms.short_ma,
+    ms.long_ma,
+    vs.current_volume,
+    vs.avg_volume
+FROM SignalLog sl
+LEFT JOIN RsiSignal rs ON sl.id = rs.signal_id
+LEFT JOIN MaSignal ms ON sl.id = ms.signal_id
+LEFT JOIN VolumeSignal vs ON sl.id = vs.signal_id
+WHERE 
+    rs.rsi IS NOT NULL AND 
+    ms.short_ma IS NOT NULL AND 
+    ms.long_ma IS NOT NULL AND 
+    vs.current_volume IS NOT NULL AND 
+    vs.avg_volume IS NOT NULL
+ORDER BY sl.hour_time DESC
+LIMIT 1;
     `,
 	GET_CURRENT_PRICE: `
         SELECT close_price FROM Market_Data WHERE symbol = 'KRW-BTC' ORDER BY timestamp DESC LIMIT 1;

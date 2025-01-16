@@ -22,6 +22,11 @@ export interface MSG {
 	SERVICE_SHUTDOWN: string;
 	FETCH_CANDLE_DATA_ERROR: string;
 	CHECK_STATUS_ERROR: string;
+	TRADING_SERVICE_START: string;
+	BUY_SIGNAL_ERROR: string;
+	SELL_SIGNAL_ERROR: string;
+	BUY_SIGNAL_SUCCESS: string;
+	SELL_SIGNAL_SUCCESS: string;
 }
 
 export const getMsg = (language: string) => {

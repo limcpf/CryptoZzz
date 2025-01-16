@@ -21,6 +21,11 @@ const messages: MSG = {
 	CANDLE_SAVE_START: "🚀 Start CANDLE-SAVE service for automatic trading",
 	FETCH_CANDLE_DATA_ERROR: "⚠️ Failed to fetch candle chart data",
 	CHECK_STATUS_ERROR: "⚠️ Error occurred while checking status",
+	TRADING_SERVICE_START: "🚀 Start TRADING service for automatic trading",
+	BUY_SIGNAL_ERROR: "⚠️ Insufficient KRW balance for buying",
+	SELL_SIGNAL_ERROR: "⚠️ Insufficient BTC balance for selling",
+	BUY_SIGNAL_SUCCESS: "✅ Buy order executed: ",
+	SELL_SIGNAL_SUCCESS: "✅ Sell order executed: ",
 } as const;
 
 export default messages;

@@ -1,3 +1,4 @@
+import { sleepSync } from "bun";
 import type { PoolClient } from "pg";
 import { v4 as uuidv4 } from "uuid";
 import {
@@ -5,6 +6,7 @@ import {
 	handleNotifications,
 	setupPubSub,
 } from "../../shared/config/database";
+import logger from "../../shared/config/logger";
 import { CHANNEL } from "../../shared/const/channel.const";
 import { QUERIES } from "../../shared/const/query.const";
 import API from "../../shared/services/api";
@@ -24,6 +26,7 @@ let client: PoolClient;
 
 const MAX_RECONNECT_ATTEMPTS = 5;
 let reconnectAttempts = 0;
+const loggerPrefix = "TRADING";
 
 async function setup() {
 	try {
@@ -37,22 +40,15 @@ async function setup() {
 			}
 		});
 
-		webhook.send(
-			"[TRADING] 🚀 자동매매 주문을 위한 TRADING 서비스를 시작합니다.",
-		);
+		logger.warn("TRADING_SERVICE_START", loggerPrefix);
 
 		// 연결 에러 핸들링 추가
 		client.on("error", async (err) => {
-			console.error(
-				`[${new Date().toLocaleString()}] [TRADING] ⚠️ 데이터베이스 연결 에러: ${err}`,
-			);
-			webhook.send("[TRADING] ⚠️ DB 연결 에러 발생");
+			logger.error("DB_CONNECTION_ERROR", loggerPrefix);
 			await reconnect();
 		});
 	} catch (error) {
-		console.error(
-			`[${new Date().toLocaleString()}] [TRADING] ⚠️ 초기 설정 중 에러: ${error}`,
-		);
+		logger.error("INIT_SETUP_ERROR", loggerPrefix);
 		await reconnect();
 	}
 }
@@ -60,32 +56,28 @@ async function setup() {
 async function reconnect() {
 	try {
 		if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-			console.error(
-				`[${new Date().toLocaleString()}] [TRADING] ⚠️ 최대 재연결 시도 횟수(${MAX_RECONNECT_ATTEMPTS}회) 초과`,
-			);
-			webhook.send(
-				`[TRADING] ⚠️ DB 연결 실패 - ${MAX_RECONNECT_ATTEMPTS}회 재시도 후 서비스를 종료합니다.`,
+			logger.error(
+				"DB_CONNECTION_ERROR",
+				loggerPrefix,
+				`최대 재연결 시도 횟수(${MAX_RECONNECT_ATTEMPTS}회) 초과`,
 			);
 			await handleGracefulShutdown();
 			return;
 		}
 
 		reconnectAttempts++;
-		console.log(
-			`[${new Date().toLocaleString()}] [TRADING] 🔄 DB 재연결 시도 ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}`,
-		);
+		logger.info("RECONNECT_ATTEMPTS", loggerPrefix);
 
 		if (client) {
 			await client.release();
 		}
 		await setup();
 
+		// 연결 성공시 재시도 카운트 초기화
 		reconnectAttempts = 0;
 	} catch (error) {
-		console.error(
-			`[${new Date().toLocaleString()}] [TRADING] ⚠️ 재연결 중 에러: ${error}`,
-		);
-		setTimeout(reconnect, 5000);
+		logger.error("RECONNECT_ERROR", loggerPrefix);
+		sleepSync(5000);
 	}
 }
 
@@ -102,7 +94,7 @@ async function executeOrder(signal: string) {
 	if (signal === "BUY" && krwAccount) {
 		const availableKRW = Number(krwAccount.balance);
 		if (availableKRW < 10000) {
-			webhook.send("⚠️ 매수 가능한 KRW 잔액이 부족합니다.");
+			logger.error("BUY_SIGNAL_ERROR", loggerPrefix);
 			return;
 		}
 
@@ -124,10 +116,11 @@ async function executeOrder(signal: string) {
 			developmentLog(
 				`[${new Date().toLocaleString()}] [TRADING] 매수 주문 실행: ${availableKRW}KRW`,
 			);
-			webhook.send(`✅ 매수 주문 실행: ${availableKRW}KRW`);
+
+			logger.info("BUY_SIGNAL_SUCCESS", loggerPrefix);
 		} catch (error) {
 			if (error instanceof Error) {
-				webhook.send(`⚠️ 매수 주문 실패: ${error.message}`);
+				logger.error("BUY_SIGNAL_ERROR", loggerPrefix);
 			}
 		} finally {
 			isRunning = false;
@@ -135,12 +128,11 @@ async function executeOrder(signal: string) {
 	} else if (signal === "SELL" && btcAccount) {
 		const availableBTC = Number(btcAccount.balance);
 		if (availableBTC < 0.00001) {
-			webhook.send("⚠️ 매도 가능한 BTC 잔액이 부족합니다.");
+			logger.error("SELL_SIGNAL_ERROR", loggerPrefix);
 			return;
 		}
 
 		try {
-			// TODO: 실제 거래소 API를 통한 시장가 매도 주문 실행
 			const order = await API.ORDER(
 				"KRW-BTC",
 				"ask",
@@ -175,10 +167,11 @@ async function executeOrder(signal: string) {
 			developmentLog(
 				`[${new Date().toLocaleString()}] [TRADING] 매도 주문 실행: ${availableBTC}BTC`,
 			);
-			webhook.send(`✅ 매도 주문 실행: ${availableBTC}BTC`);
+
+			logger.info("SELL_SIGNAL_SUCCESS", loggerPrefix);
 		} catch (error) {
 			if (error instanceof Error) {
-				webhook.send(`⚠️ 매도 주문 실패: ${error.message}`);
+				logger.error("SELL_SIGNAL_ERROR", loggerPrefix);
 			}
 		} finally {
 			isRunning = false;
@@ -191,15 +184,29 @@ await setup();
 process.stdin.resume();
 
 process.on("uncaughtException", (error) => {
-	const uuid = uuidv4();
-	console.error(`[${new Date().toLocaleString()}] ⚠️ ${uuid} ${error}`);
-	webhook.send(` [TRADING] ⚠️ 예상치 못한 에러 발생 : ${uuid}`);
+	logger.error(
+		"UNEXPECTED_ERROR",
+		`${loggerPrefix} ${uuidv4()}`,
+		error.message,
+	);
 });
 
 process.on("unhandledRejection", (reason, promise) => {
-	const uuid = uuidv4();
-	console.error(`[${new Date().toLocaleString()}] ⚠️ ${uuid} ${reason}`);
-	webhook.send(`[TRADING] ⚠️ 처리되지 않은 Promise 거부 발생 : ${uuid}`);
+	if (reason instanceof Error) {
+		logger.error(
+			"UNEXPECTED_ERROR",
+			`${loggerPrefix} ${uuidv4()}`,
+			reason.message,
+		);
+	} else if (typeof reason === "string") {
+		logger.error("UNEXPECTED_ERROR", `${loggerPrefix} ${uuidv4()}`, reason);
+	} else {
+		logger.error(
+			"UNEXPECTED_ERROR",
+			`${loggerPrefix} ${uuidv4()}`,
+			"unhandledRejection",
+		);
+	}
 });
 
 /**
@@ -207,7 +214,12 @@ process.on("unhandledRejection", (reason, promise) => {
  * @description 프로세스 종료 처리를 위한 공통 함수
  */
 async function handleGracefulShutdown() {
-	webhook.send("[TRADING] 🛑 서비스 종료 신호 수신");
+	logger.warn("SERVICE_SHUTDOWN", loggerPrefix);
+
+	if (client) {
+		await client.release();
+	}
+
 	await pool.end();
 	process.exit(0);
 }

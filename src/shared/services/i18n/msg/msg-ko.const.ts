@@ -22,6 +22,11 @@ const messages: MSG = {
 	SERVICE_SHUTDOWN: "🛑 서비스 종료 신호 수신",
 	FETCH_CANDLE_DATA_ERROR: "⚠️ 캔들 차트 데이터 수집 실패",
 	CHECK_STATUS_ERROR: "⚠️ 상태 조회 중 오류 발생",
+	TRADING_SERVICE_START: "🚀 자동매매 주문을 위한 TRADING 서비스를 시작합니다.",
+	BUY_SIGNAL_ERROR: "⚠️ 매수 가능한 KRW 잔액이 부족합니다.",
+	SELL_SIGNAL_ERROR: "⚠️ 매도 가능한 BTC 잔액이 부족합니다.",
+	BUY_SIGNAL_SUCCESS: "✅ 매수 주문 실행: ",
+	SELL_SIGNAL_SUCCESS: "✅ 매도 주문 실행: ",
 } as const;
 
 export default messages;

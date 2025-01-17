@@ -187,7 +187,7 @@ async function checkAndSendStatus() {
 		let additionalInfo = "";
 		if (status.cryptoBalance > 0) {
 			additionalInfo = `
-**평균 매� 금액**: ${status.cryptoBuyPrice}
+**평균 매수 금액**: ${status.cryptoBuyPrice}
 **총 매수 금액**: ${status.cryptoEvalAmount}
 **현재 평가 금액**: ${status.cryptoBalance * close_price}
 **등락율**: ${fluctuationRate > 0 ? "🔼😊" : "🔽😢"} ${fluctuationRate}%`;

@@ -42,7 +42,6 @@ async function setup() {
 
 		logger.warn("TRADING_SERVICE_START", loggerPrefix);
 
-		// 연결 에러 핸들링 추가
 		client.on("error", async (err) => {
 			logger.error("DB_CONNECTION_ERROR", loggerPrefix);
 			await reconnect();
@@ -73,7 +72,6 @@ async function reconnect() {
 		}
 		await setup();
 
-		// 연결 성공시 재시도 카운트 초기화
 		reconnectAttempts = 0;
 	} catch (error) {
 		logger.error("RECONNECT_ERROR", loggerPrefix);
@@ -107,7 +105,6 @@ async function executeOrder(signal: string) {
 				"price",
 			);
 
-			// 주문 정보 데이터베이스에 저장
 			const insertResult = await client.query<{ id: string }>(
 				QUERIES.INSERT_ORDER,
 				[order.market, order.price, order.volume, "BUY"],
@@ -143,7 +140,6 @@ async function executeOrder(signal: string) {
 
 			const uuid = order.uuid;
 
-			// 주문 정보 데이터베이스에 저장
 			const result = await client.query(QUERIES.UPDATE_ORDER, [
 				uuid,
 				order.price,
@@ -224,6 +220,5 @@ async function handleGracefulShutdown() {
 	process.exit(0);
 }
 
-// SIGINT (Ctrl+C)와 SIGTERM 모두 동일한 종료 처리
 process.on("SIGINT", handleGracefulShutdown);
 process.on("SIGTERM", handleGracefulShutdown);

@@ -5,11 +5,10 @@ import { Signal } from "../../../strategy/iStrategy";
 import { StrategyFactory } from "../../../strategy/strategy.factory";
 import { developmentLog } from "../index";
 
-const TAKE_PROFIT = Number(process.env.TAKE_PROFIT) || 5; // 익절 기준: 5% 이상 수익
-const STOP_LOSS = Number(process.env.STOP_LOSS) || -3; // 손절 기준: -3% 이하 손실
+const TAKE_PROFIT = Number(process.env.TAKE_PROFIT) || 3;
+const STOP_LOSS = Number(process.env.STOP_LOSS) || -2;
 
 export async function executeSellSignal(pool: Pool): Promise<Signal> {
-	// 현재 BTC 가격 조회
 	const currentPrices = await API.GET_CANDLE_DATA("KRW-BTC", 1);
 
 	if (currentPrices.length === 0) {
@@ -18,7 +17,6 @@ export async function executeSellSignal(pool: Pool): Promise<Signal> {
 
 	const currentPrice = currentPrices[0];
 
-	// 보유 중인 BTC의 평균 매수가 조회
 	const account = await API.GET_ACCOUNT();
 	const btcAccount = account.find((acc) => acc.currency === "BTC");
 
@@ -32,7 +30,6 @@ export async function executeSellSignal(pool: Pool): Promise<Signal> {
 	const avgBuyPrice = Number(btcAccount.avg_buy_price);
 	const currentPriceNum = Number(currentPrice.trade_price);
 
-	// 수익률 계산 (%)
 	const profitRate = ((currentPriceNum - avgBuyPrice) / avgBuyPrice) * 100;
 
 	developmentLog(

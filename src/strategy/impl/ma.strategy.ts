@@ -40,7 +40,6 @@ export class MaStrategy implements iStrategy {
 
 		this.saveResult(uuid, { short_ma, long_ma });
 
-		// 단기 이동평균이 장기 이동평균을 상향 돌파
 		if (short_ma > long_ma) {
 			developmentLog(
 				`[${new Date().toLocaleString()}] [MA-STRATEGY] 매수 신호 발생`,
@@ -48,7 +47,6 @@ export class MaStrategy implements iStrategy {
 			return Signal.BUY;
 		}
 
-		// 단기 이동평균이 장기 이동평균을 하향 돌파
 		if (short_ma < long_ma) {
 			developmentLog(
 				`[${new Date().toLocaleString()}] [MA-STRATEGY] 매도 신호 발생`,

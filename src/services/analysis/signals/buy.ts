@@ -5,7 +5,6 @@ import { StrategyFactory } from "../../../strategy/strategy.factory";
 import { developmentLog } from "../index";
 
 export async function executeBuySignal(pool: Pool): Promise<Signal> {
-	// 부모 신호 로그 생성
 	const buyParent = await pool.query<{ id: string }>(
 		QUERIES.INSERT_SIGNAL_LOG,
 		["KRW-BTC", new Date()],
@@ -28,7 +27,6 @@ export async function executeBuySignal(pool: Pool): Promise<Signal> {
 
 	if (strategies.length === 0) return Signal.HOLD;
 
-	// 모든 전략을 병렬로 실행
 	const signals = await Promise.all(
 		strategies.map(async (strategy) => {
 			const factory = new StrategyFactory(pool);

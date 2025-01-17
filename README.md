@@ -1,17 +1,32 @@
 # Money - Cryptocurrency Automatic Trading System
 
-*Read in another language: [English] (README.md )*
+*Read in another language: [한국어](README.ko.md)*
 
 ## Introduction
-This project is a cryptocurrency automatic trading system based on TypeScript and Bun runtime. It manages multiple microservices using PM2, using PostgreSQL as its database. It collects real-time market data and analyzes various technical indicators to automatically execute transactions.
+This project is a cryptocurrency automatic trading system based on TypeScript and Bun runtime. It efficiently stores and manages time series data using PostgreSQL and TimescaleDB. It collects real-time market data and analyzes various technical indicators to automatically execute trades.
 
 ## Key Features
-- **Real-time data collection**: Real-time market data collection at 3-second intervals via Upbit API
-- **Technical analysis**: RSI, moving average (MA), trading volume analysis to generate trading signals
-- **Automatic trading **: Automatic trading system based on analysis results
-- **Real-time monitoring**: Notifications of transactions and system status through Discord
-- **Multi-strategic support**: generates reliable trading signals through a combination of multiple trading strategies
-- **Failure recovery system**: Process management and automatic restart with PM2
+- **Real-time data collection**: Collects 3 one-second candles every 3 seconds via Upbit API
+- **Extensible Technical Analysis**: Flexible analysis system using strategy and factory patterns
+   - Built-in strategies: RSI, Moving Average (MA), Volume Analysis
+   - Easy addition of custom strategies
+   - Generate trading signals through strategy combinations
+      1. Create a new strategy class implementing the `src/strategy/iStrategy.ts` interface
+      2. Add new strategy file to `src/strategy/impl/` directory
+      3. Register new strategy in `StrategyName` enum and `createStrategy` method in `src/strategy/strategy.factory.ts`
+      4. Add new strategy name to `STRATEGIES` environment variable
+- **Automatic Trading**: Automated trading system based on analysis results
+- **Real-time Monitoring**: Trade and system status notifications via Discord
+   - Support for various messenger platforms through webhook factory pattern
+      1. Create new webhook class implementing `src/shared/services/webhook/iWebhook.ts` interface
+      2. Add new webhook implementation to `src/shared/services/webhook/impl/` directory
+      3. Add new webhook type to `src/shared/services/webhook/webhook.enum.ts`
+      4. Register new webhook in factory method in `src/shared/services/webhook/webhook.factory.ts`
+      5. Set new webhook type in `WEBHOOK_TYPE` environment variable
+      6. Set new webhook URL in `WEBHOOK_URL` environment variable
+- **Multi-strategy Support**: Generate reliable trading signals through combination of multiple trading strategies
+- **Failure Recovery System**: Process management and automatic restart through PM2
+- **Extensible Exchange Support**: Support for multiple exchanges possible
 
 ## System Architecture
 
@@ -44,30 +59,31 @@ This project is a cryptocurrency automatic trading system based on TypeScript an
 
 ### Technical Analysis Strategy
 
-1. **RSI (Relative Strength Index) 전략**
-   - Analysis of Overbuying/Overbuying Section
-   - RSI <30: Buy sign
-   - RSI > 70: Signs to sell
-   - Calculate RSI on a 14-hour basis
+1. **RSI (Relative Strength Index) Strategy**
+   - Analyzes overbought/oversold zones
+   - RSI < 30: Buy signal
+   - RSI > 70: Sell signal
+   - RSI calculation based on 14-hour period
 
-2. **Movement average (MA) strategy**
-   - Cross-analysis of short-term (5 hours)/long-term (20 hours) moving means
-   - Golden Cross: A Buy Sign
-   - Dead Cross: Signs to Sell
+2. **Moving Average (MA) Strategy**
+   - Cross analysis of short-term (5-hour)/long-term (20-hour) moving averages
+   - Golden Cross: Buy signal
+   - Dead Cross: Sell signal
 
-3. ** Trading volume strategy**
-   - Compare current and average volume (10 hours)
-   - Trading Volume Up More Than 1.5X: Signs Of Buy
-   - Below Average Volume: Selling Signals
+3. **Volume Strategy**
+   - Compares current volume with average volume (10-hour)
+   - Volume increase over 1.5x: Buy signal
+   - Below average volume: Sell signal
 
 ## Tech Stack
 - **Runtime**: Bun v1.1.42
 - **Language**: TypeScript
 - **Process Management**: PM2
-- **Database**: PostgreSQL
+- **Database**: TimescaleDB
 - **API**: Upbit API
-- **알림**: Discord Webhook
-- **Work scheduling**: node-cron
+   - Extensible to other exchanges
+- **Notifications**: Discord Webhook
+- **Job Scheduling**: node-cron
 
 ## Installation and execution
 
@@ -98,33 +114,36 @@ cp .env.example .env
 ### Required Environmental Variables
 ```
 # Database Settings
-DB_USER= Database_User
-DB_HOST=Database_Host
-DB_NAME= Database_Name
-DB_PASSWORD= Database_password
-DB_PORT= Database_Port
+DB_USER=database_user
+DB_HOST=database_host
+DB_NAME=database_name
+DB_PASSWORD=database_password
+DB_PORT=database_port
 
-# Language settings (currently ko, en only)
+# Language settings (currently supports ko, en only)
 LANGUAGE=ko
 
-# Web Hook Settings (currently DISCORD only)
+# Webhook settings (currently supports DISCORD only)
 WEBHOOK_TYPE=DISCORD
-DISCORD_WEBHOOK_URL= DISCORD_Web Hook_URL
+DISCORD_WEBHOOK_URL=discord_webhook_url
 
-# Exchange Settings (currently UPBIT only)
+# Exchange settings (currently supports UPBIT only)
 MARKET=UPBIT
-# API URL (Use default address if not set)
+# API URL (uses default address if not set)
 MARKET_URL=https://api.upbit.com
 
-# Set up a trading strategy (comma separated, currently RSI,MA, VOLUME only)
+# Trading strategy settings (comma separated, currently supports RSI,MA,VOLUME only)
 STRATEGIES=RSI,MA,VOLUME
 
-# Set up cryptocurrency to trade (using exchange ticker format)
+# Trading cryptocurrency settings (use exchange ticker format)
 CRYPTO_CODE=KRW-BTC
 
-# Upbit API authentication key
-UPBIT_OPEN_API_ACCESS_KEY=Upbit_Access_Key
-UPBIT_OPEN_API_SECRET_KEY= UPBIT_Secret_Key
+# Upbit API authentication keys
+UPBIT_OPEN_API_ACCESS_KEY=upbit_access_key
+UPBIT_OPEN_API_SECRET_KEY=upbit_secret_key
+
+# Webhook URL (set webhook URL for the messenger platform you use)
+WEBHOOK_URL=webhook_url
 ```
 
 ### Run Mode

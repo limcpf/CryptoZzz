@@ -46,7 +46,6 @@ async function setup() {
 
 		checkAndSendStatus();
 
-		// 연결 에러 핸들링 추가
 		client.on("error", async (err) => {
 			logger.error("DB_CONNECTION_ERROR", loggerPrefix, err.message);
 			await reconnect();
@@ -211,10 +210,8 @@ async function checkAndSendStatus() {
 	}
 }
 
-// 주간 시간대 (8-21시): 30분 간격
 cron.schedule("*/30 8-21 * * *", checkAndSendStatus);
 
-// 야간 시간대 (21-8시): 1시간 간격
 cron.schedule("0 21-23,0-7 * * *", checkAndSendStatus);
 
 cron.schedule(process.env.CANDLE_SAVE_INTERVAL || "0 */5 * * * *", () => {
@@ -249,6 +246,5 @@ process.on("unhandledRejection", (reason, promise) => {
 	}
 });
 
-// SIGINT (Ctrl+C)와 SIGTERM 모두 동일한 종료 처리
 process.on("SIGINT", handleGracefulShutdown);
 process.on("SIGTERM", handleGracefulShutdown);

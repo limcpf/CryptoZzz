@@ -39,7 +39,6 @@ export class VolumeStrategy implements iStrategy {
 
 		this.saveResult(uuid, { current_volume, avg_volume });
 
-		// 현재 거래량이 평균 거래량의 1.5배 이상일 때 매수 신호
 		if (current_volume > avg_volume * 1.5) {
 			developmentLog(
 				`[${new Date().toLocaleString()}] [VOLUME-STRATEGY] 매수 신호 발생`,
@@ -47,7 +46,6 @@ export class VolumeStrategy implements iStrategy {
 			return Signal.BUY;
 		}
 
-		// 현재 거래량이 평균 거래량보다 낮을 때 매도 신호
 		if (current_volume < avg_volume) {
 			developmentLog(
 				`[${new Date().toLocaleString()}] [VOLUME-STRATEGY] 매도 신호 발생`,

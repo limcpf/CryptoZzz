@@ -3,44 +3,50 @@
 *다른 언어로 읽기: [English](README.md)*
 
 ## 소개
-이 프로젝트는 TypeScript와 Bun 런타임을 기반으로 한 암호화폐 자동 거래 시스템입니다. PM2를 사용하여 여러 마이크로서비스를 관리하며, PostgreSQL을 데이터베이스로 사용합니다. 실시간 시장 데이터를 수집하고 다양한 기술적 지표를 분석하여 자동으로 거래를 실행합니다.
+이 프로젝트는 TypeScript와 Bun 런타임을 기반으로 한 암호화폐 자동 거래 시스템입니다. PostgreSQL과 TimescaleDB를 사용하여 시계열 데이터를 효율적으로 저장하고 관리합니다. 실시간 시장 데이터를 수집하고 다양한 기술적 지표를 분석하여 자동으로 거래를 실행합니다.
 
 ## 주요 기능
-- **실시간 데이터 수집**: Upbit API를 통한 3초 간격의 실시간 시장 데이터 수집
-- **기술적 분석**: RSI, 이동평균(MA), 거래량 분석을 통한 매매 신호 생성
+- **실시간 데이터 수집**: Upbit API를 통한 3초 마다 1초봉 캔들 3개의 실시간 시장 데이터 수집
+- **확장 가능한 기술적 분석**: 전략 패턴과 팩토리 패턴을 활용한 유연한 분석 시스템
+   - 기본 제공 전략: RSI, 이동평균(MA), 거래량 분석
+   - 사용자 정의 전략 쉽게 추가 가능
+   - 전략 조합을 통한 매매 신호 생성
+      1. `src/strategy/iStrategy.ts` 인터페이스를 구현하는 새로운 전략 클래스 생성
+      2. `src/strategy/impl/` 디렉토리에 새로운 전략 파일 추가
+      3. `src/strategy/strategy.factory.ts`의 `StrategyName` enum과 `createStrategy` 메소드에 새로운 전략 등록
+      4. 환경 변수 `STRATEGIES`에 새로운 전략 이름 추가
 - **자동 거래 실행**: 분석 결과에 따른 자동 매매 시스템
 - **실시간 모니터링**: Discord를 통한 거래 및 시스템 상태 알림
+   - 웹훅 팩토리 패턴을 통한 다양한 메신저 플랫폼 지원 가능
+      1. `src/shared/services/webhook/iWebhook.ts` 인터페이스를 구현하는 새로운 웹훅 클래스 생성
+      2. `src/shared/services/webhook/impl/` 디렉토리에 새로운 웹훅 구현체 추가
+      3. `src/shared/services/webhook/webhook.enum.ts`에 새로운 웹훅 타입 추가
+      4. `src/shared/services/webhook/webhook.factory.ts`의 팩토리 메소드에 새로운 웹훅 등록
+      5. 환경 변수 `WEBHOOK_TYPE`에 새로운 웹훅 타입 설정
+      6. `src/shared/services/webhook/webhook.enum.ts`에 새로운 웹훅 타입 추가
+      7. `src/shared/services/webhook/webhook.factory.ts`의 팩토리 메소드에 새로운 웹훅 등록
+      8. 환경 변수 `WEBHOOK_URL`에 새로운 웹훅 URL 설정
 - **다중 전략 지원**: 여러 거래 전략의 조합을 통한 신뢰도 높은 매매 신호 생성
 - **장애 복구 시스템**: PM2를 통한 프로세스 관리 및 자동 재시작
+- **확장 가능한 거래소 지원**: 여러 거래소 지원 가능
 
 ## 시스템 아키텍처
 
 ### 마이크로서비스 구성
 1. **candle-save 서비스**
    - 실시간 캔들 데이터 수집 (3초 간격)
-   - PostgreSQL 데이터베이스 저장
+   - TimescaleDB 데이터베이스 저장
    - 오류 발생 시 Discord 알림
-   - 메모리 제한: 300MB
-   - 일일 22시 자동 재시작
 
 2. **analysis 서비스**
    - 수집된 데이터 실시간 분석
    - 3가지 기술적 지표 분석 (RSI, MA, Volume)
    - 매매 신호 생성 및 검증
-   - 메모리 제한: 300MB
-   - 자동 재시작 및 백오프 전략 적용
 
 3. **trading 서비스**
    - 분석 결과 기반 자동 매매 실행
    - 위험 관리 및 포지션 관리
    - 실시간 거래 모니터링
-   - 메모리 제한: 250MB
-
-4. **account 서비스**
-   - 계정 잔고 및 포지션 모니터링
-   - 거래 내역 관리 및 기록
-   - 일일 0시 자동 재시작
-   - 메모리 제한: 200MB
 
 ### 기술적 분석 전략
 
@@ -64,8 +70,9 @@
 - **런타임**: Bun v1.1.42
 - **언어**: TypeScript
 - **프로세스 관리**: PM2
-- **데이터베이스**: PostgreSQL
-- **API**: Upbit API
+- **데이터베이스**: TimescaleDB
+- **API**: Upbit AP능
+   - 다른 거래소로 확장 가능
 - **알림**: Discord Webhook
 - **작업 스케줄링**: node-cron
 
@@ -73,7 +80,7 @@
 
 ### 사전 요구사항
 - Bun v1.1.42 이상
-- PostgreSQL 13 이상
+- TimescaleDB 2.12.0 이상
 - PM2 (글로벌 설치)
 - Discord Webhook URL
 
@@ -125,6 +132,9 @@ CRYPTO_CODE=KRW-BTC
 # Upbit API 인증 키
 UPBIT_OPEN_API_ACCESS_KEY=업비트_액세스_키
 UPBIT_OPEN_API_SECRET_KEY=업비트_시크릿_키
+
+# 웹훅 URL (사용하는 메신저 플랫폼의 웹훅 URL 설정)
+WEBHOOK_URL=웹훅_URL
 ```
 
 ### 실행 모드
@@ -228,33 +238,6 @@ pm2 logs   # 로그 확인
 pm2 status # 서비스 상태 확인
 ```
 
-## PM2 설정
-
-### 프로덕션 환경 (ecosystem.config.cjs)
-
-각 서비스별 PM2 설정은 다음과 같습니다:
-
-1. **candle-save 서비스**
-   - 단일 인스턴스 실행
-   - 자동 재시작 비활성화
-   - 에러/출력 로그 파일 분리
-   - 타임존: Asia/Seoul
-
-2. **analysis 서비스**
-   - 메모리 제한: 300MB
-   - 자동 재시작 활성화
-   - 백오프 전략 적용 (재시작 지연: 100ms)
-   - 파일 변경 감지 활성화
-
-3. **trading 서비스**
-   - 메모리 제한: 250MB
-   - 최대 재시작 횟수: 3회
-   - 파일 변경 감지 활성화
-
-4. **account 서비스**
-   - 메모리 제한: 200MB
-   - 매일 0시 자동 재시작
-   - 파일 변경 감지 활성화
 
 ### 테스트 환경 (ecosystem.test.config.cjs)
 

@@ -1,21 +1,25 @@
 import type { Pool } from "pg";
+import logger from "../../../shared/config/logger";
 import { QUERIES } from "../../../shared/const/query.const";
 import { Signal } from "../../../strategy/iStrategy";
 import { StrategyFactory } from "../../../strategy/strategy.factory";
 import { developmentLog } from "../index";
 
-export async function executeBuySignal(pool: Pool): Promise<Signal> {
+export async function executeBuySignal(
+	pool: Pool,
+	symbol: string,
+): Promise<Signal> {
+	const loggerPrefix = `[${symbol} BUY-SIGNAL] `;
+
 	const buyParent = await pool.query<{ id: string }>(
 		QUERIES.INSERT_SIGNAL_LOG,
-		["KRW-BTC", new Date()],
+		[symbol, new Date()],
 	);
 
 	const uuid = buyParent.rows[0].id;
 
 	if (!uuid) {
-		console.error(
-			`[${new Date().toLocaleString()}] [BUY-SIGNAL] 부모 신호 로그 생성 실패`,
-		);
+		logger.error("SIGNAL_LOG_ERROR", loggerPrefix);
 		return Signal.HOLD;
 	}
 
@@ -25,13 +29,16 @@ export async function executeBuySignal(pool: Pool): Promise<Signal> {
 
 	const strategies = process.env.STRATEGIES?.split(",") || [];
 
-	if (strategies.length === 0) return Signal.HOLD;
+	if (strategies.length === 0) {
+		logger.error("NOT_FOUND_STRATEGY", loggerPrefix);
+		return Signal.HOLD;
+	}
 
 	const signals = await Promise.all(
 		strategies.map(async (strategy) => {
 			const factory = new StrategyFactory(pool);
 			const strategyInstance = factory.createStrategy(strategy);
-			return strategyInstance.execute(uuid);
+			return strategyInstance.execute(uuid, symbol);
 		}),
 	);
 

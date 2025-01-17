@@ -1,7 +1,7 @@
 module.exports = {
 	apps: [
 		{
-			name: "candle-save",
+			name: "candle-save-btc",
 			script: "./src/services/candle-save/index.ts",
 			instances: 1,
 			interpreter: "bun",
@@ -13,6 +13,54 @@ module.exports = {
 				NODE_ENV: "production",
 				TZ: "Asia/Seoul",
 				PATH: `${process.env.HOME}/.bun/bin:${process.env.PATH}`, // Add "~/.bun/bin/bun" to PATH
+				CRYPTO_CODE: "KRW-BTC",
+				TIME: "05",
+			},
+			exp_backoff_restart_delay: 100,
+			max_restarts: 3,
+			autorestart: true,
+			merge_logs: true,
+			error_file: "logs/candle-save-error.log",
+			out_file: "logs/candle-save-out.log",
+		},
+		{
+			name: "candle-save-eth",
+			script: "./src/services/candle-save/index.ts",
+			instances: 1,
+			interpreter: "bun",
+			exec_mode: "fork",
+			watch: false,
+			reload: false,
+			max_memory_restart: "150M",
+			env: {
+				NODE_ENV: "production",
+				TZ: "Asia/Seoul",
+				PATH: `${process.env.HOME}/.bun/bin:${process.env.PATH}`, // Add "~/.bun/bin/bun" to PATH
+				CRYPTO_CODE: "KRW-ETH",
+				TIME: "30",
+			},
+			exp_backoff_restart_delay: 100,
+			max_restarts: 3,
+			autorestart: true,
+			merge_logs: true,
+			error_file: "logs/candle-save-error.log",
+			out_file: "logs/candle-save-out.log",
+		},
+		{
+			name: "candle-save-xrp",
+			script: "./src/services/candle-save/index.ts",
+			instances: 1,
+			interpreter: "bun",
+			exec_mode: "fork",
+			watch: false,
+			reload: false,
+			max_memory_restart: "150M",
+			env: {
+				NODE_ENV: "production",
+				TZ: "Asia/Seoul",
+				PATH: `${process.env.HOME}/.bun/bin:${process.env.PATH}`, // Add "~/.bun/bin/bun" to PATH
+				CRYPTO_CODE: "KRW-XRP",
+				TIME: "50",
 			},
 			exp_backoff_restart_delay: 100,
 			max_restarts: 3,

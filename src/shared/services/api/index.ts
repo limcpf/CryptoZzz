@@ -15,8 +15,8 @@ const API = {
 			| null
 		>,
 	) => api.getAuthToken(body),
-	GET_CANDLE_DATA: (instId: string, count: number) =>
-		api.getCandles(instId, count),
+	GET_CANDLE_DATA: (market: string, count: number, to: string) =>
+		api.getCandles(market, count, to),
 	GET_ACCOUNT: () => api.getAccount(),
 	ORDER: (
 		market: string,
@@ -24,8 +24,9 @@ const API = {
 		volume: string,
 		price: string,
 		ord_type: "price" | "market",
-	) => api.order(market, side, volume, price, ord_type),
-	GET_ACCOUNT_STATUS: () => api.getAccountStatus(),
+		identifier: string,
+	) => api.order(market, side, volume, price, ord_type, identifier),
+	GET_ACCOUNT_STATUS: (coin = "BTC") => api.getAccountStatus(coin),
 };
 
 export default API;

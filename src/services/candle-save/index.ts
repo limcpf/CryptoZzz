@@ -29,6 +29,7 @@ let reconnectAttempts = 0;
  * @description 5분마다 한번씩만 오류 메시지를 전송하기 위한 구분 값
  */
 let IS_CANDLE_ERROR_SENT = false;
+let COIN = "";
 
 const loggerPrefix = `CANDLE-SAVE_${process.env.CRYPTO_CODE}`;
 
@@ -39,10 +40,11 @@ const loggerPrefix = `CANDLE-SAVE_${process.env.CRYPTO_CODE}`;
 async function setup() {
 	try {
 		IS_CANDLE_ERROR_SENT = false;
+		COIN = (process.env.CRYPTO_CODE || "BTC").replace("KRW-", "");
 		client = await pool.connect();
 		await client.query(QUERIES.INIT);
 
-		logger.warn("CANDLE_SAVE_START", loggerPrefix);
+		logger.warn("CANDLE_SAVE_START", loggerPrefix, COIN);
 
 		checkAndSendStatus();
 
@@ -77,8 +79,12 @@ async function reconnect() {
 		await setup();
 
 		reconnectAttempts = 0;
-	} catch (error) {
-		logger.error("RECONNECT_ERROR", loggerPrefix);
+	} catch (error: unknown) {
+		if (error instanceof Error) {
+			logger.error("RECONNECT_ERROR", loggerPrefix, error.message);
+		} else {
+			logger.error("RECONNECT_ERROR", loggerPrefix);
+		}
 		sleepSync(5000);
 	}
 }
@@ -88,16 +94,21 @@ async function reconnect() {
  * @description 캔들 데이터를 가져와서 저장하는 핵심 로직
  * @param count 가져올 캔들의 수
  */
-async function fetchAndSaveCandles(count = 3) {
+async function fetchAndSaveCandles(count = 1) {
 	try {
 		const data = await API.GET_CANDLE_DATA(
 			process.env.CRYPTO_CODE || "",
 			count,
+			new Date(Date.now() - 60 * 1000).toISOString(),
 		);
 
-		await saveCandleData(data);
-	} catch (error) {
-		logger.error("FETCH_CANDLE_DATA_ERROR", loggerPrefix);
+		const result = await saveCandleData(data);
+	} catch (error: unknown) {
+		if (error instanceof Error) {
+			logger.error("FETCH_CANDLE_DATA_ERROR", loggerPrefix, error.message);
+		} else {
+			logger.error("FETCH_CANDLE_DATA_ERROR", loggerPrefix);
+		}
 	}
 }
 
@@ -110,7 +121,7 @@ async function saveCandleData(data: iCandle[]) {
 	try {
 		await Promise.all(
 			data.map((candle) =>
-				client.query<iCandle>(QUERIES.UPSERT_MARKET_DATA, [
+				client.query<iCandle>(QUERIES.INSERT_MARKET_DATA, [
 					candle.market,
 					new Date(candle.candle_date_time_kst),
 					candle.opening_price,
@@ -126,7 +137,7 @@ async function saveCandleData(data: iCandle[]) {
 			logger.info("CANDLE_SAVE_NORMAL_COLLECTING", loggerPrefix);
 		}
 
-		notify(pool, CHANNEL.ANALYZE_CHANNEL);
+		notify(pool, CHANNEL.ANALYZE_CHANNEL, `${process.env.CRYPTO_CODE}`);
 	} catch (error: unknown) {
 		if (error instanceof Error) {
 			webhook.send(`[CANDLE-SAVE] ${error.message}`);
@@ -148,7 +159,7 @@ async function handleGracefulShutdown() {
 
 await setup();
 
-cron.schedule("*/3 * * * * *", async () => {
+cron.schedule(`${process.env.TIME} * * * * *`, async () => {
 	try {
 		await fetchAndSaveCandles();
 	} catch (error: unknown) {
@@ -163,41 +174,43 @@ cron.schedule("*/3 * * * * *", async () => {
 	}
 });
 
-async function checkAndSendStatus() {
-	try {
-		const status = await API.GET_ACCOUNT_STATUS();
-		const strategyQuery = await client.query<iStrategyInfo>(
-			QUERIES.GET_LATEST_STRATEGY,
-		);
-		const strategy = strategyQuery.rows[0];
+async function sendCoinStatus(coin: string) {
+	const status = await API.GET_ACCOUNT_STATUS(coin);
 
-		const currentPriceQuery = await client.query<{ close_price: number }>(
-			QUERIES.GET_CURRENT_PRICE,
-		);
-		const { close_price } = currentPriceQuery.rows[0];
+	if (!status.haveCrypto) return;
 
-		const fluctuationRate = Number(
-			(
-				((close_price - status.cryptoBuyPrice) / status.cryptoBuyPrice) *
-				100
-			).toFixed(2),
-		);
+	const currentPriceQuery = await client.query<{ close_price: number }>(
+		QUERIES.GET_CURRENT_PRICE,
+		[process.env.CRYPTO_CODE || ""],
+	);
+	const { close_price } = currentPriceQuery.rows[0];
 
-		let additionalInfo = "";
-		if (status.cryptoBalance > 0) {
-			additionalInfo = `
+	const fluctuationRate = Number(
+		(
+			((close_price - status.cryptoBuyPrice) / status.cryptoBuyPrice) *
+			100
+		).toFixed(2),
+	);
+
+	webhook.send(`
+### [현재 ${coin} 등락율 ${fluctuationRate > 0 ? "🔼😊" : "🔽😢"} ${fluctuationRate}%🔍]
 **평균 매수 금액**: ${status.cryptoBuyPrice}
 **총 매수 금액**: ${status.cryptoEvalAmount}
 **현재 평가 금액**: ${status.cryptoBalance * close_price}
-**등락율**: ${fluctuationRate > 0 ? "🔼😊" : "🔽😢"} ${fluctuationRate}%`;
-		}
+	`);
+}
+
+async function checkAndSendStatus() {
+	try {
+		const strategyQuery = await client.query<iStrategyInfo>(
+			QUERIES.GET_LATEST_STRATEGY,
+			[process.env.CRYPTO_CODE || ""],
+		);
+		const strategy = strategyQuery.rows[0];
 
 		webhook.send(
 			`
-### [CANDLE-SAVE 상태 체크 🔍] 
-**현재 원화**: ${status.krwBalance}
-**현재 ${process.env.CRYPTO_CODE}**: ${status.cryptoBalance}${additionalInfo}
-**거래 탐지 상태**: ${status.tradingStatus}
+### [${process.env.CRYPTO_CODE} 분석 정보 🔍]
 **기준 시간**: ${strategy.hour_time}
 **RSI**: ${strategy.rsi}
 **단기 MA**: ${strategy.short_ma}
@@ -206,13 +219,19 @@ async function checkAndSendStatus() {
 **평균 거래량**: ${strategy.avg_volume}`,
 		);
 	} catch (error) {
-		logger.error("CHECK_STATUS_ERROR", loggerPrefix);
+		if (error instanceof Error) {
+			logger.error("CHECK_STATUS_ERROR", loggerPrefix, error.message);
+		} else {
+			logger.error("CHECK_STATUS_ERROR", loggerPrefix);
+		}
 	}
 }
 
-cron.schedule("*/30 8-21 * * *", checkAndSendStatus);
+cron.schedule("*/15 8-21 * * *", () => sendCoinStatus(COIN));
 
-cron.schedule("0 21-23,0-7 * * *", checkAndSendStatus);
+cron.schedule("*/15 8-21 * * *", () => sendCoinStatus(COIN));
+
+cron.schedule("0 * * * *", checkAndSendStatus);
 
 cron.schedule(process.env.CANDLE_SAVE_INTERVAL || "0 */5 * * * *", () => {
 	IS_CANDLE_ERROR_SENT = false;
@@ -221,26 +240,22 @@ cron.schedule(process.env.CANDLE_SAVE_INTERVAL || "0 */5 * * * *", () => {
 process.stdin.resume();
 
 process.on("uncaughtException", (error) => {
-	logger.error(
-		"UNEXPECTED_ERROR",
-		`${loggerPrefix} ${uuidv4()}`,
-		error.message,
-	);
+	logger.error("UNEXPECTED_ERROR", `${loggerPrefix}${uuidv4()}`, error.message);
 });
 
 process.on("unhandledRejection", (reason, promise) => {
 	if (reason instanceof Error) {
 		logger.error(
 			"UNEXPECTED_ERROR",
-			`${loggerPrefix} ${uuidv4()}`,
+			`${loggerPrefix}${uuidv4()}`,
 			reason.message,
 		);
 	} else if (typeof reason === "string") {
-		logger.error("UNEXPECTED_ERROR", `${loggerPrefix} ${uuidv4()}`, reason);
+		logger.error("UNEXPECTED_ERROR", `${loggerPrefix}${uuidv4()}`, reason);
 	} else {
 		logger.error(
 			"UNEXPECTED_ERROR",
-			`${loggerPrefix} ${uuidv4()}`,
+			`${loggerPrefix}${uuidv4()}`,
 			"unhandledRejection",
 		);
 	}

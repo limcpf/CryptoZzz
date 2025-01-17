@@ -9,7 +9,7 @@ import type { Pool } from "pg";
  */
 export interface iStrategy {
 	pool: Pool;
-	execute(uuid: string): Promise<Signal>;
+	execute(uuid: string, symbol: string): Promise<Signal>;
 }
 
 export enum Signal {

@@ -71,8 +71,12 @@ export class UpbitApi implements Api {
 		return data;
 	}
 
-	async getCandles(instId: string, count: number): Promise<iCandle[]> {
-		const endpoint = `/v1/candles/seconds?market=${instId}&count=${count}`;
+	async getCandles(
+		market: string,
+		count: number,
+		to: string,
+	): Promise<iCandle[]> {
+		const endpoint = `/v1/candles/minutes/1?market=${market}&count=${count}&to=${to}`;
 		const url = `${this.MARKET_URL}${endpoint}`;
 
 		const response = await fetch(url, {
@@ -98,6 +102,7 @@ export class UpbitApi implements Api {
 		volume: string,
 		price: string,
 		ord_type: "price" | "market",
+		identifier: string,
 	): Promise<OrderResponse> {
 		const endpoint = "/v1/orders";
 		const url = `${this.MARKET_URL}${endpoint}`;
@@ -108,6 +113,7 @@ export class UpbitApi implements Api {
 			volume: volume,
 			price: price,
 			ord_type: ord_type,
+			identifier: identifier,
 		};
 
 		const token = this.getAuthToken(body);
@@ -132,18 +138,19 @@ export class UpbitApi implements Api {
 		return data;
 	}
 
-	async getAccountStatus(): Promise<iAccountStatus> {
+	async getAccountStatus(coin = "BTC"): Promise<iAccountStatus> {
 		const accounts = await this.getAccount();
 		const [krwAccount, cryptoAccount] = accounts.reduce(
 			(acc, account) => {
 				if (account.currency === "KRW") acc[0] = account;
-				if (account.currency === "BTC") acc[1] = account;
+				if (account.currency === coin) acc[1] = account;
 				return acc;
 			},
 			[undefined, undefined] as [iAccount | undefined, iAccount | undefined],
 		);
 
 		return {
+			haveCrypto: !!cryptoAccount?.balance,
 			krwBalance: Number(krwAccount?.balance || 0),
 			cryptoBalance: Number(cryptoAccount?.balance || 0),
 			cryptoBuyPrice: Number(cryptoAccount?.avg_buy_price || 0),

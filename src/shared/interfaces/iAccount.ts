@@ -8,6 +8,7 @@ interface iAccount {
 }
 
 interface iAccountStatus {
+	haveCrypto: boolean;
 	krwBalance: number;
 	cryptoBalance: number;
 	cryptoBuyPrice: number;

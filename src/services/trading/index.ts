@@ -82,12 +82,15 @@ async function reconnect() {
 /**
  * @name executeOrder
  * @description 매수/매도 주문 실행
- * @param signal 매수/매도 신호
+ * @param signal ${"SELL" | "BUY"}:${SYMBOL}
  */
 async function executeOrder(signal: string) {
+	const [signalType, symbol] = signal.split(":");
+	const coin = symbol.replace("KRW-", "");
+
 	const account = await API.GET_ACCOUNT();
 	const krwAccount = account.find((acc) => acc.currency === "KRW");
-	const btcAccount = account.find((acc) => acc.currency === "BTC");
+	const cryptoAccount = account.find((acc) => acc.currency === coin);
 
 	if (signal === "BUY" && krwAccount) {
 		const availableKRW = Number(krwAccount.balance);
@@ -98,55 +101,69 @@ async function executeOrder(signal: string) {
 
 		try {
 			const order = await API.ORDER(
-				"KRW-BTC",
+				symbol,
 				"bid",
 				"",
 				availableKRW.toString(),
 				"price",
+				uuidv4(),
 			);
 
-			const insertResult = await client.query<{ id: string }>(
+			const insertResult = await client.query<{ identifier: string }>(
 				QUERIES.INSERT_ORDER,
-				[order.market, order.price, order.volume, "BUY"],
+				[order.market, order.price, order.volume, "BUY", order.identifier],
+			);
+
+			webhook.send(
+				`✅ 매수 주문 실행
+                    주문 ID: ${insertResult.rows[0].identifier}
+                    수량: ${order.volume}${coin}
+                    매수가: ${order.price.toLocaleString()}KRW`,
 			);
 
 			developmentLog(
-				`[${new Date().toLocaleString()}] [TRADING] 매수 주문 실행: ${availableKRW}KRW`,
+				`[${new Date().toLocaleString()}] [TRADING] 매수 주문 실행: $availableKRWKRW`,
 			);
 
 			logger.info("BUY_SIGNAL_SUCCESS", loggerPrefix);
 		} catch (error) {
 			if (error instanceof Error) {
-				logger.error("BUY_SIGNAL_ERROR", loggerPrefix);
+				logger.error("BUY_SIGNAL_ERROR", loggerPrefix, error.message);
 			}
 		} finally {
 			isRunning = false;
 		}
-	} else if (signal === "SELL" && btcAccount) {
-		const availableBTC = Number(btcAccount.balance);
-		if (availableBTC < 0.00001) {
+	} else if (signalType === "SELL" && cryptoAccount) {
+		const availableCrypto = Number(cryptoAccount.balance);
+		if (availableCrypto < 0.00001) {
 			logger.error("SELL_SIGNAL_ERROR", loggerPrefix);
 			return;
 		}
 
 		try {
 			const order = await API.ORDER(
-				"KRW-BTC",
+				symbol,
 				"ask",
-				availableBTC.toString(),
+				availableCrypto.toString(),
 				"",
 				"market",
+				uuidv4(),
 			);
 
-			const uuid = order.uuid;
+			const lastOrder = await client.query<{ id: string }>(
+				QUERIES.GET_LAST_ORDER,
+				[symbol],
+			);
+
+			const id = lastOrder.rows[0].id;
 
 			const result = await client.query(QUERIES.UPDATE_ORDER, [
-				uuid,
+				id,
 				order.price,
 				"SELL",
 			]);
 
-			const { id, quantity, buy_price, sell_price } = result.rows[0];
+			const { quantity, buy_price, sell_price } = result.rows[0];
 
 			const profitAmount = (sell_price - buy_price) * quantity;
 			const profitRate = ((sell_price - buy_price) / buy_price) * 100;
@@ -161,13 +178,13 @@ async function executeOrder(signal: string) {
 			);
 
 			developmentLog(
-				`[${new Date().toLocaleString()}] [TRADING] 매도 주문 실행: ${availableBTC}BTC`,
+				`[${new Date().toLocaleString()}] [TRADING] 매도 주문 실행: ${availableCrypto}${coin}`,
 			);
 
 			logger.info("SELL_SIGNAL_SUCCESS", loggerPrefix);
 		} catch (error) {
 			if (error instanceof Error) {
-				logger.error("SELL_SIGNAL_ERROR", loggerPrefix);
+				logger.error("SELL_SIGNAL_ERROR", loggerPrefix, error.message);
 			}
 		} finally {
 			isRunning = false;
@@ -180,26 +197,18 @@ await setup();
 process.stdin.resume();
 
 process.on("uncaughtException", (error) => {
-	logger.error(
-		"UNEXPECTED_ERROR",
-		`${loggerPrefix} ${uuidv4()}`,
-		error.message,
-	);
+	logger.error("UNEXPECTED_ERROR", `$loggerPrefix$uuidv4()`, error.message);
 });
 
 process.on("unhandledRejection", (reason, promise) => {
 	if (reason instanceof Error) {
-		logger.error(
-			"UNEXPECTED_ERROR",
-			`${loggerPrefix} ${uuidv4()}`,
-			reason.message,
-		);
+		logger.error("UNEXPECTED_ERROR", `$loggerPrefix$uuidv4()`, reason.message);
 	} else if (typeof reason === "string") {
-		logger.error("UNEXPECTED_ERROR", `${loggerPrefix} ${uuidv4()}`, reason);
+		logger.error("UNEXPECTED_ERROR", `$loggerPrefix$uuidv4()`, reason);
 	} else {
 		logger.error(
 			"UNEXPECTED_ERROR",
-			`${loggerPrefix} ${uuidv4()}`,
+			`$loggerPrefix$uuidv4()`,
 			"unhandledRejection",
 		);
 	}

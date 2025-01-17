@@ -27,6 +27,13 @@ export interface MSG {
 	SELL_SIGNAL_ERROR: string;
 	BUY_SIGNAL_SUCCESS: string;
 	SELL_SIGNAL_SUCCESS: string;
+	PAYLOAD_ERROR: string;
+	SIGNAL_LOG_ERROR: string;
+	SIGNAL_RSI_ERROR: string;
+	SIGNAL_MA_ERROR: string;
+	SIGNAL_VOLUME_ERROR: string;
+	NOT_FOUND_STRATEGY: string;
+	SIGNAL_ACCOUNT_ERROR: string;
 }
 
 export const getMsg = (language: string) => {

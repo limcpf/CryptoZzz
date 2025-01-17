@@ -72,8 +72,25 @@ export const QUERIES = {
             avg_volume NUMERIC NOT NULL,
             FOREIGN KEY (signal_id) REFERENCES SignalLog(id)
         );
+
+        DO $$ 
+        BEGIN 
+            -- 기존 정책이 있는지 확인
+            IF NOT EXISTS (
+                SELECT 1 
+                FROM timescaledb_information.jobs 
+                WHERE application_name LIKE '%Retention%' 
+                AND hypertable_name = 'market_data'
+            ) THEN
+                -- 정책이 없는 경우에만 새로운 정책 추가
+                PERFORM add_retention_policy('market_data', INTERVAL '10 hours');
+                RAISE NOTICE '새로운 보존 정책이 추가되었습니다.';
+            ELSE
+                RAISE NOTICE '이미 보존 정책이 존재합니다.';
+            END IF;
+        END $$;
     `,
-	UPSERT_MARKET_DATA: `
+	INSERT_MARKET_DATA: `
       INSERT INTO Market_Data (
         symbol, 
         timestamp, 
@@ -99,7 +116,7 @@ export const QUERIES = {
             date_trunc('hour', timestamp) AS hour_time,
             AVG(close_price) AS avg_close_price
         FROM Market_Data
-        WHERE symbol = 'KRW-BTC'
+        WHERE symbol = $1
         GROUP BY symbol, date_trunc('hour', timestamp)
     ),
     price_changes AS (
@@ -124,17 +141,17 @@ export const QUERIES = {
             AVG(gain) OVER (
                 PARTITION BY symbol 
                 ORDER BY hour_time 
-                ROWS BETWEEN 13 PRECEDING AND CURRENT ROW
+                ROWS BETWEEN 8 PRECEDING AND CURRENT ROW
             ) AS avg_gain,
             AVG(loss) OVER (
                 PARTITION BY symbol 
                 ORDER BY hour_time 
-                ROWS BETWEEN 13 PRECEDING AND CURRENT ROW
+                ROWS BETWEEN 8 PRECEDING AND CURRENT ROW
             ) AS avg_loss,
             COUNT(*) OVER (
                 PARTITION BY symbol 
                 ORDER BY hour_time 
-                ROWS BETWEEN 13 PRECEDING AND CURRENT ROW
+                ROWS BETWEEN 8 PRECEDING AND CURRENT ROW
             ) AS data_points
         FROM price_changes
     )
@@ -142,7 +159,7 @@ export const QUERIES = {
         symbol,
         hour_time,
         CASE 
-            WHEN data_points >= 14 THEN 100 - (100 / (1 + (avg_gain / NULLIF(avg_loss, 0))))
+            WHEN data_points >= 9 THEN 100 - (100 / (1 + (avg_gain / NULLIF(avg_loss, 0))))
             ELSE NULL
         END AS rsi
     FROM avg_gain_loss
@@ -156,7 +173,7 @@ export const QUERIES = {
             date_trunc('hour', timestamp) AS hour_time,
             AVG(close_price) AS avg_close_price
         FROM Market_Data
-        WHERE symbol = 'KRW-BTC'
+        WHERE symbol = $1
         GROUP BY symbol, date_trunc('hour', timestamp)
     )
     SELECT
@@ -165,12 +182,12 @@ export const QUERIES = {
         AVG(avg_close_price) OVER (
             PARTITION BY symbol 
             ORDER BY hour_time 
-            ROWS BETWEEN 9 PRECEDING AND CURRENT ROW
+            ROWS BETWEEN 4 PRECEDING AND CURRENT ROW
         ) AS short_ma,
         AVG(avg_close_price) OVER (
             PARTITION BY symbol 
             ORDER BY hour_time 
-            ROWS BETWEEN 19 PRECEDING AND CURRENT ROW
+            ROWS BETWEEN 9 PRECEDING AND CURRENT ROW
         ) AS long_ma
     FROM hourly_data
     ORDER BY hour_time DESC
@@ -184,8 +201,8 @@ export const QUERIES = {
                 SUM(volume) AS total_volume
             FROM Market_Data
             WHERE 
-                symbol = 'KRW-BTC'
-                AND timestamp > NOW() - INTERVAL '10 hours'
+                symbol = $1
+                AND timestamp > NOW() - INTERVAL '6 hours'
             GROUP BY symbol, date_trunc('minute', timestamp)
         ),
         hourly_groups AS (
@@ -238,7 +255,7 @@ export const QUERIES = {
             order_type
         )
         VALUES (
-            gen_random_uuid(),
+            $5,
             $1,
             $2,
             $3,
@@ -247,13 +264,16 @@ export const QUERIES = {
             NOW(),
             $4
         )
-        RETURNING id;
+        RETURNING id, identifier;
     `,
 	UPDATE_ORDER: `
         UPDATE Orders
         SET sell_price = $2, status = $3, updated_at = NOW()
         WHERE id = $1;
-        RETURNING id, quantity, buy_price, sell_price;
+        RETURNING identifier, quantity, buy_price, sell_price;
+    `,
+	GET_LAST_ORDER: `
+        SELECT id FROM Orders WHERE symbol = $1 ORDER BY created_at DESC LIMIT 1;
     `,
 	GET_LATEST_STRATEGY: `
 SELECT 
@@ -269,6 +289,7 @@ LEFT JOIN RsiSignal rs ON sl.id = rs.signal_id
 LEFT JOIN MaSignal ms ON sl.id = ms.signal_id
 LEFT JOIN VolumeSignal vs ON sl.id = vs.signal_id
 WHERE 
+    sl.symbol = $1
     rs.rsi IS NOT NULL AND 
     ms.short_ma IS NOT NULL AND 
     ms.long_ma IS NOT NULL AND 
@@ -278,6 +299,9 @@ ORDER BY sl.hour_time DESC
 LIMIT 1;
     `,
 	GET_CURRENT_PRICE: `
-        SELECT close_price FROM Market_Data WHERE symbol = 'KRW-BTC' ORDER BY timestamp DESC LIMIT 1;
+        SELECT close_price FROM Market_Data WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1;
+    `,
+	GET_LAST_MARKET_DATA_TIMESTAMP: `
+        SELECT timestamp FROM Market_Data WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1;
     `,
 };

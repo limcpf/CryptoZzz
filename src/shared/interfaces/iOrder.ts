@@ -37,6 +37,7 @@ interface OrderResponse {
 	locked: string;
 	executed_volume: string;
 	trades_count: number;
+	identifier: string;
 }
 
 export type { iOrder, OrderResponse };

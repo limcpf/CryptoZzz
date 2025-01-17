@@ -6,7 +6,7 @@ export interface Api {
 	MARKET_URL: string;
 
 	getAccount(): Promise<iAccount[]>;
-	getCandles(instId: string, count: number): Promise<iCandle[]>;
+	getCandles(market: string, count: number, to: string): Promise<iCandle[]>;
 	order(
 		market: string,
 		side: "bid" | "ask",

@@ -1,5 +1,6 @@
 import type { Pool } from "pg";
 import { developmentLog } from "../../services/analysis";
+import logger from "../../shared/config/logger";
 import { QUERIES } from "../../shared/const/query.const";
 import type { iRSIResult } from "../../shared/interfaces/iMarketDataResult";
 import { Signal, type iStrategy } from "../iStrategy";
@@ -19,18 +20,20 @@ import { Signal, type iStrategy } from "../iStrategy";
  */
 export class RsiStrategy implements iStrategy {
 	pool: Pool;
+	private loggerPrefix = "RSI-STRATEGY";
 
 	constructor(pool: Pool) {
 		this.pool = pool;
 	}
 
-	async execute(uuid: string): Promise<Signal> {
-		const result = await this.pool.query<iRSIResult>(QUERIES.GET_RSI_INDICATOR);
+	async execute(uuid: string, symbol: string): Promise<Signal> {
+		const result = await this.pool.query<iRSIResult>(
+			QUERIES.GET_RSI_INDICATOR,
+			[symbol],
+		);
 
 		if (result.rowCount === 0) {
-			console.error(
-				`[${new Date().toLocaleString()}] [RSI-STRATEGY] RSI 지표 조회 실패`,
-			);
+			logger.error("SIGNAL_RSI_ERROR", this.loggerPrefix);
 			return Signal.HOLD;
 		}
 

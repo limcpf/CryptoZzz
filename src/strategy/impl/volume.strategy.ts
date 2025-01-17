@@ -1,5 +1,6 @@
 import type { Pool } from "pg";
 import { developmentLog } from "../../services/analysis";
+import logger from "../../shared/config/logger";
 import { QUERIES } from "../../shared/const/query.const";
 import type { iVolumeAnalysisResult } from "../../shared/interfaces/iMarketDataResult";
 import { Signal, type iStrategy } from "../iStrategy";
@@ -18,20 +19,19 @@ import { Signal, type iStrategy } from "../iStrategy";
  */
 export class VolumeStrategy implements iStrategy {
 	pool: Pool;
-
+	private loggerPrefix = "VOLUME-STRATEGY";
 	constructor(pool: Pool) {
 		this.pool = pool;
 	}
 
-	async execute(uuid: string): Promise<Signal> {
+	async execute(uuid: string, symbol: string): Promise<Signal> {
 		const result = await this.pool.query<iVolumeAnalysisResult>(
 			QUERIES.GET_VOLUME_ANALYSIS,
+			[symbol],
 		);
 
 		if (result.rowCount === 0) {
-			console.error(
-				`[${new Date().toLocaleString()}] [VOLUME-STRATEGY] 거래량 데이터 조회 실패`,
-			);
+			logger.error("SIGNAL_VOLUME_ERROR", this.loggerPrefix);
 			return Signal.HOLD;
 		}
 

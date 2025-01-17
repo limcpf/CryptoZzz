@@ -38,7 +38,14 @@ async function setup() {
 			if (msg.channel.toUpperCase() === CHANNEL.ANALYZE_CHANNEL) {
 				if (isRunning) return;
 				isRunning = true;
-				await main();
+				developmentLog(
+					`[${new Date().toLocaleString()}] [ANALYZE] 신호 발생: ${msg.payload}`,
+				);
+				if (msg.payload) {
+					await main(msg.payload);
+				} else {
+					logger.error("PAYLOAD_ERROR", loggerPrefix);
+				}
 			}
 		});
 
@@ -81,15 +88,16 @@ async function reconnect() {
 	}
 }
 
-async function main() {
+async function main(COIN_CODE: string) {
+	const coin = COIN_CODE.replace("KRW-", "");
 	try {
-		if (await checkAccountStatus()) {
-			if ((await executeBuySignal(pool)) === Signal.BUY) {
-				notify(pool, CHANNEL.TRADING_CHANNEL, "BUY");
+		if (await checkAccountStatus(coin)) {
+			if ((await executeBuySignal(pool, COIN_CODE)) === Signal.BUY) {
+				notify(pool, CHANNEL.TRADING_CHANNEL, `BUY:${COIN_CODE}`);
 			}
 		} else {
-			if ((await executeSellSignal(pool)) === Signal.SELL) {
-				notify(pool, CHANNEL.TRADING_CHANNEL, "SELL");
+			if ((await executeSellSignal(pool, COIN_CODE, coin)) === Signal.SELL) {
+				notify(pool, CHANNEL.TRADING_CHANNEL, `SELL:${COIN_CODE}`);
 			}
 		}
 	} catch (error: unknown) {

@@ -26,6 +26,13 @@ const messages: MSG = {
 	SELL_SIGNAL_ERROR: "⚠️ Insufficient BTC balance for selling",
 	BUY_SIGNAL_SUCCESS: "✅ Buy order executed: ",
 	SELL_SIGNAL_SUCCESS: "✅ Sell order executed: ",
+	PAYLOAD_ERROR: "⚠️ Payload is undefined",
+	SIGNAL_LOG_ERROR: "⚠️ Failed to create signal log",
+	SIGNAL_RSI_ERROR: "⚠️ Failed to execute RSI strategy",
+	SIGNAL_MA_ERROR: "⚠️ Failed to execute MA strategy",
+	SIGNAL_VOLUME_ERROR: "⚠️ Failed to execute volume strategy",
+	NOT_FOUND_STRATEGY: "⚠️ No strategy found",
+	SIGNAL_ACCOUNT_ERROR: "⚠️ Failed to find account information",
 } as const;
 
 export default messages;

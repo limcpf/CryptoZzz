@@ -27,6 +27,13 @@ const messages: MSG = {
 	SELL_SIGNAL_ERROR: "⚠️ 매도 가능한 BTC 잔액이 부족합니다.",
 	BUY_SIGNAL_SUCCESS: "✅ 매수 주문 실행: ",
 	SELL_SIGNAL_SUCCESS: "✅ 매도 주문 실행: ",
+	PAYLOAD_ERROR: "⚠️ 페이로드가 정의되지 않았습니다.",
+	SIGNAL_LOG_ERROR: "⚠️ 신호 로그 생성 실패",
+	SIGNAL_RSI_ERROR: "⚠️ RSI 전략 실행 실패",
+	SIGNAL_MA_ERROR: "⚠️ MA 전략 실행 실패",
+	SIGNAL_VOLUME_ERROR: "⚠️ 거래량 전략 실행 실패",
+	NOT_FOUND_STRATEGY: "⚠️ 전략이 존재하지 않습니다.",
+	SIGNAL_ACCOUNT_ERROR: "⚠️ 계좌 정보를 찾을 수 없습니다.",
 } as const;
 
 export default messages;

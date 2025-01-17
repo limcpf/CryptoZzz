@@ -1,5 +1,6 @@
 import type { Pool } from "pg";
 import { developmentLog } from "../../services/analysis";
+import logger from "../../shared/config/logger";
 import { QUERIES } from "../../shared/const/query.const";
 import type { iMovingAveragesResult } from "../../shared/interfaces/iMarketDataResult";
 import { Signal, type iStrategy } from "../iStrategy";
@@ -19,20 +20,20 @@ import { Signal, type iStrategy } from "../iStrategy";
  */
 export class MaStrategy implements iStrategy {
 	pool: Pool;
+	private loggerPrefix = "MA-STRATEGY";
 
 	constructor(pool: Pool) {
 		this.pool = pool;
 	}
 
-	async execute(uuid: string): Promise<Signal> {
+	async execute(uuid: string, symbol: string): Promise<Signal> {
 		const result = await this.pool.query<iMovingAveragesResult>(
 			QUERIES.GET_MOVING_AVERAGES,
+			[symbol],
 		);
 
 		if (result.rowCount === 0) {
-			console.error(
-				`[${new Date().toLocaleString()}] [MA-STRATEGY] MA 지표 조회 실패`,
-			);
+			logger.error("SIGNAL_MA_ERROR", this.loggerPrefix);
 			return Signal.HOLD;
 		}
 

@@ -44,7 +44,6 @@ async function setup() {
 
 		logger.warn("ANALYZE_START", loggerPrefix);
 
-		// 연결 에러 핸들링 추가
 		client.on("error", async (err) => {
 			logger.error("DB_CONNECTION_ERROR", loggerPrefix);
 			await reconnect();
@@ -75,7 +74,6 @@ async function reconnect() {
 		}
 		await setup();
 
-		// 연결 성공시 재시도 카운트 초기화
 		reconnectAttempts = 0;
 	} catch (error) {
 		logger.error("RECONNECT_ERROR", loggerPrefix);
@@ -150,6 +148,5 @@ async function handleGracefulShutdown() {
 	process.exit(0);
 }
 
-// SIGINT (Ctrl+C)와 SIGTERM 모두 동일한 종료 처리
 process.on("SIGINT", handleGracefulShutdown);
 process.on("SIGTERM", handleGracefulShutdown);

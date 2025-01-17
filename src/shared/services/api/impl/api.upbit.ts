@@ -39,7 +39,6 @@ export class UpbitApi implements Api {
 		};
 
 		if (!process.env.UPBIT_OPEN_API_SECRET_KEY) {
-			// TODO: Error 메세지 관리 추가
 			throw new Error("UPBIT_OPEN_API_SECRET_KEY is not set");
 		}
 

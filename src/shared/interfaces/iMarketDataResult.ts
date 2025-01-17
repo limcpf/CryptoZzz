@@ -18,7 +18,6 @@ interface iVolumeAnalysisResult {
 	avg_volume: number;
 }
 
-// 기존 인터페이스는 모든 결과를 포함하는 통합 인터페이스로 유지할 수 있습니다
 interface iMarketDataResult
 	extends iRSIResult,
 		iMovingAveragesResult,

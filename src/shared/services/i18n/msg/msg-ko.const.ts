@@ -34,8 +34,9 @@ const messages: MSG = {
 	SIGNAL_VOLUME_ERROR: "⚠️ 거래량 전략 실행 실패",
 	NOT_FOUND_STRATEGY: "⚠️ 전략이 존재하지 않습니다.",
 	SIGNAL_ACCOUNT_ERROR: "⚠️ 계좌 정보를 찾을 수 없습니다.",
-	ACCOUNT_STATUS_ERROR: "⚠️ 계좌 상태를 찾을 수 없습니다.",
+	ACCOUNT_STATUS_ERROR: "⚠️ 매수/매도 판단을 위한 계좌 상태 확인 중 오류 발생",
 	CANDLE_DATA_NOT_FOUND: "⚠️ 캔들 차트 데이터를 찾을 수 없습니다.",
+	SIGNAL_ERROR: "⚠️ 매수/매도 판단 중 오류 발생",
 } as const;
 
 export default messages;

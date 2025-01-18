@@ -1,15 +1,17 @@
 import { sleepSync } from "bun";
-import type { PoolClient } from "pg";
+import type { Notification, Pool, PoolClient } from "pg";
 import { v4 as uuidv4 } from "uuid";
 import {
-	createPool,
+	getConnection,
 	handleNotifications,
 	notify,
 	setupPubSub,
 } from "../../shared/config/database";
 import logger from "../../shared/config/logger";
 import { CHANNEL } from "../../shared/const/channel.const";
-import webhook from "../../shared/services/webhook";
+import type { iAccountStatus } from "../../shared/interfaces/iAccount";
+import { setupProcessHandlers } from "../../shared/services/process-handler";
+import { errorHandler } from "../../shared/services/util";
 import { Signal } from "../../strategy/iStrategy";
 import { checkAccountStatus } from "./services/check-account-status";
 import { executeBuySignal, executeSellSignal } from "./signals";
@@ -17,148 +19,92 @@ import { executeBuySignal, executeSellSignal } from "./signals";
 export const developmentLog =
 	process.env.NODE_ENV === "development" ? console.log : () => {};
 
-let isRunning = false;
 const loggerPrefix = "[ANALYZE]";
 
 /**
  * @name pool
  * @description Database Pool
  */
-const pool = createPool();
+let pool: Pool;
 let client: PoolClient;
 
-const MAX_RECONNECT_ATTEMPTS = 5;
-let reconnectAttempts = 0;
-
-logger.warn("ANALYZE_START", loggerPrefix);
+async function notifyCallback(msg: Notification) {
+	switch (msg.channel.toUpperCase()) {
+		case CHANNEL.ANALYZE_CHANNEL:
+			await main(msg.payload);
+			break;
+		default:
+			break;
+	}
+}
 
 async function setup() {
 	try {
-		client = await pool.connect();
-		await setupPubSub(client, [CHANNEL.ANALYZE_CHANNEL]);
-		handleNotifications(client, async (msg) => {
-			if (msg.channel.toUpperCase() === CHANNEL.ANALYZE_CHANNEL) {
-				if (isRunning) return;
-				isRunning = true;
-				developmentLog(
-					`[${new Date().toLocaleString()}] [ANALYZE] 신호 발생: ${msg.payload}`,
-				);
-				if (msg.payload) {
-					await main(msg.payload);
-				} else {
-					logger.error("PAYLOAD_ERROR", loggerPrefix);
-				}
-			}
+		[pool, client] = await getConnection(loggerPrefix, async (pool, client) => {
+			await setupPubSub(client, [CHANNEL.ANALYZE_CHANNEL]);
+
+			handleNotifications(client, async (msg) => {
+				await notifyCallback(msg);
+			});
+
+			client.on("error", (err: unknown) => {
+				errorHandler(client, "DB_CONNECTION_ERROR", loggerPrefix, err);
+			});
 		});
 
-		client.on("error", async (err) => {
-			logger.error("DB_CONNECTION_ERROR", loggerPrefix);
-			await reconnect();
+		setupProcessHandlers({
+			loggerPrefix,
+			pool,
+			client,
 		});
-	} catch (error) {
-		logger.error("INIT_SETUP_ERROR", loggerPrefix);
-		await reconnect();
+
+		logger.warn(client, "ANALYZE_START", loggerPrefix);
+	} catch (error: unknown) {
+		errorHandler(client, "INIT_SETUP_ERROR", loggerPrefix, error);
+		process.exit(1);
 	}
 }
 
-async function reconnect() {
-	try {
-		if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-			logger.error(
-				"DB_CONNECTION_ERROR",
-				loggerPrefix,
-				`최대 재연결 시도 횟수(${MAX_RECONNECT_ATTEMPTS}회) 초과`,
-			);
-			await handleGracefulShutdown();
-			return;
-		}
-
-		reconnectAttempts++;
-		logger.info("RECONNECT_ATTEMPTS", loggerPrefix);
-
-		if (client) {
-			await client.release();
-		}
-		await setup();
-
-		reconnectAttempts = 0;
-	} catch (error) {
-		logger.error("RECONNECT_ERROR", loggerPrefix);
-		sleepSync(5000);
+async function main(COIN_CODE: string | undefined) {
+	if (!COIN_CODE) {
+		logger.error(client, "PAYLOAD_ERROR", loggerPrefix);
+		return;
 	}
-}
 
-async function main(COIN_CODE: string) {
+	let status: "BUY" | "SELL" | "HOLD";
 	const coin = COIN_CODE.replace("KRW-", "");
+
+	/* Determine buy/sell based on account status */
+	/* 계좌 상태로 매수/매도 판단 */
 	try {
-		const status = await checkAccountStatus(coin);
-		if (status === "BUY") {
-			if ((await executeBuySignal(pool, COIN_CODE)) === Signal.BUY) {
-				notify(pool, CHANNEL.TRADING_CHANNEL, `BUY:${COIN_CODE}`);
+		status = await checkAccountStatus(coin);
+	} catch (error) {
+		logger.error(client, "ACCOUNT_STATUS_ERROR", loggerPrefix);
+		return;
+	}
+
+	/* Execute buy/sell signal */
+	/* 매수/매도 신호 실행 */
+	try {
+		switch (status) {
+			case "BUY": {
+				const signal = await executeBuySignal(pool, COIN_CODE);
+				if (signal === Signal.BUY)
+					notify(client, CHANNEL.TRADING_CHANNEL, `BUY:${COIN_CODE}`);
+				break;
 			}
-		} else if (status === "SELL") {
-			if ((await executeSellSignal(pool, COIN_CODE, coin)) === Signal.SELL) {
-				notify(pool, CHANNEL.TRADING_CHANNEL, `SELL:${COIN_CODE}`);
+			case "SELL": {
+				const signal = await executeSellSignal(pool, COIN_CODE, coin);
+				if (signal === Signal.SELL)
+					notify(client, CHANNEL.TRADING_CHANNEL, `SELL:${COIN_CODE}`);
+				break;
 			}
-		} else if (status === "HOLD") {
-		} else {
-			logger.error("ACCOUNT_STATUS_ERROR", loggerPrefix);
+			case "HOLD":
+				break;
 		}
 	} catch (error: unknown) {
-		if (error instanceof Error) {
-			logger.error("UNEXPECTED_ERROR", loggerPrefix, error.message);
-		} else {
-			logger.error("UNEXPECTED_ERROR", loggerPrefix);
-		}
-	} finally {
-		isRunning = false;
+		errorHandler(client, "SIGNAL_ERROR", loggerPrefix, error);
 	}
 }
 
-await setup();
-
-process.stdin.resume();
-
-process.on("uncaughtException", (error) => {
-	logger.error(
-		"UNEXPECTED_ERROR",
-		`${loggerPrefix} ${uuidv4()}`,
-		error.message,
-	);
-});
-
-process.on("unhandledRejection", (reason, promise) => {
-	if (reason instanceof Error) {
-		logger.error(
-			"UNEXPECTED_ERROR",
-			`${loggerPrefix} ${uuidv4()}`,
-			reason.message,
-		);
-	} else if (typeof reason === "string") {
-		logger.error("UNEXPECTED_ERROR", `${loggerPrefix} ${uuidv4()}`, reason);
-	} else {
-		logger.error(
-			"UNEXPECTED_ERROR",
-			`${loggerPrefix} ${uuidv4()}`,
-			"unhandledRejection",
-		);
-	}
-});
-
-/**
- * @name handleGracefulShutdown
- * @description 프로세스 종료 처리를 위한 공통 함수
- */
-async function handleGracefulShutdown() {
-	logger.warn("SERVICE_SHUTDOWN", loggerPrefix);
-
-	if (client) {
-		await client.release();
-	}
-
-	await pool.end();
-	process.exit(0);
-}
-
-process.on("SIGINT", handleGracefulShutdown);
-process.on("SIGTERM", handleGracefulShutdown);
+setup();

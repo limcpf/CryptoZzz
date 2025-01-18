@@ -23,6 +23,11 @@ export async function executeBuyOrder(
 		return;
 	}
 
+	if (process.env.NODE_ENV === "development") {
+		logger.send(client, "테스트 매수 완료", loggerPrefix);
+		return;
+	}
+
 	try {
 		const order = await API.ORDER(
 			client,

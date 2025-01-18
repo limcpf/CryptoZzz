@@ -77,7 +77,7 @@ module.exports = {
 			exec_mode: "fork",
 			watch: false,
 			reload: false,
-			max_memory_restart: "200M",
+			max_memory_restart: "300M",
 			env: {
 				NODE_ENV: "production",
 				TZ: "Asia/Seoul",
@@ -99,7 +99,7 @@ module.exports = {
 			exec_mode: "fork",
 			watch: false,
 			reload: false,
-			max_memory_restart: "100M",
+			max_memory_restart: "200M",
 			env: {
 				NODE_ENV: "production",
 				TZ: "Asia/Seoul",

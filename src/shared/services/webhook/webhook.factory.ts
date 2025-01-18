@@ -2,7 +2,7 @@ import { getMsg } from "../i18n/msg/msg.const";
 import { WebhookDiscord } from "./impl/webhook.discord";
 import { WEBHOOK_ENUM } from "./webhook.enum";
 
-export const webhookFactory = () => {
+export function webhookFactory() {
 	switch (process.env.WEBHOOK_TYPE as WEBHOOK_ENUM) {
 		case WEBHOOK_ENUM.DISCORD:
 			return new WebhookDiscord();
@@ -14,4 +14,4 @@ export const webhookFactory = () => {
 			);
 			process.exit(1);
 	}
-};
+}

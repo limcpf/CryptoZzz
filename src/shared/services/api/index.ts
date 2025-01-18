@@ -22,7 +22,7 @@ const API = {
 		market: string,
 		side: "bid" | "ask",
 		volume: string,
-		price: string,
+		price: string | null,
 		ord_type: "price" | "market",
 		identifier: string,
 	) => api.order(market, side, volume, price, ord_type, identifier),

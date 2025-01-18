@@ -103,7 +103,7 @@ export class UpbitApi implements Api {
 		market: string,
 		side: "bid" | "ask",
 		volume: string,
-		price: string,
+		price: string | null,
 		ord_type: "price" | "market",
 		identifier: string,
 	): Promise<OrderResponse> {
@@ -114,7 +114,7 @@ export class UpbitApi implements Api {
 			market: market,
 			side: side,
 			volume: volume,
-			price: String(Math.floor(Number(price) / 1000) * 1000),
+			price: price ? String(Math.floor(Number(price) / 1000) * 1000) : null,
 			ord_type: ord_type,
 			identifier: identifier,
 		};

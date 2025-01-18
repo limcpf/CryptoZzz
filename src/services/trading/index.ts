@@ -145,7 +145,7 @@ async function executeOrder(signal: string) {
 				symbol,
 				"ask",
 				availableCrypto.toString(),
-				"",
+				null,
 				"market",
 				uuidv4(),
 			);

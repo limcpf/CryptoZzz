@@ -6,8 +6,10 @@ import {
 } from "../../shared/config/database";
 import logger from "../../shared/config/logger";
 import { CHANNEL } from "../../shared/const/channel.const";
+import { getMsg } from "../../shared/services/i18n/msg/msg.const";
 import { setupProcessHandlers } from "../../shared/services/process-handler";
 import { errorHandler } from "../../shared/services/util";
+import webhook from "../../shared/services/webhook";
 import { executeBuyOrder, executeSellOrder } from "./orders";
 
 export const developmentLog =
@@ -35,16 +37,16 @@ async function notifyCallback(msg: Notification) {
 
 async function setup() {
 	try {
-		[pool, client] = await getConnection(loggerPrefix, async (pool, client) => {
-			await setupPubSub(client, [CHANNEL.TRADING_CHANNEL]);
+		[pool, client] = await getConnection(loggerPrefix);
 
-			handleNotifications(client, async (msg) => {
-				await notifyCallback(msg);
-			});
+		await setupPubSub(client, [CHANNEL.TRADING_CHANNEL]);
 
-			client.on("error", (err: unknown) => {
-				errorHandler(client, "DB_CONNECTION_ERROR", loggerPrefix, err);
-			});
+		handleNotifications(client, async (msg) => {
+			await notifyCallback(msg);
+		});
+
+		client.on("error", (err: unknown) => {
+			errorHandler(client, "DB_CONNECTION_ERROR", loggerPrefix, err);
 		});
 
 		setupProcessHandlers({
@@ -55,7 +57,13 @@ async function setup() {
 
 		logger.warn(client, "TRADING_SERVICE_START", loggerPrefix);
 	} catch (error: unknown) {
-		errorHandler(client, "INIT_SETUP_ERROR", loggerPrefix, error);
+		if (error instanceof Error) {
+			webhook.send(
+				`${loggerPrefix} ${getMsg("ANALYZE_START_ERROR")} ${error.message}`,
+			);
+		} else {
+			webhook.send(`${loggerPrefix} ${getMsg("ANALYZE_START_ERROR")}`);
+		}
 		process.exit(1);
 	}
 }

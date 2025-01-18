@@ -7,8 +7,10 @@ import {
 } from "../../shared/config/database";
 import logger from "../../shared/config/logger";
 import { CHANNEL } from "../../shared/const/channel.const";
+import { getMsg } from "../../shared/services/i18n/msg/msg.const";
 import { setupProcessHandlers } from "../../shared/services/process-handler";
 import { errorHandler } from "../../shared/services/util";
+import webhook from "../../shared/services/webhook";
 import { Signal } from "../../strategy/iStrategy";
 import { checkAccountStatus } from "./services/check-account-status";
 import { executeBuySignal, executeSellSignal } from "./signals";
@@ -33,16 +35,16 @@ async function notifyCallback(msg: Notification) {
 
 async function setup() {
 	try {
-		[pool, client] = await getConnection(loggerPrefix, async (pool, client) => {
-			await setupPubSub(client, [CHANNEL.ANALYZE_CHANNEL]);
+		[pool, client] = await getConnection(loggerPrefix);
 
-			handleNotifications(client, async (msg) => {
-				await notifyCallback(msg);
-			});
+		await setupPubSub(client, [CHANNEL.ANALYZE_CHANNEL]);
 
-			client.on("error", (err: unknown) => {
-				errorHandler(client, "DB_CONNECTION_ERROR", loggerPrefix, err);
-			});
+		handleNotifications(client, async (msg) => {
+			await notifyCallback(msg);
+		});
+
+		client.on("error", (err: unknown) => {
+			errorHandler(client, "DB_CONNECTION_ERROR", loggerPrefix, err);
 		});
 
 		setupProcessHandlers({
@@ -53,7 +55,15 @@ async function setup() {
 
 		logger.warn(client, "ANALYZE_START", loggerPrefix);
 	} catch (error: unknown) {
-		errorHandler(client, "INIT_SETUP_ERROR", loggerPrefix, error);
+		if (error instanceof Error) {
+			webhook.send(
+				`${loggerPrefix} ${getMsg("ANALYZE_START_ERROR")} ${error.message}`,
+			);
+		} else {
+			webhook.send(`${loggerPrefix} ${getMsg("ANALYZE_START_ERROR")}`);
+		}
+		developmentLog("hwy");
+		developmentLog(error);
 		process.exit(1);
 	}
 }
@@ -100,4 +110,13 @@ async function main(COIN_CODE: string | undefined) {
 	}
 }
 
-setup();
+const init = async () => {
+	await setup();
+};
+
+init().catch((error) => {
+	webhook.send(
+		`${loggerPrefix} ${getMsg("ANALYZE_START_ERROR")} ${error.message}`,
+	);
+	process.exit(1);
+});

@@ -28,12 +28,12 @@ const loggerPrefix = `[CANDLE-SAVE_${process.env.CRYPTO_CODE}]`;
  */
 async function setup() {
 	try {
-		[pool, client] = await getConnection(loggerPrefix, async (pool, client) => {
-			await client.query(QUERIES.INIT);
+		[pool, client] = await getConnection(loggerPrefix);
 
-			client.on("error", (err: unknown) => {
-				errorHandler(client, "DB_CONNECTION_ERROR", loggerPrefix, err);
-			});
+		await client.query(QUERIES.INIT);
+
+		client.on("error", (err: unknown) => {
+			errorHandler(client, "DB_CONNECTION_ERROR", loggerPrefix, err);
 		});
 
 		setupProcessHandlers({
@@ -50,7 +50,13 @@ async function setup() {
 		logger.warn(client, "CANDLE_SAVE_START", loggerPrefix);
 		checkAndSendStatus();
 	} catch (error: unknown) {
-		errorHandler(client, "INIT_SETUP_ERROR", loggerPrefix, error);
+		if (error instanceof Error) {
+			webhook.send(
+				`${loggerPrefix} ${getMsg("ANALYZE_START_ERROR")} ${error.message}`,
+			);
+		} else {
+			webhook.send(`${loggerPrefix} ${getMsg("ANALYZE_START_ERROR")}`);
+		}
 		process.exit(1);
 	}
 }
@@ -185,4 +191,13 @@ async function checkAndSendStatus() {
 	}
 }
 
-await setup();
+const init = async () => {
+	await setup();
+};
+
+init().catch((error) => {
+	webhook.send(
+		`${loggerPrefix} ${getMsg("ANALYZE_START_ERROR")} ${error.message}`,
+	);
+	process.exit(1);
+});

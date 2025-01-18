@@ -15,10 +15,9 @@ const createPool: () => Pool = () => {
 	});
 };
 
-export const getConnection = async (
+export async function getConnection(
 	loggerPrefix: string,
-	setupCallback?: (pool: Pool, client: PoolClient) => Promise<void>,
-): Promise<[Pool, PoolClient]> => {
+): Promise<[Pool, PoolClient]> {
 	const maxReconnectAttempts = Number(process.env.MAX_RECONNECT_ATTEMPTS) || 5;
 	let reconnectAttempts = 0;
 
@@ -37,10 +36,6 @@ export const getConnection = async (
 			const pool = createPool();
 			const client = await pool.connect();
 
-			if (setupCallback) {
-				await setupCallback(pool, client);
-			}
-
 			return [pool, client];
 		} catch (error: unknown) {
 			if (error instanceof Error) {
@@ -55,15 +50,11 @@ export const getConnection = async (
 		const pool = createPool();
 		const client = await pool.connect();
 
-		if (setupCallback) {
-			await setupCallback(pool, client);
-		}
-
 		return [pool, client];
 	} catch (error) {
 		return reconnect();
 	}
-};
+}
 
 export const setupPubSub = async (client: PoolClient, channels: string[]) => {
 	for (const channel of channels) {

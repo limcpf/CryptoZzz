@@ -37,6 +37,7 @@ export interface MSG {
 	ACCOUNT_STATUS_ERROR: string;
 	CANDLE_DATA_NOT_FOUND: string;
 	SIGNAL_ERROR: string;
+	EXECUTE_ORDER_ERROR: string;
 }
 
 export const getMsg = (language: string) => {

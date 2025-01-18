@@ -37,6 +37,7 @@ const messages: MSG = {
 		"⚠️ Error occurred while checking account status for buy/sell decision",
 	CANDLE_DATA_NOT_FOUND: "⚠️ Failed to find candle chart data",
 	SIGNAL_ERROR: "⚠️ Error occurred while executing buy/sell signal",
+	EXECUTE_ORDER_ERROR: "⚠️ Error occurred while executing order",
 } as const;
 
 export default messages;

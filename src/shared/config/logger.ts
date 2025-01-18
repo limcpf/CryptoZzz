@@ -8,6 +8,8 @@ const getMessage = (msg: keyof MSG, prefix?: string, suffix?: string) =>
 	`${prefix ? `${prefix} ` : ""}${i18n.getMessage(msg)}${
 		suffix ? ` ${suffix}` : ""
 	}`;
+const getMessageStr = (msg: string, prefix?: string, suffix?: string) =>
+	`${prefix ? `${prefix} ` : ""}${msg}${suffix ? ` ${suffix}` : ""}`;
 
 const logger = {
 	info(msg: keyof MSG, prefix?: string, suffix?: string) {
@@ -21,6 +23,10 @@ const logger = {
 	warn(client: PoolClient, msg: keyof MSG, prefix?: string, suffix?: string) {
 		const message = getMessage(msg, prefix, suffix);
 		console.log(message);
+		notify(client, CHANNEL.MANAGER_CHANNEL, `SEND:${message}`);
+	},
+	send(client: PoolClient, msg: string, prefix?: string, suffix?: string) {
+		const message = getMessageStr(msg, prefix, suffix);
 		notify(client, CHANNEL.MANAGER_CHANNEL, `SEND:${message}`);
 	},
 };

@@ -11,10 +11,15 @@ export async function executeBuySignal(
 ): Promise<Signal> {
 	const loggerPrefix = `[${symbol} BUY-SIGNAL] `;
 
-	const buyParent = await client.query<{ id: string }>(
-		QUERIES.INSERT_SIGNAL_LOG,
-		[symbol, new Date()],
-	);
+	const now = new Date();
+	const koreanTime = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+	const isoString = koreanTime.toISOString();
+
+	const buyParent = await client.query<{ id: string }>({
+		name: `insert_signal_log_${symbol}_${isoString}`,
+		text: QUERIES.INSERT_SIGNAL_LOG,
+		values: [symbol, isoString],
+	});
 
 	const uuid = buyParent.rows[0].id;
 

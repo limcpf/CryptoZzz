@@ -49,7 +49,7 @@ export const QUERIES = {
         CREATE TABLE IF NOT EXISTS SignalLog (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             symbol VARCHAR(10) NOT NULL,
-            hour_time TIMESTAMP NOT NULL,
+            hour_time TIMESTAMP NOT NULL DEFAULT NOW(),
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
 

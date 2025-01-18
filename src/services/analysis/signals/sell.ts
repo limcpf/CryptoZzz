@@ -2,9 +2,9 @@ import type { PoolClient } from "pg";
 import logger from "../../../shared/config/logger";
 import { QUERIES } from "../../../shared/const/query.const";
 import API from "../../../shared/services/api";
+import { developmentLog } from "../../../shared/services/util";
 import { Signal } from "../../../strategy/iStrategy";
 import { StrategyFactory } from "../../../strategy/strategy.factory";
-import { developmentLog } from "../index";
 
 const loggerPrefix = "SELL-SIGNAL";
 const TAKE_PROFIT = Number(process.env.TAKE_PROFIT) || 3;

@@ -3,11 +3,11 @@ import querystring from "node:querystring";
 import jwt from "jsonwebtoken";
 import type { PoolClient } from "pg";
 import { v4 as uuidv4 } from "uuid";
-import { developmentLog } from "../../../../services/analysis";
 import logger from "../../../config/logger";
 import type { iAccount, iAccountStatus } from "../../../interfaces/iAccount";
 import type { iCandle } from "../../../interfaces/iCandle";
 import type { OrderResponse, iOrder } from "../../../interfaces/iOrder";
+import { developmentLog } from "../../../services/util";
 import i18n from "../../i18n";
 import type { Api } from "../api.interface";
 

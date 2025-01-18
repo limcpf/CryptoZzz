@@ -14,8 +14,6 @@ export function setupProcessHandlers({
 	pool,
 	client,
 }: ProcessHandlerConfig) {
-	process.stdin.resume();
-
 	process.on("uncaughtException", (error) => {
 		errorHandler(client, "UNEXPECTED_ERROR", `${loggerPrefix}`, error.message);
 	});

@@ -1,9 +1,9 @@
 import type { PoolClient } from "pg";
 import logger from "../../../shared/config/logger";
 import { QUERIES } from "../../../shared/const/query.const";
+import { developmentLog } from "../../../shared/services/util";
 import { Signal } from "../../../strategy/iStrategy";
 import { StrategyFactory } from "../../../strategy/strategy.factory";
-import { developmentLog } from "../index";
 
 export async function executeBuySignal(
 	client: PoolClient,

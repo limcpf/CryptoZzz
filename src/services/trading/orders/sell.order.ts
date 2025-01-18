@@ -3,8 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import logger from "../../../shared/config/logger";
 import { QUERIES } from "../../../shared/const/query.const";
 import API from "../../../shared/services/api";
-import { errorHandler } from "../../../shared/services/util";
-import { developmentLog } from "../../analysis";
+import { developmentLog, errorHandler } from "../../../shared/services/util";
 
 export async function executeSellOrder(
 	client: PoolClient,

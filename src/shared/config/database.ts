@@ -1,11 +1,10 @@
 import { type Notification, Pool, type PoolClient } from "pg";
-import { developmentLog } from "../../services/analysis";
 import { CHANNEL, type ChannelType } from "../const/channel.const";
-import { errorHandler } from "../services/util";
+import { developmentLog, errorHandler } from "../services/util";
 import webhook from "../services/webhook";
 import logger from "./logger";
 
-const createPool: () => Pool = () => {
+function createPool(): Pool {
 	return new Pool({
 		user: process.env.DB_USER || "coin",
 		host: process.env.DB_HOST || "localhost",
@@ -13,7 +12,7 @@ const createPool: () => Pool = () => {
 		password: process.env.DB_PASSWORD || "230308",
 		port: Number(process.env.DB_PORT) || 5433,
 	});
-};
+}
 
 export async function getConnection(
 	loggerPrefix: string,
@@ -38,6 +37,7 @@ export async function getConnection(
 
 			return [pool, client];
 		} catch (error: unknown) {
+			developmentLog(error);
 			if (error instanceof Error) {
 				logger.info("RECONNECT_ERROR", loggerPrefix, `${error.message}`);
 			}
@@ -52,30 +52,36 @@ export async function getConnection(
 
 		return [pool, client];
 	} catch (error) {
+		developmentLog(error);
 		return reconnect();
 	}
 }
 
-export const setupPubSub = async (client: PoolClient, channels: string[]) => {
+export async function setupPubSub(client: PoolClient, channels: string[]) {
 	for (const channel of channels) {
 		await client.query(`LISTEN ${channel}`);
 	}
-};
+}
 
-export const handleNotifications = (
+export function handleNotifications(
 	client: PoolClient,
 	callback: (message: Notification) => void,
-) => {
-	client.on("notification", callback);
-};
+): () => void {
+	const handler = (msg: Notification) => {
+		try {
+			callback(msg);
+		} catch (error) {
+			errorHandler(client, "NOTIFICATION_ERROR", "NOTIFICATION_ERROR", error);
+		}
+	};
 
-export const notify = async (
-	client: PoolClient,
-	channel: ChannelType,
-	message = "",
-) => {
-	developmentLog(
-		`[${new Date().toLocaleString()}] [NOTIFY] ${CHANNEL[channel]} ${message}`,
-	);
-	await client.query(`NOTIFY ${CHANNEL[channel]}, '${message}'`);
-};
+	client.on("notification", handler);
+
+	return () => {
+		client.removeListener("notification", handler);
+	};
+}
+
+export function notify(client: PoolClient, channel: ChannelType, message = "") {
+	return client.query(`NOTIFY ${CHANNEL[channel]}, '${message}'`);
+}

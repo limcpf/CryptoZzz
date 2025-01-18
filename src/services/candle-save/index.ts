@@ -2,17 +2,14 @@ import cron from "node-cron";
 import type { Pool, PoolClient } from "pg";
 import { getConnection } from "../../shared/config/database";
 import logger from "../../shared/config/logger";
-import { CHANNEL } from "../../shared/const/channel.const";
 import { QUERIES } from "../../shared/const/query.const";
 import type { iCandle } from "../../shared/interfaces/iCandle";
 import type { iStrategyInfo } from "../../shared/interfaces/iStrategy";
 import API from "../../shared/services/api";
-import i18n from "../../shared/services/i18n";
 import { getMsg } from "../../shared/services/i18n/msg/msg.const";
 import { setupProcessHandlers } from "../../shared/services/process-handler";
-import { errorHandler } from "../../shared/services/util";
+import { developmentLog, errorHandler } from "../../shared/services/util";
 import webhook from "../../shared/services/webhook";
-import { developmentLog } from "../analysis";
 
 /** 전역변수 */
 let pool: Pool;
@@ -50,12 +47,15 @@ async function setup() {
 		logger.warn(client, "CANDLE_SAVE_START", loggerPrefix);
 		checkAndSendStatus();
 	} catch (error: unknown) {
+		developmentLog(error);
 		if (error instanceof Error) {
 			webhook.send(
-				`${loggerPrefix} ${getMsg("ANALYZE_START_ERROR")} ${error.message}`,
+				`${loggerPrefix} ${getMsg("CANDLE_SAVE_START_ERROR")}_${process.env.CRYPTO_CODE} ${error.message}`,
 			);
 		} else {
-			webhook.send(`${loggerPrefix} ${getMsg("ANALYZE_START_ERROR")}`);
+			webhook.send(
+				`${loggerPrefix} ${getMsg("CANDLE_SAVE_START_ERROR")}_${process.env.CRYPTO_CODE}`,
+			);
 		}
 		process.exit(1);
 	}
@@ -197,7 +197,7 @@ const init = async () => {
 
 init().catch((error) => {
 	webhook.send(
-		`${loggerPrefix} ${getMsg("ANALYZE_START_ERROR")} ${error.message}`,
+		`${loggerPrefix} ${getMsg("CANDLE_SAVE_START_ERROR")}_${process.env.CRYPTO_CODE} ${error.message}`,
 	);
 	process.exit(1);
 });

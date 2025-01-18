@@ -12,9 +12,6 @@ import { errorHandler } from "../../shared/services/util";
 import webhook from "../../shared/services/webhook";
 import { executeBuyOrder, executeSellOrder } from "./orders";
 
-export const developmentLog =
-	process.env.NODE_ENV === "development" ? console.log : () => {};
-
 let pool: Pool;
 let client: PoolClient;
 let isRunning = false;
@@ -59,10 +56,10 @@ async function setup() {
 	} catch (error: unknown) {
 		if (error instanceof Error) {
 			webhook.send(
-				`${loggerPrefix} ${getMsg("ANALYZE_START_ERROR")} ${error.message}`,
+				`${loggerPrefix} ${getMsg("TRADING_SERVICE_START_ERROR")} ${error.message}`,
 			);
 		} else {
-			webhook.send(`${loggerPrefix} ${getMsg("ANALYZE_START_ERROR")}`);
+			webhook.send(`${loggerPrefix} ${getMsg("TRADING_SERVICE_START_ERROR")}`);
 		}
 		process.exit(1);
 	}

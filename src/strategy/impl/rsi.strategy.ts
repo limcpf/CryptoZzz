@@ -1,8 +1,8 @@
 import type { PoolClient } from "pg";
-import { developmentLog } from "../../services/analysis";
 import logger from "../../shared/config/logger";
 import { QUERIES } from "../../shared/const/query.const";
 import type { iRSIResult } from "../../shared/interfaces/iMarketDataResult";
+import { developmentLog } from "../../shared/services/util";
 import { Signal, type iStrategy } from "../iStrategy";
 
 /**

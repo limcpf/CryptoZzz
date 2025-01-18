@@ -15,9 +15,6 @@ import { Signal } from "../../strategy/iStrategy";
 import { checkAccountStatus } from "./services/check-account-status";
 import { executeBuySignal, executeSellSignal } from "./signals";
 
-export const developmentLog =
-	process.env.NODE_ENV === "development" ? console.log : () => {};
-
 const loggerPrefix = "[ANALYZE]";
 
 let pool: Pool;
@@ -62,8 +59,6 @@ async function setup() {
 		} else {
 			webhook.send(`${loggerPrefix} ${getMsg("ANALYZE_START_ERROR")}`);
 		}
-		developmentLog("hwy");
-		developmentLog(error);
 		process.exit(1);
 	}
 }

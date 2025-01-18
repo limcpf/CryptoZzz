@@ -27,10 +27,11 @@ export class RsiStrategy implements iStrategy {
 	}
 
 	async execute(uuid: string, symbol: string): Promise<Signal> {
-		const result = await this.client.query<iRSIResult>(
-			QUERIES.GET_RSI_INDICATOR,
-			[symbol],
-		);
+		const result = await this.client.query<iRSIResult>({
+			name: `get_rsi_${symbol}_${uuid}`,
+			text: QUERIES.GET_RSI_INDICATOR,
+			values: [symbol],
+		});
 
 		if (result.rowCount === 0) {
 			logger.error(this.client, "SIGNAL_RSI_ERROR", this.loggerPrefix);

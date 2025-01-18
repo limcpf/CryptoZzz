@@ -27,10 +27,11 @@ export class MaStrategy implements iStrategy {
 	}
 
 	async execute(uuid: string, symbol: string): Promise<Signal> {
-		const result = await this.client.query<iMovingAveragesResult>(
-			QUERIES.GET_MOVING_AVERAGES,
-			[symbol],
-		);
+		const result = await this.client.query<iMovingAveragesResult>({
+			name: `get_ma_${symbol}_${uuid}`,
+			text: QUERIES.GET_MOVING_AVERAGES,
+			values: [symbol],
+		});
 
 		if (result.rowCount === 0) {
 			logger.error(this.client, "SIGNAL_MA_ERROR", this.loggerPrefix);

@@ -47,7 +47,6 @@ async function setup() {
 		logger.warn(client, "CANDLE_SAVE_START", loggerPrefix);
 		checkAndSendStatus();
 	} catch (error: unknown) {
-		developmentLog(error);
 		if (error instanceof Error) {
 			webhook.send(
 				`${loggerPrefix} ${getMsg("CANDLE_SAVE_START_ERROR")}_${process.env.CRYPTO_CODE} ${error.message}`,

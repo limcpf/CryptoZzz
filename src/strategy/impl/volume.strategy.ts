@@ -25,10 +25,11 @@ export class VolumeStrategy implements iStrategy {
 	}
 
 	async execute(uuid: string, symbol: string): Promise<Signal> {
-		const result = await this.client.query<iVolumeAnalysisResult>(
-			QUERIES.GET_VOLUME_ANALYSIS,
-			[symbol],
-		);
+		const result = await this.client.query<iVolumeAnalysisResult>({
+			name: `get_volume_${symbol}_${uuid}`,
+			text: QUERIES.GET_VOLUME_ANALYSIS,
+			values: [symbol],
+		});
 
 		if (result.rowCount === 0) {
 			logger.error(this.client, "SIGNAL_VOLUME_ERROR", this.loggerPrefix);

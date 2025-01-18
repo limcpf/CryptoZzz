@@ -25,6 +25,7 @@ export async function executeSellOrder(
 
 	try {
 		const order = await API.ORDER(
+			client,
 			symbol,
 			"ask",
 			availableCrypto.toString(),

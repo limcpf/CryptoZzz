@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import querystring from "node:querystring";
 import jwt from "jsonwebtoken";
+import type { PoolClient } from "pg";
 import { v4 as uuidv4 } from "uuid";
 import { developmentLog } from "../../../../services/analysis";
 import logger from "../../../config/logger";
@@ -117,6 +118,7 @@ export class UpbitApi implements Api {
 	};
 
 	async order(
+		client: PoolClient,
 		market: string,
 		side: "bid" | "ask",
 		volume: string,
@@ -159,7 +161,12 @@ export class UpbitApi implements Api {
 				`[${new Date().toLocaleString()}] [UPBIT-ORDER] ${response.statusText}`,
 			);
 			developmentLog(response);
-			logger.error("ORDER_API_ERROR", this.loggerPrefix, response.statusText);
+			logger.error(
+				client,
+				"ORDER_API_ERROR",
+				this.loggerPrefix,
+				response.statusText,
+			);
 			throw new Error(response.statusText);
 		}
 

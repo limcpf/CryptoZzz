@@ -25,6 +25,7 @@ export async function executeBuyOrder(
 
 	try {
 		const order = await API.ORDER(
+			client,
 			symbol,
 			"bid",
 			"",

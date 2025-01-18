@@ -2,6 +2,7 @@ import { type Notification, Pool, type PoolClient } from "pg";
 import { developmentLog } from "../../services/analysis";
 import { CHANNEL, type ChannelType } from "../const/channel.const";
 import { errorHandler } from "../services/util";
+import webhook from "../services/webhook";
 import logger from "./logger";
 
 const createPool: () => Pool = () => {
@@ -24,10 +25,8 @@ export const getConnection = async (
 	const reconnect = async (): Promise<[Pool, PoolClient]> => {
 		try {
 			if (reconnectAttempts >= maxReconnectAttempts) {
-				logger.error(
-					"DB_CONNECTION_ERROR",
-					loggerPrefix,
-					`최대 재연결 시도 횟수(${maxReconnectAttempts}회) 초과`,
+				webhook.send(
+					`[${new Date().toLocaleString()}] [${loggerPrefix}] 최대 재연결 시도 횟수(${maxReconnectAttempts}회) 초과`,
 				);
 				process.exit(1);
 			}
@@ -44,7 +43,9 @@ export const getConnection = async (
 
 			return [pool, client];
 		} catch (error: unknown) {
-			errorHandler("RECONNECT_ERROR", loggerPrefix, error);
+			if (error instanceof Error) {
+				logger.info("RECONNECT_ERROR", loggerPrefix, `${error.message}`);
+			}
 			await new Promise((resolve) => setTimeout(resolve, 5000));
 			return reconnect();
 		}

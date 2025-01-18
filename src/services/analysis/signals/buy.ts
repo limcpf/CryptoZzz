@@ -1,4 +1,4 @@
-import type { Pool } from "pg";
+import type { PoolClient } from "pg";
 import logger from "../../../shared/config/logger";
 import { QUERIES } from "../../../shared/const/query.const";
 import { Signal } from "../../../strategy/iStrategy";
@@ -6,12 +6,12 @@ import { StrategyFactory } from "../../../strategy/strategy.factory";
 import { developmentLog } from "../index";
 
 export async function executeBuySignal(
-	pool: Pool,
+	client: PoolClient,
 	symbol: string,
 ): Promise<Signal> {
 	const loggerPrefix = `[${symbol} BUY-SIGNAL] `;
 
-	const buyParent = await pool.query<{ id: string }>(
+	const buyParent = await client.query<{ id: string }>(
 		QUERIES.INSERT_SIGNAL_LOG,
 		[symbol, new Date()],
 	);
@@ -19,7 +19,7 @@ export async function executeBuySignal(
 	const uuid = buyParent.rows[0].id;
 
 	if (!uuid) {
-		logger.error("SIGNAL_LOG_ERROR", loggerPrefix);
+		logger.error(client, "SIGNAL_LOG_ERROR", loggerPrefix);
 		return Signal.HOLD;
 	}
 
@@ -30,13 +30,13 @@ export async function executeBuySignal(
 	const strategies = process.env.STRATEGIES?.split(",") || [];
 
 	if (strategies.length === 0) {
-		logger.error("NOT_FOUND_STRATEGY", loggerPrefix);
+		logger.error(client, "NOT_FOUND_STRATEGY", loggerPrefix);
 		return Signal.HOLD;
 	}
 
 	const signals = await Promise.all(
 		strategies.map(async (strategy) => {
-			const factory = new StrategyFactory(pool);
+			const factory = new StrategyFactory(client);
 			const strategyInstance = factory.createStrategy(strategy);
 			return strategyInstance.execute(uuid, symbol);
 		}),

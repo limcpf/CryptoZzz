@@ -1,4 +1,4 @@
-import type { Pool } from "pg";
+import type { PoolClient } from "pg";
 import logger from "../../../shared/config/logger";
 import { QUERIES } from "../../../shared/const/query.const";
 import API from "../../../shared/services/api";
@@ -11,7 +11,7 @@ const TAKE_PROFIT = Number(process.env.TAKE_PROFIT) || 3;
 const STOP_LOSS = Number(process.env.STOP_LOSS) || -2;
 
 export async function executeSellSignal(
-	pool: Pool,
+	client: PoolClient,
 	symbol: string,
 	coin: string,
 ): Promise<Signal> {
@@ -31,7 +31,7 @@ export async function executeSellSignal(
 	const cryptoAccount = account.find((acc) => acc.currency === coin);
 
 	if (!cryptoAccount || !cryptoAccount.avg_buy_price) {
-		logger.error("SIGNAL_ACCOUNT_ERROR", loggerPrefix);
+		logger.error(client, "SIGNAL_ACCOUNT_ERROR", loggerPrefix);
 		return Signal.HOLD;
 	}
 
@@ -58,7 +58,7 @@ export async function executeSellSignal(
 		return Signal.SELL;
 	}
 
-	const analyzeParent = await pool.query<{ id: string }>(
+	const analyzeParent = await client.query<{ id: string }>(
 		QUERIES.INSERT_SIGNAL_LOG,
 		[symbol, new Date()],
 	);
@@ -71,7 +71,7 @@ export async function executeSellSignal(
 
 	const signals = await Promise.all(
 		strategies.map(async (strategy) => {
-			const factory = new StrategyFactory(pool);
+			const factory = new StrategyFactory(client);
 			const strategyInstance = factory.createStrategy(strategy);
 			return strategyInstance.execute(uuid, symbol);
 		}),

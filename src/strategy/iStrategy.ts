@@ -1,4 +1,4 @@
-import type { Pool } from "pg";
+import type { PoolClient } from "pg";
 
 /**
  * Strategy Interface
@@ -8,7 +8,7 @@ import type { Pool } from "pg";
  * 거래 전략을 구현하기 위한 구조를 정의
  */
 export interface iStrategy {
-	pool: Pool;
+	client: PoolClient;
 	execute(uuid: string, symbol: string): Promise<Signal>;
 }
 

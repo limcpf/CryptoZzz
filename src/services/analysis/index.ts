@@ -1,6 +1,4 @@
-import { sleepSync } from "bun";
 import type { Notification, Pool, PoolClient } from "pg";
-import { v4 as uuidv4 } from "uuid";
 import {
 	getConnection,
 	handleNotifications,
@@ -9,7 +7,6 @@ import {
 } from "../../shared/config/database";
 import logger from "../../shared/config/logger";
 import { CHANNEL } from "../../shared/const/channel.const";
-import type { iAccountStatus } from "../../shared/interfaces/iAccount";
 import { setupProcessHandlers } from "../../shared/services/process-handler";
 import { errorHandler } from "../../shared/services/util";
 import { Signal } from "../../strategy/iStrategy";
@@ -21,10 +18,6 @@ export const developmentLog =
 
 const loggerPrefix = "[ANALYZE]";
 
-/**
- * @name pool
- * @description Database Pool
- */
 let pool: Pool;
 let client: PoolClient;
 
@@ -88,13 +81,13 @@ async function main(COIN_CODE: string | undefined) {
 	try {
 		switch (status) {
 			case "BUY": {
-				const signal = await executeBuySignal(pool, COIN_CODE);
+				const signal = await executeBuySignal(client, COIN_CODE);
 				if (signal === Signal.BUY)
 					notify(client, CHANNEL.TRADING_CHANNEL, `BUY:${COIN_CODE}`);
 				break;
 			}
 			case "SELL": {
-				const signal = await executeSellSignal(pool, COIN_CODE, coin);
+				const signal = await executeSellSignal(client, COIN_CODE, coin);
 				if (signal === Signal.SELL)
 					notify(client, CHANNEL.TRADING_CHANNEL, `SELL:${COIN_CODE}`);
 				break;

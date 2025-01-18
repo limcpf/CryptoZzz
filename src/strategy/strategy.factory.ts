@@ -1,4 +1,4 @@
-import type { Pool } from "pg";
+import type { PoolClient } from "pg";
 import i18n from "../shared/services/i18n";
 import type { iStrategy } from "./iStrategy";
 import { MaStrategy } from "./impl/ma.strategy";
@@ -13,16 +13,16 @@ import { VolumeStrategy } from "./impl/volume.strategy";
  * 전략 이름에 따라 거래 전략 인스턴스를 생성하고 반환
  */
 export class StrategyFactory {
-	constructor(private pool: Pool) {}
+	constructor(private client: PoolClient) {}
 
 	createStrategy(strategyName: string): iStrategy {
 		switch (strategyName) {
 			case StrategyName.RSI:
-				return new RsiStrategy(this.pool);
+				return new RsiStrategy(this.client);
 			case StrategyName.MA:
-				return new MaStrategy(this.pool);
+				return new MaStrategy(this.client);
 			case StrategyName.VOLUME:
-				return new VolumeStrategy(this.pool);
+				return new VolumeStrategy(this.client);
 		}
 
 		throw new Error(

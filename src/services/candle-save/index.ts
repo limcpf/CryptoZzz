@@ -33,6 +33,8 @@ let COIN = "";
 
 const loggerPrefix = `CANDLE-SAVE_${process.env.CRYPTO_CODE}`;
 
+logger.warn("CANDLE_SAVE_START", loggerPrefix, process.env.CRYPTO_CODE);
+
 /**
  * @name setup
  * @description Setup
@@ -43,8 +45,6 @@ async function setup() {
 		COIN = (process.env.CRYPTO_CODE || "BTC").replace("KRW-", "");
 		client = await pool.connect();
 		await client.query(QUERIES.INIT);
-
-		logger.warn("CANDLE_SAVE_START", loggerPrefix, COIN);
 
 		checkAndSendStatus();
 
@@ -185,6 +185,10 @@ async function sendCoinStatus(coin: string) {
 	);
 	const { close_price } = currentPriceQuery.rows[0];
 
+	const evaluationAmount = status.cryptoBalance * close_price;
+
+	if (evaluationAmount < 1) return;
+
 	const fluctuationRate = Number(
 		(
 			((close_price - status.cryptoBuyPrice) / status.cryptoBuyPrice) *
@@ -196,7 +200,7 @@ async function sendCoinStatus(coin: string) {
 ### [현재 ${coin} 등락율 ${fluctuationRate > 0 ? "🔼😊" : "🔽😢"} ${fluctuationRate}%🔍]
 **평균 매수 금액**: ${status.cryptoBuyPrice}
 **총 매수 금액**: ${status.cryptoEvalAmount}
-**현재 평가 금액**: ${status.cryptoBalance * close_price}
+**현재 평가 금액**: ${evaluationAmount}
 	`);
 }
 
@@ -208,8 +212,9 @@ async function checkAndSendStatus() {
 		);
 		const strategy = strategyQuery.rows[0];
 
-		webhook.send(
-			`
+		if (strategy) {
+			webhook.send(
+				`
 ### [${process.env.CRYPTO_CODE} 분석 정보 🔍]
 **기준 시간**: ${strategy.hour_time}
 **RSI**: ${strategy.rsi}
@@ -217,7 +222,8 @@ async function checkAndSendStatus() {
 **장기 MA**: ${strategy.long_ma}
 **현재 거래량**: ${strategy.current_volume}
 **평균 거래량**: ${strategy.avg_volume}`,
-		);
+			);
+		}
 	} catch (error) {
 		if (error instanceof Error) {
 			logger.error("CHECK_STATUS_ERROR", loggerPrefix, error.message);
@@ -229,9 +235,7 @@ async function checkAndSendStatus() {
 
 cron.schedule("*/15 8-21 * * *", () => sendCoinStatus(COIN));
 
-cron.schedule("*/15 8-21 * * *", () => sendCoinStatus(COIN));
-
-cron.schedule("0 * * * *", checkAndSendStatus);
+cron.schedule(`${process.env.TIME} * * * *`, checkAndSendStatus);
 
 cron.schedule(process.env.CANDLE_SAVE_INTERVAL || "0 */5 * * * *", () => {
 	IS_CANDLE_ERROR_SENT = false;

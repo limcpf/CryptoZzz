@@ -34,6 +34,8 @@ export interface MSG {
 	SIGNAL_VOLUME_ERROR: string;
 	NOT_FOUND_STRATEGY: string;
 	SIGNAL_ACCOUNT_ERROR: string;
+	ACCOUNT_STATUS_ERROR: string;
+	CANDLE_DATA_NOT_FOUND: string;
 }
 
 export const getMsg = (language: string) => {

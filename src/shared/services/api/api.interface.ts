@@ -13,6 +13,7 @@ export interface Api {
 		volume: string,
 		price: string,
 		ord_type: "price" | "market",
+		identifier: string,
 	): Promise<OrderResponse>;
 	getAuthToken(
 		body: Dict<

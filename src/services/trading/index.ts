@@ -28,6 +28,8 @@ const MAX_RECONNECT_ATTEMPTS = 5;
 let reconnectAttempts = 0;
 const loggerPrefix = "TRADING";
 
+logger.warn("TRADING_SERVICE_START", loggerPrefix);
+
 async function setup() {
 	try {
 		client = await pool.connect();
@@ -39,8 +41,6 @@ async function setup() {
 				await executeOrder(msg.payload as string);
 			}
 		});
-
-		logger.warn("TRADING_SERVICE_START", loggerPrefix);
 
 		client.on("error", async (err) => {
 			logger.error("DB_CONNECTION_ERROR", loggerPrefix);
@@ -92,7 +92,7 @@ async function executeOrder(signal: string) {
 	const krwAccount = account.find((acc) => acc.currency === "KRW");
 	const cryptoAccount = account.find((acc) => acc.currency === coin);
 
-	if (signal === "BUY" && krwAccount) {
+	if (signalType === "BUY" && krwAccount) {
 		const availableKRW = Number(krwAccount.balance);
 		if (availableKRW < 10000) {
 			logger.error("BUY_SIGNAL_ERROR", loggerPrefix);
@@ -197,20 +197,16 @@ await setup();
 process.stdin.resume();
 
 process.on("uncaughtException", (error) => {
-	logger.error("UNEXPECTED_ERROR", `$loggerPrefix$uuidv4()`, error.message);
+	logger.error("UNEXPECTED_ERROR", loggerPrefix, error.message);
 });
 
 process.on("unhandledRejection", (reason, promise) => {
 	if (reason instanceof Error) {
-		logger.error("UNEXPECTED_ERROR", `$loggerPrefix$uuidv4()`, reason.message);
+		logger.error("UNEXPECTED_ERROR", loggerPrefix, reason.message);
 	} else if (typeof reason === "string") {
-		logger.error("UNEXPECTED_ERROR", `$loggerPrefix$uuidv4()`, reason);
+		logger.error("UNEXPECTED_ERROR", loggerPrefix, reason);
 	} else {
-		logger.error(
-			"UNEXPECTED_ERROR",
-			`$loggerPrefix$uuidv4()`,
-			"unhandledRejection",
-		);
+		logger.error("UNEXPECTED_ERROR", loggerPrefix, "unhandledRejection");
 	}
 });
 

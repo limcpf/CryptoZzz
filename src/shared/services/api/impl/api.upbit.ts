@@ -2,6 +2,8 @@ import crypto from "node:crypto";
 import querystring from "node:querystring";
 import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
+import { developmentLog } from "../../../../services/analysis";
+import logger from "../../../config/logger";
 import type { iAccount, iAccountStatus } from "../../../interfaces/iAccount";
 import type { iCandle } from "../../../interfaces/iCandle";
 import type { OrderResponse, iOrder } from "../../../interfaces/iOrder";
@@ -10,6 +12,7 @@ import type { Api } from "../api.interface";
 
 export class UpbitApi implements Api {
 	MARKET_URL: string;
+	private loggerPrefix = "UPBIT";
 
 	constructor() {
 		this.MARKET_URL = process.env.UPBIT_API_URL || "https://api.upbit.com";
@@ -111,7 +114,7 @@ export class UpbitApi implements Api {
 			market: market,
 			side: side,
 			volume: volume,
-			price: price,
+			price: String(Math.floor(Number(price) / 1000) * 1000),
 			ord_type: ord_type,
 			identifier: identifier,
 		};
@@ -128,9 +131,12 @@ export class UpbitApi implements Api {
 		});
 
 		if (!response.ok) {
-			throw new Error(
-				`[${new Date().toLocaleString()}] [UPBIT-ORDER] ${i18n.getMessage("ORDER_API_ERROR")} : ${response.status}`,
+			developmentLog(
+				`[${new Date().toLocaleString()}] [UPBIT-ORDER] ${response.statusText}`,
 			);
+			developmentLog(response);
+			logger.error("ORDER_API_ERROR", this.loggerPrefix, response.statusText);
+			throw new Error(response.statusText);
 		}
 
 		const data = (await response.json()) as OrderResponse;

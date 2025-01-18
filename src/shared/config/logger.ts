@@ -10,7 +10,7 @@ const getTime = () =>
 	}).format(new Date());
 
 const getMessage = (msg: keyof MSG, prefix?: string, suffix?: string) =>
-	`[${getTime()}] ${prefix ? `${prefix} ` : ""}${i18n.getMessage(msg)}${
+	`${prefix ? `${prefix} ` : ""}${i18n.getMessage(msg)}${
 		suffix ? ` ${suffix}` : ""
 	}`;
 

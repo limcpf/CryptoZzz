@@ -30,6 +30,8 @@ let client: PoolClient;
 const MAX_RECONNECT_ATTEMPTS = 5;
 let reconnectAttempts = 0;
 
+logger.warn("ANALYZE_START", loggerPrefix);
+
 async function setup() {
 	try {
 		client = await pool.connect();
@@ -48,8 +50,6 @@ async function setup() {
 				}
 			}
 		});
-
-		logger.warn("ANALYZE_START", loggerPrefix);
 
 		client.on("error", async (err) => {
 			logger.error("DB_CONNECTION_ERROR", loggerPrefix);
@@ -91,14 +91,18 @@ async function reconnect() {
 async function main(COIN_CODE: string) {
 	const coin = COIN_CODE.replace("KRW-", "");
 	try {
-		if (await checkAccountStatus(coin)) {
+		const status = await checkAccountStatus(coin);
+		if (status === "BUY") {
 			if ((await executeBuySignal(pool, COIN_CODE)) === Signal.BUY) {
 				notify(pool, CHANNEL.TRADING_CHANNEL, `BUY:${COIN_CODE}`);
 			}
-		} else {
+		} else if (status === "SELL") {
 			if ((await executeSellSignal(pool, COIN_CODE, coin)) === Signal.SELL) {
 				notify(pool, CHANNEL.TRADING_CHANNEL, `SELL:${COIN_CODE}`);
 			}
+		} else if (status === "HOLD") {
+		} else {
+			logger.error("ACCOUNT_STATUS_ERROR", loggerPrefix);
 		}
 	} catch (error: unknown) {
 		if (error instanceof Error) {

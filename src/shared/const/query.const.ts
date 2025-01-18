@@ -252,17 +252,15 @@ export const QUERIES = {
             status,
             created_at,
             updated_at,
-            order_type
         )
         VALUES (
             $5,
             $1,
             $2,
             $3,
-            'PENDING',
+            $4,
             NOW(),
-            NOW(),
-            $4
+            NOW()
         )
         RETURNING id, identifier;
     `,
@@ -289,7 +287,7 @@ LEFT JOIN RsiSignal rs ON sl.id = rs.signal_id
 LEFT JOIN MaSignal ms ON sl.id = ms.signal_id
 LEFT JOIN VolumeSignal vs ON sl.id = vs.signal_id
 WHERE 
-    sl.symbol = $1
+    sl.symbol = $1 AND
     rs.rsi IS NOT NULL AND 
     ms.short_ma IS NOT NULL AND 
     ms.long_ma IS NOT NULL AND 

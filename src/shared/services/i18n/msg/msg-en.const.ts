@@ -33,8 +33,14 @@ const messages: MSG = {
 	SIGNAL_VOLUME_ERROR: "⚠️ Failed to execute volume strategy",
 	NOT_FOUND_STRATEGY: "⚠️ No strategy found",
 	SIGNAL_ACCOUNT_ERROR: "⚠️ Failed to find account information",
-	ACCOUNT_STATUS_ERROR: "⚠️ Failed to find account status",
+	ACCOUNT_STATUS_ERROR:
+		"⚠️ Error occurred while checking account status for buy/sell decision",
 	CANDLE_DATA_NOT_FOUND: "⚠️ Failed to find candle chart data",
+	SIGNAL_ERROR: "⚠️ Error occurred while executing buy/sell signal",
+	EXECUTE_ORDER_ERROR: "⚠️ Error occurred while executing order",
+	MANAGER_START: "🚀 Start MANAGER service for automatic trading",
+	MANAGER_START_ERROR: "⚠️ Error occurred while starting MANAGER service",
+	NOTIFICATION_ERROR: "⚠️ Error occurred while processing notification",
 } as const;
 
 export default messages;

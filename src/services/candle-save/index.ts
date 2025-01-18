@@ -1,39 +1,23 @@
-import { sleepSync } from "bun";
 import cron from "node-cron";
-import type { PoolClient } from "pg";
-import { v4 as uuidv4 } from "uuid";
-import { createPool, notify } from "../../shared/config/database";
+import type { Pool, PoolClient } from "pg";
+import { getConnection } from "../../shared/config/database";
 import logger from "../../shared/config/logger";
-import { CHANNEL } from "../../shared/const/channel.const";
 import { QUERIES } from "../../shared/const/query.const";
 import type { iCandle } from "../../shared/interfaces/iCandle";
 import type { iStrategyInfo } from "../../shared/interfaces/iStrategy";
 import API from "../../shared/services/api";
-import i18n from "../../shared/services/i18n";
+import { getMsg } from "../../shared/services/i18n/msg/msg.const";
+import { setupProcessHandlers } from "../../shared/services/process-handler";
+import { developmentLog, errorHandler } from "../../shared/services/util";
 import webhook from "../../shared/services/webhook";
 
 /** 전역변수 */
-
-/**
- * @name pool
- * @description Database Pool
- */
-const pool = createPool();
+let pool: Pool;
 let client: PoolClient;
-
-const MAX_RECONNECT_ATTEMPTS = 5;
-let reconnectAttempts = 0;
-
-/**
- * @name IS_CANDLE_ERROR_SENT
- * @description 5분마다 한번씩만 오류 메시지를 전송하기 위한 구분 값
- */
 let IS_CANDLE_ERROR_SENT = false;
 let COIN = "";
 
-const loggerPrefix = `CANDLE-SAVE_${process.env.CRYPTO_CODE}`;
-
-logger.warn("CANDLE_SAVE_START", loggerPrefix, process.env.CRYPTO_CODE);
+const loggerPrefix = `[CANDLE-SAVE_${process.env.CRYPTO_CODE}]`;
 
 /**
  * @name setup
@@ -41,52 +25,65 @@ logger.warn("CANDLE_SAVE_START", loggerPrefix, process.env.CRYPTO_CODE);
  */
 async function setup() {
 	try {
-		IS_CANDLE_ERROR_SENT = false;
-		COIN = (process.env.CRYPTO_CODE || "BTC").replace("KRW-", "");
-		client = await pool.connect();
+		[pool, client] = await getConnection(loggerPrefix);
+
 		await client.query(QUERIES.INIT);
 
-		checkAndSendStatus();
-
-		client.on("error", async (err) => {
-			logger.error("DB_CONNECTION_ERROR", loggerPrefix, err.message);
-			await reconnect();
+		client.on("error", (err: unknown) => {
+			errorHandler(client, "DB_CONNECTION_ERROR", loggerPrefix, err);
 		});
-	} catch (error) {
+
+		setupProcessHandlers({
+			loggerPrefix,
+			pool,
+			client,
+		});
+
+		IS_CANDLE_ERROR_SENT = false;
+		COIN = (process.env.CRYPTO_CODE || "BTC").replace("KRW-", "");
+
+		setupCronJobs();
+
+		logger.warn(client, "CANDLE_SAVE_START", loggerPrefix);
+		checkAndSendStatus();
+	} catch (error: unknown) {
+		developmentLog(error);
 		if (error instanceof Error) {
-			logger.error("INIT_SETUP_ERROR", loggerPrefix, error.message);
+			webhook.send(
+				`${loggerPrefix} ${getMsg("CANDLE_SAVE_START_ERROR")}_${process.env.CRYPTO_CODE} ${error.message}`,
+			);
 		} else {
-			logger.error("INIT_SETUP_ERROR", loggerPrefix);
+			webhook.send(
+				`${loggerPrefix} ${getMsg("CANDLE_SAVE_START_ERROR")}_${process.env.CRYPTO_CODE}`,
+			);
 		}
-		await reconnect();
+		process.exit(1);
 	}
 }
 
-async function reconnect() {
-	try {
-		if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-			logger.error("RECONNECT_ERROR", loggerPrefix);
-			await handleGracefulShutdown();
-			return;
+function setupCronJobs() {
+	// 캔들 저장 크론
+	cron.schedule(`${process.env.TIME} * * * * *`, async () => {
+		try {
+			await fetchAndSaveCandles();
+		} catch (error: unknown) {
+			if (!IS_CANDLE_ERROR_SENT) {
+				IS_CANDLE_ERROR_SENT = true;
+				errorHandler(client, "CANDLE_SAVE_API_ERROR", loggerPrefix, error);
+			}
 		}
+	});
 
-		reconnectAttempts++;
-		logger.info("RECONNECT_ATTEMPTS", loggerPrefix);
+	// 코인 상태 체크 크론
+	cron.schedule("*/15 8-21 * * *", () => sendCoinStatus(COIN));
 
-		if (client) {
-			await client.release();
-		}
-		await setup();
+	// 상태 체크 크론
+	cron.schedule(`${process.env.TIME} * * * *`, checkAndSendStatus);
 
-		reconnectAttempts = 0;
-	} catch (error: unknown) {
-		if (error instanceof Error) {
-			logger.error("RECONNECT_ERROR", loggerPrefix, error.message);
-		} else {
-			logger.error("RECONNECT_ERROR", loggerPrefix);
-		}
-		sleepSync(5000);
-	}
+	// 에러 플래그 초기화 크론
+	cron.schedule(process.env.CANDLE_SAVE_INTERVAL || "0 */5 * * * *", () => {
+		IS_CANDLE_ERROR_SENT = false;
+	});
 }
 
 /**
@@ -104,11 +101,7 @@ async function fetchAndSaveCandles(count = 1) {
 
 		const result = await saveCandleData(data);
 	} catch (error: unknown) {
-		if (error instanceof Error) {
-			logger.error("FETCH_CANDLE_DATA_ERROR", loggerPrefix, error.message);
-		} else {
-			logger.error("FETCH_CANDLE_DATA_ERROR", loggerPrefix);
-		}
+		errorHandler(client, "CANDLE_SAVE_DB_ERROR", loggerPrefix, error);
 	}
 }
 
@@ -133,46 +126,15 @@ async function saveCandleData(data: iCandle[]) {
 			),
 		);
 
-		if (process.env.NODE_ENV === "development") {
-			logger.info("CANDLE_SAVE_NORMAL_COLLECTING", loggerPrefix);
-		}
-
-		notify(pool, CHANNEL.ANALYZE_CHANNEL, `${process.env.CRYPTO_CODE}`);
+		developmentLog(
+			`[${new Date().toLocaleString()}] ${loggerPrefix} ${getMsg(
+				"CANDLE_SAVE_NORMAL_COLLECTING",
+			)}`,
+		);
 	} catch (error: unknown) {
-		if (error instanceof Error) {
-			webhook.send(`[CANDLE-SAVE] ${error.message}`);
-		} else {
-			webhook.send(`[CANDLE-SAVE] ${i18n.getMessage("CANDLE_SAVE_DB_ERROR")}`);
-		}
+		errorHandler(client, "CANDLE_SAVE_DB_ERROR", loggerPrefix, error);
 	}
 }
-
-/**
- * @name handleGracefulShutdown
- * @description 프로세스 종료 처리를 위한 공통 함수
- */
-async function handleGracefulShutdown() {
-	webhook.send(i18n.getMessage("SERVICE_SHUTDOWN"));
-	await pool.end();
-	process.exit(0);
-}
-
-await setup();
-
-cron.schedule(`${process.env.TIME} * * * * *`, async () => {
-	try {
-		await fetchAndSaveCandles();
-	} catch (error: unknown) {
-		if (!IS_CANDLE_ERROR_SENT) {
-			IS_CANDLE_ERROR_SENT = true;
-			if (error instanceof Error) {
-				logger.error("CANDLE_SAVE_API_ERROR", loggerPrefix, error.message);
-			} else {
-				logger.error("CANDLE_SAVE_API_ERROR", loggerPrefix);
-			}
-		}
-	}
-});
 
 async function sendCoinStatus(coin: string) {
 	const status = await API.GET_ACCOUNT_STATUS(coin);
@@ -224,46 +186,18 @@ async function checkAndSendStatus() {
 **평균 거래량**: ${strategy.avg_volume}`,
 			);
 		}
-	} catch (error) {
-		if (error instanceof Error) {
-			logger.error("CHECK_STATUS_ERROR", loggerPrefix, error.message);
-		} else {
-			logger.error("CHECK_STATUS_ERROR", loggerPrefix);
-		}
+	} catch (error: unknown) {
+		errorHandler(client, "CHECK_STATUS_ERROR", loggerPrefix, error);
 	}
 }
 
-cron.schedule("*/15 8-21 * * *", () => sendCoinStatus(COIN));
+const init = async () => {
+	await setup();
+};
 
-cron.schedule(`${process.env.TIME} * * * *`, checkAndSendStatus);
-
-cron.schedule(process.env.CANDLE_SAVE_INTERVAL || "0 */5 * * * *", () => {
-	IS_CANDLE_ERROR_SENT = false;
+init().catch((error) => {
+	webhook.send(
+		`${loggerPrefix} ${getMsg("CANDLE_SAVE_START_ERROR")}_${process.env.CRYPTO_CODE} ${error.message}`,
+	);
+	process.exit(1);
 });
-
-process.stdin.resume();
-
-process.on("uncaughtException", (error) => {
-	logger.error("UNEXPECTED_ERROR", `${loggerPrefix}${uuidv4()}`, error.message);
-});
-
-process.on("unhandledRejection", (reason, promise) => {
-	if (reason instanceof Error) {
-		logger.error(
-			"UNEXPECTED_ERROR",
-			`${loggerPrefix}${uuidv4()}`,
-			reason.message,
-		);
-	} else if (typeof reason === "string") {
-		logger.error("UNEXPECTED_ERROR", `${loggerPrefix}${uuidv4()}`, reason);
-	} else {
-		logger.error(
-			"UNEXPECTED_ERROR",
-			`${loggerPrefix}${uuidv4()}`,
-			"unhandledRejection",
-		);
-	}
-});
-
-process.on("SIGINT", handleGracefulShutdown);
-process.on("SIGTERM", handleGracefulShutdown);

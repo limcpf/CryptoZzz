@@ -1,32 +1,33 @@
+import type { PoolClient } from "pg";
+import { CHANNEL } from "../const/channel.const";
 import i18n from "../services/i18n";
 import type { MSG } from "../services/i18n/msg/msg.const";
-import webhook from "../services/webhook";
-
-const getTime = () =>
-	Intl.DateTimeFormat("ko-KR", {
-		dateStyle: "short",
-		timeStyle: "long",
-		timeZone: "Asia/Seoul",
-	}).format(new Date());
+import { notify } from "./database";
 
 const getMessage = (msg: keyof MSG, prefix?: string, suffix?: string) =>
 	`${prefix ? `${prefix} ` : ""}${i18n.getMessage(msg)}${
 		suffix ? ` ${suffix}` : ""
 	}`;
+const getMessageStr = (msg: string, prefix?: string, suffix?: string) =>
+	`${prefix ? `${prefix} ` : ""}${msg}${suffix ? ` ${suffix}` : ""}`;
 
 const logger = {
 	info(msg: keyof MSG, prefix?: string, suffix?: string) {
 		console.log(getMessage(msg, prefix, suffix));
 	},
-	error(msg: keyof MSG, prefix?: string, suffix?: string) {
+	error(client: PoolClient, msg: keyof MSG, prefix?: string, suffix?: string) {
 		const message = getMessage(msg, prefix, suffix);
 		console.error(message);
-		webhook.send(message);
+		notify(client, CHANNEL.MANAGER_CHANNEL, `SEND:${message}`);
 	},
-	warn(msg: keyof MSG, prefix?: string, suffix?: string) {
+	warn(client: PoolClient, msg: keyof MSG, prefix?: string, suffix?: string) {
 		const message = getMessage(msg, prefix, suffix);
 		console.log(message);
-		webhook.send(message);
+		notify(client, CHANNEL.MANAGER_CHANNEL, `SEND:${message}`);
+	},
+	send(client: PoolClient, msg: string, prefix?: string, suffix?: string) {
+		const message = getMessageStr(msg, prefix, suffix);
+		notify(client, CHANNEL.MANAGER_CHANNEL, `SEND:${message}`);
 	},
 };
 

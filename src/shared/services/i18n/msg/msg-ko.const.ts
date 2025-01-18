@@ -23,8 +23,8 @@ const messages: MSG = {
 	FETCH_CANDLE_DATA_ERROR: "⚠️ 캔들 차트 데이터 수집 실패",
 	CHECK_STATUS_ERROR: "⚠️ 상태 조회 중 오류 발생",
 	TRADING_SERVICE_START: "🚀 자동매매 주문을 위한 TRADING 서비스를 시작합니다.",
-	BUY_SIGNAL_ERROR: "⚠️ 매수 가능한 KRW 잔액이 부족합니다.",
-	SELL_SIGNAL_ERROR: "⚠️ 매도 가능한 BTC 잔액이 부족합니다.",
+	BUY_SIGNAL_ERROR: "⚠️ 매수 신호 생성 중 오류가 발생했습니다.",
+	SELL_SIGNAL_ERROR: "⚠️ 매도 신호 생성 중 오류가 발생했습니다.",
 	BUY_SIGNAL_SUCCESS: "✅ 매수 주문 실행: ",
 	SELL_SIGNAL_SUCCESS: "✅ 매도 주문 실행: ",
 	PAYLOAD_ERROR: "⚠️ 페이로드가 정의되지 않았습니다.",
@@ -34,8 +34,13 @@ const messages: MSG = {
 	SIGNAL_VOLUME_ERROR: "⚠️ 거래량 전략 실행 실패",
 	NOT_FOUND_STRATEGY: "⚠️ 전략이 존재하지 않습니다.",
 	SIGNAL_ACCOUNT_ERROR: "⚠️ 계좌 정보를 찾을 수 없습니다.",
-	ACCOUNT_STATUS_ERROR: "⚠️ 계좌 상태를 찾을 수 없습니다.",
+	ACCOUNT_STATUS_ERROR: "⚠️ 매수/매도 판단을 위한 계좌 상태 확인 중 오류 발생",
 	CANDLE_DATA_NOT_FOUND: "⚠️ 캔들 차트 데이터를 찾을 수 없습니다.",
+	SIGNAL_ERROR: "⚠️ 매수/매도 판단 중 오류 발생",
+	EXECUTE_ORDER_ERROR: "⚠️ 주문 실행 중 오류 발생",
+	MANAGER_START: "🚀 자동매매 관리를 위한 MANAGER 서비스를 시작합니다.",
+	MANAGER_START_ERROR: "⚠️ MANAGER 서비스 시작 중 오류 발생",
+	NOTIFICATION_ERROR: "⚠️ 알림 처리 중 오류 발생",
 } as const;
 
 export default messages;

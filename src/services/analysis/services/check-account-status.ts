@@ -1,6 +1,6 @@
 import logger from "../../../shared/config/logger";
 import API from "../../../shared/services/api";
-import { developmentLog } from "../index";
+import { developmentLog } from "../../../shared/services/util";
 
 const loggerPrefix = "CHECK_ACCOUNT_STATUS";
 

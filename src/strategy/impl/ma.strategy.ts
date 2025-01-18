@@ -1,8 +1,8 @@
-import type { Pool } from "pg";
-import { developmentLog } from "../../services/analysis";
+import type { PoolClient } from "pg";
 import logger from "../../shared/config/logger";
 import { QUERIES } from "../../shared/const/query.const";
 import type { iMovingAveragesResult } from "../../shared/interfaces/iMarketDataResult";
+import { developmentLog } from "../../shared/services/util";
 import { Signal, type iStrategy } from "../iStrategy";
 
 /**
@@ -19,21 +19,21 @@ import { Signal, type iStrategy } from "../iStrategy";
  * - 그 외의 경우 홀드 신호 반환
  */
 export class MaStrategy implements iStrategy {
-	pool: Pool;
+	client: PoolClient;
 	private loggerPrefix = "MA-STRATEGY";
 
-	constructor(pool: Pool) {
-		this.pool = pool;
+	constructor(client: PoolClient) {
+		this.client = client;
 	}
 
 	async execute(uuid: string, symbol: string): Promise<Signal> {
-		const result = await this.pool.query<iMovingAveragesResult>(
+		const result = await this.client.query<iMovingAveragesResult>(
 			QUERIES.GET_MOVING_AVERAGES,
 			[symbol],
 		);
 
 		if (result.rowCount === 0) {
-			logger.error("SIGNAL_MA_ERROR", this.loggerPrefix);
+			logger.error(this.client, "SIGNAL_MA_ERROR", this.loggerPrefix);
 			return Signal.HOLD;
 		}
 
@@ -65,7 +65,7 @@ export class MaStrategy implements iStrategy {
 		uuid: string,
 		data: { short_ma: number; long_ma: number },
 	): void {
-		this.pool.query(QUERIES.INSERT_MA_SIGNAL, [
+		this.client.query(QUERIES.INSERT_MA_SIGNAL, [
 			uuid,
 			data.short_ma,
 			data.long_ma,

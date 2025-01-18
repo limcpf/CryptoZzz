@@ -1,8 +1,8 @@
-import type { Pool } from "pg";
-import { developmentLog } from "../../services/analysis";
+import type { PoolClient } from "pg";
 import logger from "../../shared/config/logger";
 import { QUERIES } from "../../shared/const/query.const";
 import type { iVolumeAnalysisResult } from "../../shared/interfaces/iMarketDataResult";
+import { developmentLog } from "../../shared/services/util";
 import { Signal, type iStrategy } from "../iStrategy";
 
 /**
@@ -18,20 +18,20 @@ import { Signal, type iStrategy } from "../iStrategy";
  * - 그 외의 경우 홀드 신호 반환
  */
 export class VolumeStrategy implements iStrategy {
-	pool: Pool;
+	client: PoolClient;
 	private loggerPrefix = "VOLUME-STRATEGY";
-	constructor(pool: Pool) {
-		this.pool = pool;
+	constructor(client: PoolClient) {
+		this.client = client;
 	}
 
 	async execute(uuid: string, symbol: string): Promise<Signal> {
-		const result = await this.pool.query<iVolumeAnalysisResult>(
+		const result = await this.client.query<iVolumeAnalysisResult>(
 			QUERIES.GET_VOLUME_ANALYSIS,
 			[symbol],
 		);
 
 		if (result.rowCount === 0) {
-			logger.error("SIGNAL_VOLUME_ERROR", this.loggerPrefix);
+			logger.error(this.client, "SIGNAL_VOLUME_ERROR", this.loggerPrefix);
 			return Signal.HOLD;
 		}
 
@@ -64,7 +64,7 @@ export class VolumeStrategy implements iStrategy {
 		data: { current_volume: number; avg_volume: number },
 	): void {
 		if (data.current_volume && data.avg_volume) {
-			this.pool.query(QUERIES.INSERT_VOLUME_SIGNAL, [
+			this.client.query(QUERIES.INSERT_VOLUME_SIGNAL, [
 				uuid,
 				data.current_volume,
 				data.avg_volume,

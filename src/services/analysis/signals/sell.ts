@@ -84,7 +84,11 @@ export async function executeSellSignal(
 	const sellSignalCount = signals.filter(
 		(signal) => signal === Signal.SELL,
 	).length;
-	const majorityThreshold = signals.length / 2;
 
-	return sellSignalCount > majorityThreshold ? Signal.SELL : Signal.HOLD;
+	// 전략이 4개 이상인 경우 75% 이상이 SELL이어야 함
+	// 4개 미만인 경우 모든 전략이 SELL이어야 함
+	const threshold =
+		signals.length >= 4 ? Math.ceil(signals.length * 0.75) : signals.length;
+
+	return sellSignalCount >= threshold ? Signal.SELL : Signal.HOLD;
 }

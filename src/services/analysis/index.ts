@@ -76,8 +76,8 @@ async function main(COIN_CODE: string | undefined) {
 	/* 계좌 상태로 매수/매도 판단 */
 	try {
 		status = await checkAccountStatus(coin);
-	} catch (error) {
-		logger.error(client, "ACCOUNT_STATUS_ERROR", loggerPrefix);
+	} catch (error: unknown) {
+		errorHandler(client, "ACCOUNT_STATUS_ERROR", loggerPrefix, error);
 		return;
 	}
 

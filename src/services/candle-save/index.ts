@@ -1,7 +1,8 @@
 import cron from "node-cron";
 import type { Pool, PoolClient } from "pg";
-import { getConnection } from "../../shared/config/database";
+import { getConnection, notify } from "../../shared/config/database";
 import logger from "../../shared/config/logger";
+import { CHANNEL } from "../../shared/const/channel.const";
 import { QUERIES } from "../../shared/const/query.const";
 import type { iCandle } from "../../shared/interfaces/iCandle";
 import type { iStrategyInfo } from "../../shared/interfaces/iStrategy";
@@ -130,6 +131,8 @@ async function saveCandleData(data: iCandle[]) {
 				"CANDLE_SAVE_NORMAL_COLLECTING",
 			)}`,
 		);
+
+		notify(client, CHANNEL.ANALYZE_CHANNEL, `${process.env.CRYPTO_CODE}`);
 	} catch (error: unknown) {
 		errorHandler(client, "CANDLE_SAVE_DB_ERROR", loggerPrefix, error);
 	}

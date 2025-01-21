@@ -8,6 +8,7 @@ import { StrategyFactory } from "../../../strategy/strategy.factory";
 export async function executeBuySignal(
 	client: PoolClient,
 	symbol: string,
+	isHold = false,
 ): Promise<Signal> {
 	const loggerPrefix = `[${symbol} BUY-SIGNAL] `;
 
@@ -46,6 +47,8 @@ export async function executeBuySignal(
 			return strategyInstance.execute(uuid, symbol);
 		}),
 	);
+
+	if (isHold) return Signal.HOLD;
 
 	developmentLog(
 		`[${new Date().toLocaleString()}] [BUY-SIGNAL] 신호: ${signals.join(", ")}`,

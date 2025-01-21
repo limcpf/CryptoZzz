@@ -98,6 +98,7 @@ async function main(COIN_CODE: string | undefined) {
 				break;
 			}
 			case "HOLD":
+				await executeBuySignal(client, COIN_CODE, true);
 				break;
 		}
 	} catch (error: unknown) {

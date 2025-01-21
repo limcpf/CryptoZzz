@@ -31,6 +31,19 @@ export const QUERIES = {
             CONSTRAINT status_check CHECK (status IN ('PENDING', 'FILLED', 'CANCELLED'))
         );
 
+        CREATE TABLE IF NOT EXISTS SignalLog (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            symbol VARCHAR(10) NOT NULL,
+            hour_time TIMESTAMP NOT NULL DEFAULT NOW(),
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS RsiSignal (
+            signal_id UUID PRIMARY KEY,
+            rsi NUMERIC NOT NULL,
+            FOREIGN KEY (signal_id) REFERENCES SignalLog(id)
+        );
+
         DO $$
         BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'orders' AND indexname = 'idx_orders_symbol') THEN
@@ -44,20 +57,12 @@ export const QUERIES = {
             IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'orders' AND indexname = 'idx_orders_created_at') THEN
                 CREATE INDEX idx_orders_created_at ON Orders(created_at);
             END IF;
+
+            IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'signallog' AND indexname = 'idx_signallog_symbol_hourtime') THEN
+                CREATE INDEX idx_signallog_symbol_hourtime ON SignalLog(symbol, hour_time DESC);
+            END IF;
         END $$;
 
-        CREATE TABLE IF NOT EXISTS SignalLog (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            symbol VARCHAR(10) NOT NULL,
-            hour_time TIMESTAMP NOT NULL DEFAULT NOW(),
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS RsiSignal (
-            signal_id UUID PRIMARY KEY,
-            rsi NUMERIC NOT NULL,
-            FOREIGN KEY (signal_id) REFERENCES SignalLog(id)
-        );
 
         CREATE TABLE IF NOT EXISTS MaSignal (
             signal_id UUID PRIMARY KEY,
@@ -302,4 +307,22 @@ LIMIT 1;
 	GET_LAST_MARKET_DATA_TIMESTAMP: `
         SELECT timestamp FROM Market_Data WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1;
     `,
+	GET_RECENT_RSI_SIGNALS: `
+		WITH RecentSignals AS (
+			SELECT id, hour_time
+			FROM SignalLog
+			WHERE symbol = $1
+			AND hour_time >= NOW() - INTERVAL '$2 hours'
+			ORDER BY hour_time DESC
+			LIMIT $2
+		)
+		SELECT 
+			sl.symbol,
+			sl.hour_time,
+			rs.rsi
+		FROM RecentSignals rs_recent
+		INNER JOIN SignalLog sl ON sl.id = rs_recent.id
+		INNER JOIN RsiSignal rs ON rs_recent.id = rs.signal_id
+		ORDER BY sl.hour_time ASC;
+	`,
 };

@@ -19,52 +19,89 @@ import { Signal, type iStrategy } from "../iStrategy";
  * - 그 외의 경우 홀드 신호 반환
  */
 export class RsiStrategy implements iStrategy {
-	client: PoolClient;
-	private loggerPrefix = "RSI-STRATEGY";
+	private readonly period: number = 14;
+	readonly weight: number;
+	readonly client: PoolClient;
+	readonly uuid: string;
+	readonly symbol: string;
 
-	constructor(client: PoolClient) {
+	constructor(
+		client: PoolClient,
+		uuid: string,
+		symbol: string,
+		weight = 0.7,
+		period = 14,
+	) {
 		this.client = client;
+		this.weight = weight;
+		this.period = period;
+		this.uuid = uuid;
+		this.symbol = symbol;
 	}
 
-	async execute(uuid: string, symbol: string): Promise<Signal> {
+	async getData(): Promise<number> {
 		const result = await this.client.query<iRSIResult>({
-			name: `get_rsi_${symbol}_${uuid}`,
+			name: `get_rsi_${this.symbol}_${new Date().toISOString()}`,
 			text: QUERIES.GET_RSI_INDICATOR,
-			values: [symbol],
+			values: [this.symbol],
 		});
-
-		if (result.rowCount === 0) {
-			logger.error(this.client, "SIGNAL_RSI_ERROR", this.loggerPrefix);
-			return Signal.HOLD;
-		}
 
 		const rsi = Number(result.rows[0].rsi);
 
-		this.saveResult(uuid, rsi);
+		if (Number.isNaN(rsi)) throw new Error("SIGNAL_RSI_ERROR");
 
-		if (rsi < 30) {
-			developmentLog(
-				`[${new Date().toLocaleString()}] [RSI-STRATEGY] 매수 신호 발생`,
-			);
-			return Signal.BUY;
-		}
-
-		if (rsi > 70) {
-			developmentLog(
-				`[${new Date().toLocaleString()}] [RSI-STRATEGY] 매도 신호 발생`,
-			);
-			return Signal.SELL;
-		}
-
-		developmentLog(
-			`[${new Date().toLocaleString()}] [RSI-STRATEGY] 홀드 신호 발생`,
-		);
-		return Signal.HOLD;
+		return rsi;
 	}
 
-	private saveResult(uuid: string, data: unknown): void {
-		if (data && typeof data === "number") {
-			this.client.query(QUERIES.INSERT_RSI_SIGNAL, [uuid, data]);
+	async saveData(data: number): Promise<void> {
+		await this.client.query(QUERIES.INSERT_RSI_SIGNAL, [this.uuid, data]);
+	}
+
+	async score(rsi: number): Promise<number> {
+		let score = 0;
+		if (rsi <= 30) {
+			score = (30 - rsi) / 30; // 매수세 강화
+		} else if (rsi >= 70) {
+			score = -(rsi - 70) / 30; // 매도세 강화
+		} else {
+			score = (rsi - 50) / 20; // 중립 범위
 		}
+
+		const prevRsiValues = await this.getRecentSignals(this.symbol);
+
+		if (prevRsiValues.length > 0) {
+			const averageDelta = this.calculateAverageDelta(rsi, prevRsiValues);
+			const weight = 0.1; // 변화량 가중치 설정
+			score += weight * averageDelta; // 평균 변화량을 스코어에 반영
+		}
+
+		return score;
+	}
+
+	async execute(): Promise<number> {
+		const rsi = await this.getData();
+
+		this.saveData(rsi);
+
+		const score = await this.score(rsi);
+
+		return score * this.weight;
+	}
+
+	private async getRecentSignals(symbol: string): Promise<number[]> {
+		const result = await this.client.query<iRSIResult>(
+			QUERIES.GET_RECENT_RSI_SIGNALS,
+			[symbol, this.period],
+		);
+
+		return result.rows.map((row) => row.rsi);
+	}
+
+	private calculateAverageDelta(
+		currentRsi: number,
+		prevRsiValues: number[],
+	): number {
+		const deltas = prevRsiValues.map((prevRsi) => currentRsi - prevRsi);
+		return deltas.reduce((sum, delta) => sum + delta, 0) / deltas.length;
 	}
 }

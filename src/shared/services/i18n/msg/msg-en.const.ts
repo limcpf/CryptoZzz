@@ -38,9 +38,16 @@ const messages: MSG = {
 	CANDLE_DATA_NOT_FOUND: "⚠️ Failed to find candle chart data",
 	SIGNAL_ERROR: "⚠️ Error occurred while executing buy/sell signal",
 	EXECUTE_ORDER_ERROR: "⚠️ Error occurred while executing order",
-	MANAGER_START: "🚀 Start MANAGER service for automatic trading",
+	MANAGER_START: "🚀 MANAGER started. Starting instances sequentially.",
 	MANAGER_START_ERROR: "⚠️ Error occurred while starting MANAGER service",
 	NOTIFICATION_ERROR: "⚠️ Error occurred while processing notification",
+	ALL_INSTANCES_STARTED: "🚀 All instances started",
+	AGGREGATE_DAILY_METRICS:
+		"It's midnight. Starting to delete data older than 48 hours and aggregate daily data.",
+	AGGREGATE_DAILY_METRICS_ERROR:
+		"⚠️ Error occurred during daily data aggregation",
+	AGGREGATE_DAILY_METRICS_SUCCESS:
+		"✅ Daily data aggregation completed, analysis will resume from 00:15",
 } as const;
 
 export default messages;

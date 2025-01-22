@@ -63,16 +63,12 @@ async function setup() {
 
 function setupCronJobs() {
 	// 캔들 저장 크론
-	cron.schedule(`${process.env.TIME} * * * * *`, async () => {
-		try {
-			await fetchAndSaveCandles();
-		} catch (error: unknown) {
-			if (!IS_CANDLE_ERROR_SENT) {
-				IS_CANDLE_ERROR_SENT = true;
-				errorHandler(client, "CANDLE_SAVE_API_ERROR", loggerPrefix, error);
-			}
-		}
-	});
+	cron.schedule(`${process.env.TIME} 15-59 0 * * *`, () =>
+		fetchAndSaveCandles(),
+	);
+	cron.schedule(`${process.env.TIME} * 1-23 * * *`, () =>
+		fetchAndSaveCandles(),
+	);
 
 	// 코인 상태 체크 크론
 	cron.schedule("*/15 8-21 * * *", () => sendCoinStatus(COIN));
@@ -101,7 +97,7 @@ async function fetchAndSaveCandles(count = 1) {
 
 		const result = await saveCandleData(data);
 	} catch (error: unknown) {
-		errorHandler(client, "CANDLE_SAVE_DB_ERROR", loggerPrefix, error);
+		errorHandler(client, "CANDLE_SAVE_API_ERROR", loggerPrefix, error);
 	}
 }
 

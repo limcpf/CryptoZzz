@@ -39,24 +39,6 @@ export class RsiStrategy implements iStrategy {
 		this.symbol = symbol;
 	}
 
-	async getData(): Promise<number> {
-		const result = await this.client.query<iRSIResult>({
-			name: `get_rsi_${this.symbol}_${new Date().toISOString()}`,
-			text: QUERIES.GET_RSI_INDICATOR,
-			values: [this.symbol],
-		});
-
-		const rsi = Number(result.rows[0].rsi);
-
-		if (Number.isNaN(rsi)) throw new Error("SIGNAL_RSI_ERROR");
-
-		return rsi;
-	}
-
-	async saveData(data: number): Promise<void> {
-		await this.client.query(QUERIES.INSERT_RSI_SIGNAL, [this.uuid, data]);
-	}
-
 	async score(rsi: number): Promise<number> {
 		let score = 0;
 		if (rsi <= 30) {
@@ -103,5 +85,23 @@ export class RsiStrategy implements iStrategy {
 	): number {
 		const deltas = prevRsiValues.map((prevRsi) => currentRsi - prevRsi);
 		return deltas.reduce((sum, delta) => sum + delta, 0) / deltas.length;
+	}
+
+	private async getData(): Promise<number> {
+		const result = await this.client.query<iRSIResult>({
+			name: `get_rsi_${this.symbol}_${new Date().toISOString()}`,
+			text: QUERIES.GET_RSI_INDICATOR,
+			values: [this.symbol],
+		});
+
+		const rsi = Number(result.rows[0].rsi);
+
+		if (Number.isNaN(rsi)) throw new Error("SIGNAL_RSI_ERROR");
+
+		return rsi;
+	}
+
+	private async saveData(data: number): Promise<void> {
+		await this.client.query(QUERIES.INSERT_RSI_SIGNAL, [this.uuid, data]);
 	}
 }

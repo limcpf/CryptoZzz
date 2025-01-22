@@ -1,5 +1,5 @@
 export const QUERIES = {
-	INIT: `
+	CREATE_TABLES: `
         CREATE TABLE IF NOT EXISTS Market_Data (
         symbol VARCHAR(10),
         timestamp TIMESTAMPTZ,
@@ -10,13 +10,6 @@ export const QUERIES = {
         volume NUMERIC,
         PRIMARY KEY (symbol, timestamp)
         );
-
-        DO $$
-        BEGIN
-            IF NOT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'market_data') THEN
-                PERFORM create_hypertable('Market_Data', 'timestamp');
-            END IF;
-        END $$;
 
         CREATE TABLE IF NOT EXISTS Orders (
             id UUID PRIMARY KEY,
@@ -43,6 +36,7 @@ export const QUERIES = {
             rsi NUMERIC NOT NULL,
             FOREIGN KEY (signal_id) REFERENCES SignalLog(id)
         );
+<<<<<<< HEAD
 
         DO $$
         BEGIN
@@ -63,6 +57,8 @@ export const QUERIES = {
             END IF;
         END $$;
 
+=======
+>>>>>>> main
 
         CREATE TABLE IF NOT EXISTS MaSignal (
             signal_id UUID PRIMARY KEY,
@@ -78,22 +74,60 @@ export const QUERIES = {
             FOREIGN KEY (signal_id) REFERENCES SignalLog(id)
         );
 
-        DO $$ 
-        BEGIN 
-            -- 기존 정책이 있는지 확인
-            IF NOT EXISTS (
-                SELECT 1 
-                FROM timescaledb_information.jobs 
-                WHERE application_name LIKE '%Retention%' 
-                AND hypertable_name = 'market_data'
-            ) THEN
-                -- 정책이 없는 경우에만 새로운 정책 추가
-                PERFORM add_retention_policy('market_data', INTERVAL '10 hours');
-                RAISE NOTICE '새로운 보존 정책이 추가되었습니다.';
-            ELSE
-                RAISE NOTICE '이미 보존 정책이 존재합니다.';
-            END IF;
-        END $$;
+        CREATE TABLE IF NOT EXISTS Daily_Market_Data (
+            symbol VARCHAR(10),
+            date DATE,
+            avg_close_price NUMERIC,
+            total_volume NUMERIC,
+            PRIMARY KEY (symbol, date)
+        );
+    `,
+	SETUP_HYPERTABLE: `
+        SELECT create_hypertable('Market_Data', 'timestamp', if_not_exists => TRUE);
+        SELECT create_hypertable('Daily_Market_Data', 'date', if_not_exists => TRUE);
+    `,
+	CREATE_INDEXES: `
+        CREATE INDEX IF NOT EXISTS idx_orders_symbol ON Orders(symbol);
+        CREATE INDEX IF NOT EXISTS idx_orders_status ON Orders(status);
+        CREATE INDEX IF NOT EXISTS idx_orders_created_at ON Orders(created_at);
+        CREATE INDEX IF NOT EXISTS idx_market_data_symbol_timestamp ON Market_Data(symbol, timestamp);
+        CREATE INDEX IF NOT EXISTS idx_daily_market_data_symbol_date ON Daily_Market_Data (symbol, date);
+    `,
+	SETUP_RETENTION_POLICY: `
+DO $$ 
+BEGIN 
+    -- Market_Data 보존 정책
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM timescaledb_information.jobs 
+        WHERE application_name LIKE '%Retention%' 
+        AND hypertable_name = 'market_data'
+    ) THEN
+        PERFORM add_retention_policy('market_data', INTERVAL '48 hours', if_not_exists => TRUE);
+        PERFORM alter_job(job_id, schedule_interval => INTERVAL '1 day', next_start => CURRENT_DATE + INTERVAL '1 day')
+        FROM timescaledb_information.jobs
+        WHERE application_name LIKE '%Retention%' AND hypertable_name = 'market_data';
+        RAISE NOTICE '새로운 Market_Data 보존 정책이 추가되었습니다.';
+    ELSE
+        RAISE NOTICE '이미 Market_Data 보존 정책이 존재합니다.';
+    END IF;
+
+    -- Daily_Market_Data 보존 정책
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM timescaledb_information.jobs 
+        WHERE application_name LIKE '%Retention%' 
+        AND hypertable_name = 'daily_market_data'
+    ) THEN
+        PERFORM add_retention_policy('daily_market_data', INTERVAL '50 days', if_not_exists => TRUE);
+        PERFORM alter_job(job_id, schedule_interval => INTERVAL '1 day', next_start => CURRENT_DATE + INTERVAL '1 day')
+        FROM timescaledb_information.jobs
+        WHERE application_name LIKE '%Retention%' AND hypertable_name = 'daily_market_data';
+        RAISE NOTICE '새로운 Daily_Market_Data 보존 정책이 추가되었습니다.';
+    ELSE
+        RAISE NOTICE '이미 Daily_Market_Data 보존 정책이 존재합니다.';
+    END IF;
+END $$;
     `,
 	INSERT_MARKET_DATA: `
       INSERT INTO Market_Data (
@@ -325,4 +359,20 @@ LIMIT 1;
 		INNER JOIN RsiSignal rs ON rs_recent.id = rs.signal_id
 		ORDER BY sl.hour_time ASC;
 	`,
+	AGGREGATE_DAILY_METRICS: `
+        INSERT INTO Daily_Market_Data (symbol, date, avg_close_price, total_volume)
+        SELECT
+            symbol,
+            DATE(timestamp) AS date,
+            ROUND(AVG(close_price)::numeric, 5) AS avg_close_price,
+            SUM(volume) AS total_volume
+        FROM Market_Data
+        WHERE DATE(timestamp) = $1::DATE
+        GROUP BY symbol, DATE(timestamp)
+        ON CONFLICT (symbol, date)
+        DO UPDATE SET
+            avg_close_price = EXCLUDED.avg_close_price,
+            total_volume = EXCLUDED.total_volume
+        RETURNING date, avg_close_price, total_volume;
+    `,
 };

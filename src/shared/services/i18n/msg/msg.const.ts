@@ -14,15 +14,12 @@ export interface MSG {
 	ORDER_API_ERROR: string;
 	RECONNECT_ATTEMPTS: string;
 	RECONNECT_ERROR: string;
-	ANALYZE_START: string;
-	CANDLE_SAVE_START: string;
 	DB_CONNECTION_ERROR: string;
 	INIT_SETUP_ERROR: string;
 	UNEXPECTED_ERROR: string;
 	SERVICE_SHUTDOWN: string;
 	FETCH_CANDLE_DATA_ERROR: string;
 	CHECK_STATUS_ERROR: string;
-	TRADING_SERVICE_START: string;
 	BUY_SIGNAL_ERROR: string;
 	SELL_SIGNAL_ERROR: string;
 	BUY_SIGNAL_SUCCESS: string;
@@ -41,6 +38,13 @@ export interface MSG {
 	MANAGER_START: string;
 	MANAGER_START_ERROR: string;
 	NOTIFICATION_ERROR: string;
+	ALL_INSTANCES_STARTED: string;
+	AGGREGATE_DAILY_METRICS: string;
+	AGGREGATE_DAILY_METRICS_ERROR: string;
+	AGGREGATE_DAILY_METRICS_SUCCESS: string;
+	TRADING_START: string;
+	ANALYZE_START: string;
+	CANDLE_COLLECTING_START: string;
 }
 
 export const getMsg = (language: string) => {

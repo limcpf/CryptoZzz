@@ -13,15 +13,12 @@ const messages: MSG = {
 	ORDER_API_ERROR: "⚠️ Failed to call order API",
 	RECONNECT_ATTEMPTS: "🔄 DB reconnection attempt ",
 	RECONNECT_ERROR: "⚠️ DB reconnection failed",
-	ANALYZE_START: "🚀 Start ANALYZE service for automatic trading",
 	DB_CONNECTION_ERROR: "⚠️ DB connection error",
 	INIT_SETUP_ERROR: "⚠️ Error during initial setup",
 	UNEXPECTED_ERROR: "⚠️ Unexpected error occurred",
 	SERVICE_SHUTDOWN: "🛑 Service shutdown signal received",
-	CANDLE_SAVE_START: "🚀 Start CANDLE-SAVE service for automatic trading",
 	FETCH_CANDLE_DATA_ERROR: "⚠️ Failed to fetch candle chart data",
 	CHECK_STATUS_ERROR: "⚠️ Error occurred while checking status",
-	TRADING_SERVICE_START: "🚀 Start TRADING service for automatic trading",
 	BUY_SIGNAL_ERROR: "⚠️ Insufficient KRW balance for buying",
 	SELL_SIGNAL_ERROR: "⚠️ Insufficient BTC balance for selling",
 	BUY_SIGNAL_SUCCESS: "✅ Buy order executed: ",
@@ -38,9 +35,20 @@ const messages: MSG = {
 	CANDLE_DATA_NOT_FOUND: "⚠️ Failed to find candle chart data",
 	SIGNAL_ERROR: "⚠️ Error occurred while executing buy/sell signal",
 	EXECUTE_ORDER_ERROR: "⚠️ Error occurred while executing order",
-	MANAGER_START: "🚀 Start MANAGER service for automatic trading",
+	MANAGER_START: "🚀 MANAGER started. Starting instances sequentially.",
 	MANAGER_START_ERROR: "⚠️ Error occurred while starting MANAGER service",
 	NOTIFICATION_ERROR: "⚠️ Error occurred while processing notification",
+	ALL_INSTANCES_STARTED: "🚀 All instances started",
+	AGGREGATE_DAILY_METRICS:
+		"It's midnight. Starting to delete data older than 48 hours and aggregate daily data.",
+	AGGREGATE_DAILY_METRICS_ERROR:
+		"⚠️ Error occurred during daily data aggregation",
+	AGGREGATE_DAILY_METRICS_SUCCESS:
+		"✅ Daily data aggregation completed, analysis will resume from 00:15",
+	TRADING_START: "🚀 Start TRADING service for automatic trading",
+	ANALYZE_START: "🚀 Start ANALYZE service for automatic trading",
+	CANDLE_COLLECTING_START:
+		"🚀 Start CANDLE-COLLECTING service for automatic trading",
 } as const;
 
 export default messages;

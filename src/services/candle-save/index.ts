@@ -28,8 +28,6 @@ async function setup() {
 	try {
 		[pool, client] = await getConnection(loggerPrefix);
 
-		await client.query(QUERIES.INIT);
-
 		client.on("error", (err: unknown) => {
 			errorHandler(client, "DB_CONNECTION_ERROR", loggerPrefix, err);
 		});
@@ -44,9 +42,9 @@ async function setup() {
 		COIN = (process.env.CRYPTO_CODE || "BTC").replace("KRW-", "");
 
 		setupCronJobs();
-
-		logger.warn(client, "CANDLE_SAVE_START", loggerPrefix);
 		checkAndSendStatus();
+
+		logger.warn(client, "CANDLE_COLLECTING_START", loggerPrefix);
 	} catch (error: unknown) {
 		if (error instanceof Error) {
 			webhook.send(

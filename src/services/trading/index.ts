@@ -2,6 +2,7 @@ import type { Notification, Pool, PoolClient } from "pg";
 import {
 	getConnection,
 	handleNotifications,
+	notify,
 	setupPubSub,
 } from "../../shared/config/database";
 import logger from "../../shared/config/logger";
@@ -52,7 +53,7 @@ async function setup() {
 			client,
 		});
 
-		logger.warn(client, "TRADING_SERVICE_START", loggerPrefix);
+		logger.warn(client, "TRADING_START", loggerPrefix);
 	} catch (error: unknown) {
 		if (error instanceof Error) {
 			webhook.send(

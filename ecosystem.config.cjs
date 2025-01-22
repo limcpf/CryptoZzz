@@ -19,10 +19,21 @@ const candleSaveConfig = {
 	...commonConfig,
 	script: "./src/services/candle-save/index.ts",
 	max_memory_restart: "200M",
+	depends_on: ["manager"],
 };
 
 module.exports = {
 	apps: [
+		{
+			...commonConfig,
+			name: "manager",
+			script: "./src/services/manager/index.ts",
+			max_memory_restart: "150M",
+			error_file: "logs/manager-error.log",
+			out_file: "logs/manager-out.log",
+			wait_ready: true,
+			listen_timeout: 10000,
+		},
 		{
 			...candleSaveConfig,
 			name: "candle-save-btc",
@@ -58,6 +69,7 @@ module.exports = {
 		},
 		{
 			...commonConfig,
+			depends_on: ["manager"],
 			name: "analysis-test",
 			script: "./src/services/analysis/index.ts",
 			max_memory_restart: "300M",
@@ -67,19 +79,12 @@ module.exports = {
 		},
 		{
 			...commonConfig,
+			depends_on: ["manager"],
 			name: "trading-test",
 			script: "./src/services/trading/index.ts",
 			max_memory_restart: "200M",
 			error_file: "logs/trading-error.log",
 			out_file: "logs/trading-out.log",
-		},
-		{
-			...commonConfig,
-			name: "manager",
-			script: "./src/services/manager/index.ts",
-			max_memory_restart: "150M",
-			error_file: "logs/manager-error.log",
-			out_file: "logs/manager-out.log",
 		},
 	],
 	env: {

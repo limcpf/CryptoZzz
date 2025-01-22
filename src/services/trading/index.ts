@@ -53,7 +53,7 @@ async function setup() {
 			client,
 		});
 
-		notify(client, CHANNEL.MANAGER_CHANNEL, "READY");
+		logger.warn(client, "TRADING_START", loggerPrefix);
 	} catch (error: unknown) {
 		if (error instanceof Error) {
 			webhook.send(

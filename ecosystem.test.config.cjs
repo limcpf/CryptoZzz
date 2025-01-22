@@ -1,6 +1,25 @@
 module.exports = {
 	apps: [
 		{
+			name: "manager-test",
+			script: "./src/services/manager/index.ts",
+			instances: 1,
+			exec_mode: "fork",
+			watch: false,
+			reload: false,
+			max_memory_restart: "300M",
+			env: {
+				NODE_ENV: "development",
+				TZ: "Asia/Seoul",
+			},
+			exp_backoff_restart_delay: 100,
+			max_restarts: 3,
+			autorestart: false,
+			merge_logs: true,
+			error_file: "logs/test/manager-error.log",
+			out_file: "logs/test/manager-out.log",
+		},
+		{
 			name: "candle-save-test",
 			script: "./src/services/candle-save/index.ts",
 			instances: 1,
@@ -20,7 +39,6 @@ module.exports = {
 			merge_logs: true,
 			error_file: "logs/test/candle-save-error.log",
 			out_file: "logs/test/candle-save-out.log",
-			depends_on: ["manager-test"],
 		},
 		{
 			name: "candle-save-test2",
@@ -42,7 +60,6 @@ module.exports = {
 			merge_logs: true,
 			error_file: "logs/test/candle-save2-error.log",
 			out_file: "logs/test/candle-save2-out.log",
-			depends_on: ["manager-test"],
 		},
 		{
 			name: "candle-save-test3",
@@ -64,7 +81,6 @@ module.exports = {
 			merge_logs: true,
 			error_file: "logs/test/candle-save3-error.log",
 			out_file: "logs/test/candle-save3-out.log",
-			depends_on: ["manager-test"],
 		},
 		{
 			name: "analysis-test",
@@ -85,7 +101,6 @@ module.exports = {
 			merge_logs: true,
 			error_file: "logs/test/analysis-error.log",
 			out_file: "logs/test/analysis-out.log",
-			depends_on: ["manager-test"],
 		},
 		{
 			name: "trading-test",
@@ -105,28 +120,6 @@ module.exports = {
 			merge_logs: true,
 			error_file: "logs/test/trading-error.log",
 			out_file: "logs/test/trading-out.log",
-			depends_on: ["manager-test"],
-		},
-		{
-			name: "manager-test",
-			script: "./src/services/manager/index.ts",
-			instances: 1,
-			exec_mode: "fork",
-			watch: false,
-			reload: false,
-			max_memory_restart: "300M",
-			env: {
-				NODE_ENV: "development",
-				TZ: "Asia/Seoul",
-			},
-			exp_backoff_restart_delay: 100,
-			max_restarts: 3,
-			autorestart: false,
-			merge_logs: true,
-			error_file: "logs/test/manager-error.log",
-			out_file: "logs/test/manager-out.log",
-			wait_ready: true,
-			listen_timeout: 10000,
 		},
 	],
 	watch: ["./src/pm2-events.ts"],

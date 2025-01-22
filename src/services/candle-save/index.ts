@@ -44,7 +44,7 @@ async function setup() {
 		setupCronJobs();
 		checkAndSendStatus();
 
-		notify(client, CHANNEL.MANAGER_CHANNEL, "READY");
+		logger.warn(client, "CANDLE_COLLECTING_START", loggerPrefix);
 	} catch (error: unknown) {
 		if (error instanceof Error) {
 			webhook.send(

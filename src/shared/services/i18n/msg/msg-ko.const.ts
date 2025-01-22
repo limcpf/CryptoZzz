@@ -44,6 +44,9 @@ const messages: MSG = {
 	AGGREGATE_DAILY_METRICS_ERROR: "⚠️ 일일 데이터 집계 중 오류 발생",
 	AGGREGATE_DAILY_METRICS_SUCCESS:
 		"✅ 일일 데이터 집계 완료, 00시 15분부터 분석을 재개합니다.",
+	TRADING_START: "🚀 TRADING 서비스가 시작되었습니다.",
+	ANALYZE_START: "🚀 ANALYZE 서비스가 시작되었습니다.",
+	CANDLE_COLLECTING_START: "🚀 CANDLE-COLLECTING 서비스가 시작되었습니다.",
 } as const;
 
 export default messages;

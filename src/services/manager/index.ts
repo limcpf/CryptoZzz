@@ -15,7 +15,6 @@ import { errorHandler } from "../../shared/services/util";
 import webhook from "../../shared/services/webhook";
 let pool: Pool;
 let client: PoolClient;
-let READY_COUNT = 0;
 
 const loggerPrefix = "[MANAGER]";
 
@@ -25,11 +24,6 @@ async function notifyCallback(notify: Notification) {
 
 		if (cmd === "SEND") {
 			await send(msg);
-		} else if (cmd === "READY") {
-			READY_COUNT++;
-			if (READY_COUNT === Number(process.env.INSTANCES_CNT)) {
-				logger.warn(client, "ALL_INSTANCES_STARTED", loggerPrefix);
-			}
 		}
 	}
 }
@@ -38,15 +32,14 @@ async function setup() {
 	try {
 		[pool, client] = await getConnection(loggerPrefix);
 
+		console.log("모냥3");
+
 		// 데이터베이스 초기 설정
 		await client.query(QUERIES.CREATE_TABLES);
 
-		// 테이블 생성 후 나머지 설정들은 병렬로 실행
-		await Promise.all([
-			client.query(QUERIES.SETUP_HYPERTABLE),
-			client.query(QUERIES.CREATE_INDEXES),
-			client.query(QUERIES.SETUP_RETENTION_POLICY),
-		]);
+		client.query(QUERIES.SETUP_HYPERTABLE);
+		client.query(QUERIES.CREATE_INDEXES);
+		client.query(QUERIES.SETUP_RETENTION_POLICY);
 
 		await setupPubSub(client, [CHANNEL.MANAGER_CHANNEL]);
 
@@ -66,17 +59,7 @@ async function setup() {
 			client,
 		});
 
-		if (process.send) {
-			process.send("ready");
-			logger.warn(client, "MANAGER_START", loggerPrefix);
-		} else {
-			logger.error(
-				client,
-				"MANAGER_START_ERROR",
-				loggerPrefix,
-				"process.send is not available",
-			);
-		}
+		logger.warn(client, "MANAGER_START", loggerPrefix);
 	} catch (error: unknown) {
 		if (error instanceof Error) {
 			webhook.send(
@@ -98,12 +81,20 @@ async function aggregateDailyMetrics() {
 		total_volume: number;
 	}> | null = null;
 
+	// KST 기준으로 어제 날짜 계산
+	const yesterday = new Date(
+		Date.now() + 9 * 60 * 60 * 1000 - 24 * 60 * 60 * 1000,
+	);
+	const yesterdayStr = yesterday.toISOString().split("T")[0];
+
 	try {
 		result = await client.query<{
 			date: string;
 			avg_close_price: number;
 			total_volume: number;
-		}>(QUERIES.AGGREGATE_DAILY_METRICS);
+		}>(QUERIES.AGGREGATE_DAILY_METRICS, [yesterdayStr]);
+
+		console.log(result);
 	} catch (error: unknown) {
 		errorHandler(client, "AGGREGATE_DAILY_METRICS_ERROR", loggerPrefix, error);
 	}
@@ -117,7 +108,6 @@ async function aggregateDailyMetrics() {
 **평균 종가:** ${avg_close_price}
 **총 거래량:** ${total_volume}
 			`,
-			loggerPrefix,
 		);
 		logger.warn(client, "AGGREGATE_DAILY_METRICS_SUCCESS", loggerPrefix);
 	}
@@ -135,4 +125,5 @@ async function setupCronJobs() {
 	}
 }
 
+console.log("hi");
 await setup();

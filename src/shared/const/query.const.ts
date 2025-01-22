@@ -71,40 +71,40 @@ export const QUERIES = {
         CREATE INDEX IF NOT EXISTS idx_daily_market_data_symbol_date ON Daily_Market_Data (symbol, date);
     `,
 	SETUP_RETENTION_POLICY: `
-        DO $$ 
-        BEGIN 
-            -- Market_Data 보존 정책
-            IF NOT EXISTS (
-                SELECT 1 
-                FROM timescaledb_information.jobs 
-                WHERE application_name LIKE '%Retention%' 
-                AND hypertable_name = 'market_data'
-            ) THEN
-                PERFORM add_retention_policy('market_data', INTERVAL '48 hours', if_not_exists => TRUE);
-                SELECT alter_job(job_id, schedule_interval => INTERVAL '1 day', next_start => CURRENT_DATE + INTERVAL '1 day')
-                FROM timescaledb_information.jobs
-                WHERE application_name LIKE '%Retention%' AND hypertable_name = 'market_data';
-                RAISE NOTICE '새로운 Market_Data 보존 정책이 추가되었습니다.';
-            ELSE
-                RAISE NOTICE '이미 Market_Data 보존 정책이 존재합니다.';
-            END IF;
+DO $$ 
+BEGIN 
+    -- Market_Data 보존 정책
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM timescaledb_information.jobs 
+        WHERE application_name LIKE '%Retention%' 
+        AND hypertable_name = 'market_data'
+    ) THEN
+        PERFORM add_retention_policy('market_data', INTERVAL '48 hours', if_not_exists => TRUE);
+        PERFORM alter_job(job_id, schedule_interval => INTERVAL '1 day', next_start => CURRENT_DATE + INTERVAL '1 day')
+        FROM timescaledb_information.jobs
+        WHERE application_name LIKE '%Retention%' AND hypertable_name = 'market_data';
+        RAISE NOTICE '새로운 Market_Data 보존 정책이 추가되었습니다.';
+    ELSE
+        RAISE NOTICE '이미 Market_Data 보존 정책이 존재합니다.';
+    END IF;
 
-            -- Daily_Market_Data 보존 정책
-            IF NOT EXISTS (
-                SELECT 1 
-                FROM timescaledb_information.jobs 
-                WHERE application_name LIKE '%Retention%' 
-                AND hypertable_name = 'daily_market_data'
-            ) THEN
-                PERFORM add_retention_policy('daily_market_data', INTERVAL '50 days', if_not_exists => TRUE);
-                SELECT alter_job(job_id, schedule_interval => INTERVAL '1 day', next_start => CURRENT_DATE + INTERVAL '1 day')
-                FROM timescaledb_information.jobs
-                WHERE application_name LIKE '%Retention%' AND hypertable_name = 'daily_market_data';
-                RAISE NOTICE '새로운 Daily_Market_Data 보존 정책이 추가되었습니다.';
-            ELSE
-                RAISE NOTICE '이미 Daily_Market_Data 보존 정책이 존재합니다.';
-            END IF;
-        END $$;
+    -- Daily_Market_Data 보존 정책
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM timescaledb_information.jobs 
+        WHERE application_name LIKE '%Retention%' 
+        AND hypertable_name = 'daily_market_data'
+    ) THEN
+        PERFORM add_retention_policy('daily_market_data', INTERVAL '50 days', if_not_exists => TRUE);
+        PERFORM alter_job(job_id, schedule_interval => INTERVAL '1 day', next_start => CURRENT_DATE + INTERVAL '1 day')
+        FROM timescaledb_information.jobs
+        WHERE application_name LIKE '%Retention%' AND hypertable_name = 'daily_market_data';
+        RAISE NOTICE '새로운 Daily_Market_Data 보존 정책이 추가되었습니다.';
+    ELSE
+        RAISE NOTICE '이미 Daily_Market_Data 보존 정책이 존재합니다.';
+    END IF;
+END $$;
     `,
 	INSERT_MARKET_DATA: `
       INSERT INTO Market_Data (
@@ -323,7 +323,7 @@ LIMIT 1;
         SELECT
             symbol,
             DATE(timestamp) AS date,
-            AVG(close_price) AS avg_close_price,
+            ROUND(AVG(close_price)::numeric, 5) AS avg_close_price,
             SUM(volume) AS total_volume
         FROM Market_Data
         WHERE DATE(timestamp) = $1::DATE

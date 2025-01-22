@@ -42,6 +42,9 @@ export interface MSG {
 	AGGREGATE_DAILY_METRICS: string;
 	AGGREGATE_DAILY_METRICS_ERROR: string;
 	AGGREGATE_DAILY_METRICS_SUCCESS: string;
+	TRADING_START: string;
+	ANALYZE_START: string;
+	CANDLE_COLLECTING_START: string;
 }
 
 export const getMsg = (language: string) => {

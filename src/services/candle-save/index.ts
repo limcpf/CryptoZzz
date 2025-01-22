@@ -63,6 +63,8 @@ async function setup() {
 
 function setupCronJobs() {
 	// 캔들 저장 크론
+	// TODO: 이거 잘못됨...그냥 수집은 계속 하되 notify를 막아야함...
+	// TODO: git merge main해서 땡겨오
 	cron.schedule(`${process.env.TIME} 15-59 0 * * *`, () =>
 		fetchAndSaveCandles(),
 	);

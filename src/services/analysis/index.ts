@@ -50,7 +50,7 @@ async function setup() {
 			client,
 		});
 
-		logger.warn(client, "ANALYZE_START", loggerPrefix);
+		notify(client, CHANNEL.MANAGER_CHANNEL, "READY");
 	} catch (error: unknown) {
 		if (error instanceof Error) {
 			webhook.send(

@@ -24,6 +24,14 @@ const candleSaveConfig = {
 module.exports = {
 	apps: [
 		{
+			...commonConfig,
+			name: "manager",
+			script: "./src/services/manager/index.ts",
+			max_memory_restart: "150M",
+			error_file: "logs/manager-error.log",
+			out_file: "logs/manager-out.log",
+		},
+		{
 			...candleSaveConfig,
 			name: "candle-save-btc",
 			env: {
@@ -72,14 +80,6 @@ module.exports = {
 			max_memory_restart: "200M",
 			error_file: "logs/trading-error.log",
 			out_file: "logs/trading-out.log",
-		},
-		{
-			...commonConfig,
-			name: "manager",
-			script: "./src/services/manager/index.ts",
-			max_memory_restart: "150M",
-			error_file: "logs/manager-error.log",
-			out_file: "logs/manager-out.log",
 		},
 	],
 	env: {

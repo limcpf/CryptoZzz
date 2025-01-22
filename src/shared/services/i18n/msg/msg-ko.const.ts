@@ -13,16 +13,12 @@ const messages: MSG = {
 	ORDER_API_ERROR: "⚠️ 주문 API 호출 실패",
 	RECONNECT_ATTEMPTS: "🔄 DB 재연결 시도 ",
 	RECONNECT_ERROR: "⚠️ DB 재연결 실패",
-	ANALYZE_START: "🚀 자동매매 분석을 위한 ANALYZE 서비스를 시작합니다.",
-	CANDLE_SAVE_START:
-		"🚀 자동매매 캔들 저장을 위한 CANDLE-SAVE 서비스를 시작합니다.",
 	DB_CONNECTION_ERROR: "⚠️ DB 연결 에러 발생",
 	INIT_SETUP_ERROR: "⚠️ 초기 설정 중 에러 발생",
 	UNEXPECTED_ERROR: "⚠️ 예상치 못한 에러 발생",
 	SERVICE_SHUTDOWN: "🛑 서비스 종료 신호 수신",
 	FETCH_CANDLE_DATA_ERROR: "⚠️ 캔들 차트 데이터 수집 실패",
 	CHECK_STATUS_ERROR: "⚠️ 상태 조회 중 오류 발생",
-	TRADING_SERVICE_START: "🚀 자동매매 주문을 위한 TRADING 서비스를 시작합니다.",
 	BUY_SIGNAL_ERROR: "⚠️ 매수 신호 생성 중 오류가 발생했습니다.",
 	SELL_SIGNAL_ERROR: "⚠️ 매도 신호 생성 중 오류가 발생했습니다.",
 	BUY_SIGNAL_SUCCESS: "✅ 매수 주문 실행: ",
@@ -38,9 +34,19 @@ const messages: MSG = {
 	CANDLE_DATA_NOT_FOUND: "⚠️ 캔들 차트 데이터를 찾을 수 없습니다.",
 	SIGNAL_ERROR: "⚠️ 매수/매도 판단 중 오류 발생",
 	EXECUTE_ORDER_ERROR: "⚠️ 주문 실행 중 오류 발생",
-	MANAGER_START: "🚀 자동매매 관리를 위한 MANAGER 서비스를 시작합니다.",
+	MANAGER_START:
+		"🚀 MANAGER가 시작되었습니다. 순차적으로 인스턴스들을 시작합니다.",
 	MANAGER_START_ERROR: "⚠️ MANAGER 서비스 시작 중 오류 발생",
 	NOTIFICATION_ERROR: "⚠️ 알림 처리 중 오류 발생",
+	ALL_INSTANCES_STARTED: "🚀 모든 인스턴스가 시작되었습니다.",
+	AGGREGATE_DAILY_METRICS:
+		"00시가 되었습니다. 48시간이 지난 데이터 삭제 및 일일 데이터 집계를 시작합니다.",
+	AGGREGATE_DAILY_METRICS_ERROR: "⚠️ 일일 데이터 집계 중 오류 발생",
+	AGGREGATE_DAILY_METRICS_SUCCESS:
+		"✅ 일일 데이터 집계 완료, 00시 15분부터 분석을 재개합니다.",
+	TRADING_START: "🚀 TRADING 서비스가 시작되었습니다.",
+	ANALYZE_START: "🚀 ANALYZE 서비스가 시작되었습니다.",
+	CANDLE_COLLECTING_START: "🚀 CANDLE-COLLECTING 서비스가 시작되었습니다.",
 } as const;
 
 export default messages;

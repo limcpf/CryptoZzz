@@ -26,6 +26,9 @@ import type { iStrategy } from "../iStrategy";
  * @param symbol - 거래 심볼
  * @param weight - 전략 가중치 (기본값: 0.7)
  * @param period - RSI 계산 기간 (기본값: 14)
+ * @param oversoldThreshold - 과매도 임계값 (기본값: 30)
+ * @param overboughtThreshold - 과매수 임계값 (기본값: 70)
+ * @param momentumWeight - 모멘텀 가중치 (기본값: 0.1)
  */
 export class RsiStrategy implements iStrategy {
 	private readonly period: number = 14;
@@ -33,6 +36,9 @@ export class RsiStrategy implements iStrategy {
 	readonly client: PoolClient;
 	readonly uuid: string;
 	readonly symbol: string;
+	private readonly oversoldThreshold: number = 30;
+	private readonly overboughtThreshold: number = 70;
+	private readonly momentumWeight: number = 0.1;
 
 	constructor(
 		client: PoolClient,
@@ -40,12 +46,18 @@ export class RsiStrategy implements iStrategy {
 		symbol: string,
 		weight = 0.7,
 		period = 14,
+		oversoldThreshold = 30,
+		overboughtThreshold = 70,
+		momentumWeight = 0.1,
 	) {
 		this.client = client;
 		this.weight = weight;
 		this.period = period;
 		this.uuid = uuid;
 		this.symbol = symbol;
+		this.oversoldThreshold = oversoldThreshold;
+		this.overboughtThreshold = overboughtThreshold;
+		this.momentumWeight = momentumWeight;
 	}
 
 	async execute(): Promise<number> {
@@ -60,10 +72,11 @@ export class RsiStrategy implements iStrategy {
 
 	private async score(rsi: number): Promise<number> {
 		let score = 0;
-		if (rsi <= 30) {
-			score = 1 / (1 + Math.exp(-(30 - rsi) / 5)) - 0.5;
-		} else if (rsi >= 70) {
-			score = -1 * (1 / (1 + Math.exp(-(rsi - 70) / 5)) - 0.5); // 시그모이드 함수 적용
+		if (rsi <= this.oversoldThreshold) {
+			score = 1 / (1 + Math.exp(-(this.oversoldThreshold - rsi) / 5)) - 0.5;
+		} else if (rsi >= this.overboughtThreshold) {
+			score =
+				-1 * (1 / (1 + Math.exp(-(rsi - this.overboughtThreshold) / 5)) - 0.5); // 시그모이드 함수 적용
 		} else {
 			score = (rsi - 50) / 20;
 		}
@@ -72,8 +85,7 @@ export class RsiStrategy implements iStrategy {
 
 		if (prevRsiValues.length > 0) {
 			const averageDelta = this.calculateAverageDelta(rsi, prevRsiValues);
-			const weight = 0.1; // 변화량 가중치 설정
-			score += weight * averageDelta; // 평균 변화량을 스코어에 반영
+			score += this.momentumWeight * averageDelta; // 평균 변화량을 스코어에 반영
 		}
 
 		return score;
@@ -85,7 +97,12 @@ export class RsiStrategy implements iStrategy {
 			[this.symbol, this.period],
 		);
 
-		return result.rows.map((row) => row.rsi);
+		if (result.rows.length === 0) {
+			return [];
+		}
+
+		// RSI 값이 null이 아닌 경우만 필터링하고 반환
+		return result.rows.filter((row) => row.rsi !== null).map((row) => row.rsi);
 	}
 
 	private calculateAverageDelta(
@@ -99,7 +116,7 @@ export class RsiStrategy implements iStrategy {
 	private async getData(): Promise<number> {
 		const result = await this.client.query<iRSIResult>({
 			name: `get_rsi_${this.symbol}_${this.uuid}`,
-			text: QUERIES.GET_RECENT_RSI_SIGNALS,
+			text: QUERIES.GET_RSI_ANALYSIS,
 			values: [this.symbol, this.period],
 		});
 

@@ -222,22 +222,23 @@ LIMIT 1;
     RETURNING identifier, quantity, buy_price, sell_price;
 `,
 	GET_RECENT_RSI_SIGNALS: `
-		WITH RecentSignals AS (
-			SELECT id, hour_time
-			FROM SignalLog
-			WHERE symbol = $1
-			AND hour_time >= NOW() - INTERVAL '$2 hours'
-			ORDER BY hour_time DESC
-			LIMIT $2
+		WITH HourlySignals AS (
+			SELECT 
+				symbol,
+				date_trunc('hour', hour_time) as hour_time,
+				AVG(rs.rsi) as rsi
+			FROM SignalLog sl
+			INNER JOIN RsiSignal rs ON sl.id = rs.signal_id
+			WHERE sl.symbol = $1
+			AND sl.hour_time >= NOW() - INTERVAL '$2 hours'
+			GROUP BY symbol, date_trunc('hour', hour_time)
 		)
 		SELECT 
-			sl.symbol,
-			sl.hour_time,
-			rs.rsi
-		FROM RecentSignals rs_recent
-		INNER JOIN SignalLog sl ON sl.id = rs_recent.id
-		INNER JOIN RsiSignal rs ON rs_recent.id = rs.signal_id
-		ORDER BY sl.hour_time ASC;
+			symbol,
+			hour_time,
+			rsi
+		FROM HourlySignals
+		ORDER BY hour_time DESC;
 	`,
 	GET_RECENT_MA_SIGNALS: `
 WITH
@@ -341,4 +342,32 @@ ORDER BY symbol, date;
         END IF;
     END $$;
 `,
+	GET_RSI_ANALYSIS: `
+		WITH price_changes AS (
+			SELECT 
+				symbol,
+				timestamp,
+				close_price,
+				close_price - LAG(close_price) OVER (
+					PARTITION BY symbol 
+					ORDER BY timestamp
+				) as price_change
+			FROM Market_Data
+			WHERE symbol = $1
+			AND timestamp >= NOW() - INTERVAL '$2 hours'
+		),
+		avg_changes AS (
+			SELECT 
+				symbol,
+				AVG(CASE WHEN price_change > 0 THEN price_change ELSE 0 END) as avg_gain,
+				ABS(AVG(CASE WHEN price_change < 0 THEN price_change ELSE 0 END)) as avg_loss
+			FROM price_changes
+			WHERE price_change IS NOT NULL
+			GROUP BY symbol
+		)
+		SELECT 
+			symbol,
+			100 - (100 / (1 + (avg_gain / NULLIF(avg_loss, 0)))) as rsi
+		FROM avg_changes;
+	`,
 };

@@ -51,6 +51,8 @@ const messages: MSG = {
 		"🚀 Start CANDLE-COLLECTING service for automatic trading",
 	SIGNAL_RSI_ERROR_NO_DATA: "⚠️ No RSI data available",
 	SIGNAL_RSI_ERROR_INVALID: "⚠️ Invalid RSI data",
+	VOLUME_DATA_NOT_FOUND: "⚠️ No volume data available",
+	VOLUME_DATA_ERROR: "⚠️ Error occurred while fetching volume data",
 } as const;
 
 export default messages;

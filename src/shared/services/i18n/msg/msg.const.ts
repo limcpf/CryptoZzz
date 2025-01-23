@@ -47,6 +47,8 @@ export interface MSG {
 	CANDLE_COLLECTING_START: string;
 	SIGNAL_RSI_ERROR_NO_DATA: string;
 	SIGNAL_RSI_ERROR_INVALID: string;
+	VOLUME_DATA_NOT_FOUND: string;
+	VOLUME_DATA_ERROR: string;
 }
 
 export const getMsg = (language: string) => {

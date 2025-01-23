@@ -49,6 +49,8 @@ const messages: MSG = {
 	CANDLE_COLLECTING_START: "🚀 CANDLE-COLLECTING 서비스가 시작되었습니다.",
 	SIGNAL_RSI_ERROR_NO_DATA: "⚠️ RSI 데이터가 없습니다.",
 	SIGNAL_RSI_ERROR_INVALID: "⚠️ RSI 데이터가 유효하지 않습니다.",
+	VOLUME_DATA_NOT_FOUND: "⚠️ 거래량 데이터가 없습니다.",
+	VOLUME_DATA_ERROR: "⚠️ 거래량 데이터 조회 중 오류 발생",
 } as const;
 
 export default messages;

@@ -14,9 +14,8 @@ interface iMovingAveragesResult {
 
 interface iVolumeAnalysisResult {
 	symbol: string;
-	hour_time: Date;
-	current_volume: number;
-	avg_volume: number;
+	latest_hour_volume: number;
+	historical_avg_volume: number;
 }
 
 interface iMarketDataResult

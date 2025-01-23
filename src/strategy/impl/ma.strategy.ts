@@ -1,22 +1,30 @@
 import type { PoolClient } from "pg";
-import logger from "../../shared/config/logger";
 import { QUERIES } from "../../shared/const/query.const";
 import type { iMovingAveragesResult } from "../../shared/interfaces/iMarketDataResult";
-import { developmentLog } from "../../shared/services/util";
-import { Signal, type iStrategy } from "../iStrategy";
+import { getMsg } from "../../shared/services/i18n/msg/msg.const";
+import type { iStrategy } from "../iStrategy";
 
 /**
  * MA (Moving Average) Strategy Implementation
- * Analyzes market data using MA indicator to generate trading signals
- * - Returns BUY signal when short MA crosses above long MA
- * - Returns SELL signal when short MA crosses below long MA
- * - Returns HOLD signal in other cases
+ * Analyzes market data using MA indicators to generate trading signals with weighted scoring
+ * - Calculates crossover signals between short-term and long-term moving averages
+ * - Applies hyperbolic tangent function for base signal normalization
+ * - Incorporates rate of change momentum for trend confirmation
+ * - Uses configurable strategy weight for portfolio balance
+ * - Implements database persistence for signal tracking
  *
  * MA (이동평균) 전략 구현
- * MA 지표를 사용하여 시장 데이터를 분석하고 거래 신호를 생성
- * - 단기 MA가 장기 MA를 상향 돌파할 때 매수 신호 반환
- * - 단기 MA가 장기 MA를 하향 돌파할 때 매도 신호 반환
- * - 그 외의 경우 홀드 신호 반환
+ * MA 지표를 사용하여 가중치가 적용된 거래 신호를 생성
+ * - 단기 및 장기 이동평균의 크로스오버 신호 계산
+ * - 하이퍼볼릭 탄젠트 함수를 사용하여 기본 신호 정규화
+ * - 추세 확인을 위한 변화율 모멘텀 반영
+ * - 포트폴리오 균형을 위한 전략 가중치 적용
+ * - 신호 추적을 위한 데이터베이스 저장 구현
+ *
+ * @param client - PostgreSQL 데이터베이스 연결
+ * @param uuid - 전략 실행 식별자
+ * @param symbol - 거래 심볼
+ * @param weight - 전략 가중치 (기본값: 0.8)
  */
 export class MaStrategy implements iStrategy {
 	readonly weight: number;
@@ -66,11 +74,18 @@ export class MaStrategy implements iStrategy {
 			values: [this.symbol],
 		});
 
+		if (result.rows.length === 0) {
+			throw new Error(String(getMsg("SIGNAL_MA_ERROR")));
+		}
+
 		return result.rows[0];
 	}
 
-	private saveData(data: iMovingAveragesResult, score: number): void {
-		this.client.query(QUERIES.INSERT_MA_SIGNAL, [
+	private async saveData(
+		data: iMovingAveragesResult,
+		score: number,
+	): Promise<void> {
+		await this.client.query(QUERIES.INSERT_MA_SIGNAL, [
 			this.uuid,
 			data.short_ma,
 			data.long_ma,

@@ -45,6 +45,8 @@ export interface MSG {
 	TRADING_START: string;
 	ANALYZE_START: string;
 	CANDLE_COLLECTING_START: string;
+	SIGNAL_RSI_ERROR_NO_DATA: string;
+	SIGNAL_RSI_ERROR_INVALID: string;
 }
 
 export const getMsg = (language: string) => {

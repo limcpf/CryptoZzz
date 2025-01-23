@@ -49,6 +49,8 @@ const messages: MSG = {
 	ANALYZE_START: "🚀 Start ANALYZE service for automatic trading",
 	CANDLE_COLLECTING_START:
 		"🚀 Start CANDLE-COLLECTING service for automatic trading",
+	SIGNAL_RSI_ERROR_NO_DATA: "⚠️ No RSI data available",
+	SIGNAL_RSI_ERROR_INVALID: "⚠️ Invalid RSI data",
 } as const;
 
 export default messages;

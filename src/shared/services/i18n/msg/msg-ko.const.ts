@@ -47,6 +47,8 @@ const messages: MSG = {
 	TRADING_START: "🚀 TRADING 서비스가 시작되었습니다.",
 	ANALYZE_START: "🚀 ANALYZE 서비스가 시작되었습니다.",
 	CANDLE_COLLECTING_START: "🚀 CANDLE-COLLECTING 서비스가 시작되었습니다.",
+	SIGNAL_RSI_ERROR_NO_DATA: "⚠️ RSI 데이터가 없습니다.",
+	SIGNAL_RSI_ERROR_INVALID: "⚠️ RSI 데이터가 유효하지 않습니다.",
 } as const;
 
 export default messages;

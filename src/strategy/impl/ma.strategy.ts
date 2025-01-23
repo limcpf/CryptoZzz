@@ -19,57 +19,63 @@ import { Signal, type iStrategy } from "../iStrategy";
  * - 그 외의 경우 홀드 신호 반환
  */
 export class MaStrategy implements iStrategy {
-	client: PoolClient;
-	private loggerPrefix = "MA-STRATEGY";
+	readonly weight: number;
+	readonly client: PoolClient;
+	readonly uuid: string;
+	readonly symbol: string;
 
-	constructor(client: PoolClient) {
+	constructor(client: PoolClient, uuid: string, symbol: string, weight = 0.8) {
 		this.client = client;
+		this.weight = weight;
+		this.uuid = uuid;
+		this.symbol = symbol;
 	}
 
-	async execute(uuid: string, symbol: string): Promise<Signal> {
+	async execute(): Promise<number> {
+		const data = await this.getData();
+
+		const score = await this.score(data);
+
+		this.saveData(data, score);
+
+		return score * this.weight;
+	}
+
+	private async score(data: {
+		short_ma: number;
+		long_ma: number;
+		prev_short_ma: number;
+	}): Promise<number> {
+		const { short_ma, long_ma, prev_short_ma } = data;
+
+		// 기본 스코어 (baseScore)
+		const baseScore = Math.tanh((5 * (short_ma - long_ma)) / long_ma);
+
+		// 변화율 반영 스코어 (finalScore)
+		const rateOfChange = prev_short_ma
+			? (short_ma - prev_short_ma) / prev_short_ma
+			: 0; // 이전 값이 없으면 변화율은 0
+
+		return baseScore + 0.1 * rateOfChange;
+	}
+
+	private async getData(): Promise<iMovingAveragesResult> {
 		const result = await this.client.query<iMovingAveragesResult>({
-			name: `get_ma_${symbol}_${uuid}`,
-			text: QUERIES.GET_MOVING_AVERAGES,
-			values: [symbol],
+			name: `get_ma_${this.symbol}_${this.uuid}`,
+			text: QUERIES.GET_RECENT_MA_SIGNALS,
+			values: [this.symbol],
 		});
 
-		if (result.rowCount === 0) {
-			logger.error(this.client, "SIGNAL_MA_ERROR", this.loggerPrefix);
-			return Signal.HOLD;
-		}
-
-		const { short_ma, long_ma } = result.rows[0];
-
-		this.saveResult(uuid, { short_ma, long_ma });
-
-		if (short_ma > long_ma) {
-			developmentLog(
-				`[${new Date().toLocaleString()}] [MA-STRATEGY] 매수 신호 발생`,
-			);
-			return Signal.BUY;
-		}
-
-		if (short_ma < long_ma) {
-			developmentLog(
-				`[${new Date().toLocaleString()}] [MA-STRATEGY] 매도 신호 발생`,
-			);
-			return Signal.SELL;
-		}
-
-		developmentLog(
-			`[${new Date().toLocaleString()}] [MA-STRATEGY] 홀드 신호 발생`,
-		);
-		return Signal.HOLD;
+		return result.rows[0];
 	}
 
-	private saveResult(
-		uuid: string,
-		data: { short_ma: number; long_ma: number },
-	): void {
+	private saveData(data: iMovingAveragesResult, score: number): void {
 		this.client.query(QUERIES.INSERT_MA_SIGNAL, [
-			uuid,
+			this.uuid,
 			data.short_ma,
 			data.long_ma,
+			data.prev_short_ma,
+			score,
 		]);
 	}
 }

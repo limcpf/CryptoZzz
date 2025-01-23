@@ -6,9 +6,10 @@ interface iRSIResult {
 
 interface iMovingAveragesResult {
 	symbol: string;
-	hour_time: Date;
+	date: Date;
 	short_ma: number;
 	long_ma: number;
+	prev_short_ma: number;
 }
 
 interface iVolumeAnalysisResult {

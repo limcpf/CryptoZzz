@@ -60,15 +60,7 @@ async function setup() {
 }
 
 function setupCronJobs() {
-	// 캔들 저장 크론
-	// TODO: 이거 잘못됨...그냥 수집은 계속 하되 notify를 막아야함...
-	// TODO: git merge main해서 땡겨오
-	cron.schedule(`${process.env.TIME} 15-59 0 * * *`, () =>
-		fetchAndSaveCandles(),
-	);
-	cron.schedule(`${process.env.TIME} * 1-23 * * *`, () =>
-		fetchAndSaveCandles(),
-	);
+	cron.schedule(`${process.env.TIME} * * * * *`, () => fetchAndSaveCandles());
 
 	// 코인 상태 체크 크론
 	cron.schedule("*/15 8-21 * * *", () => sendCoinStatus(COIN));
@@ -128,7 +120,15 @@ async function saveCandleData(data: iCandle[]) {
 			)}`,
 		);
 
-		notify(client, CHANNEL.ANALYZE_CHANNEL, `${process.env.CRYPTO_CODE}`);
+		// KST 시간 계산
+		const kstTime = new Date(Date.now() + 9 * 60 * 60 * 1000); // UTC+9
+		const hour = kstTime.getUTCHours();
+		const minute = kstTime.getUTCMinutes();
+
+		// TODO : 후에 레디스 도입 후에 상태값으로 막자...
+		if (!(hour === 0 && minute < 15)) {
+			notify(client, CHANNEL.ANALYZE_CHANNEL, `${process.env.CRYPTO_CODE}`);
+		}
 	} catch (error: unknown) {
 		errorHandler(client, "CANDLE_SAVE_DB_ERROR", loggerPrefix, error);
 	}

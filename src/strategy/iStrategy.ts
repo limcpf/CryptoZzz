@@ -13,7 +13,6 @@ export interface iStrategy {
 	symbol: string;
 	weight: number;
 
-	score(data: unknown): Promise<number>;
 	execute(): Promise<number>;
 }
 

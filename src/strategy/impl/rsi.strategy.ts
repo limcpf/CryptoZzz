@@ -39,7 +39,17 @@ export class RsiStrategy implements iStrategy {
 		this.symbol = symbol;
 	}
 
-	async score(rsi: number): Promise<number> {
+	async execute(): Promise<number> {
+		const rsi = await this.getData();
+
+		const score = await this.score(rsi);
+
+		this.saveData(rsi, score);
+
+		return score * this.weight;
+	}
+
+	private async score(rsi: number): Promise<number> {
 		let score = 0;
 		if (rsi <= 30) {
 			score = (30 - rsi) / 30; // 매수세 강화
@@ -58,16 +68,6 @@ export class RsiStrategy implements iStrategy {
 		}
 
 		return score;
-	}
-
-	async execute(): Promise<number> {
-		const rsi = await this.getData();
-
-		this.saveData(rsi);
-
-		const score = await this.score(rsi);
-
-		return score * this.weight;
 	}
 
 	private async getRecentSignals(symbol: string): Promise<number[]> {
@@ -89,9 +89,9 @@ export class RsiStrategy implements iStrategy {
 
 	private async getData(): Promise<number> {
 		const result = await this.client.query<iRSIResult>({
-			name: `get_rsi_${this.symbol}_${new Date().toISOString()}`,
-			text: QUERIES.GET_RSI_INDICATOR,
-			values: [this.symbol],
+			name: `get_rsi_${this.symbol}_${this.uuid}`,
+			text: QUERIES.GET_RECENT_RSI_SIGNALS,
+			values: [this.symbol, this.period],
 		});
 
 		const rsi = Number(result.rows[0].rsi);
@@ -101,7 +101,11 @@ export class RsiStrategy implements iStrategy {
 		return rsi;
 	}
 
-	private async saveData(data: number): Promise<void> {
-		await this.client.query(QUERIES.INSERT_RSI_SIGNAL, [this.uuid, data]);
+	private async saveData(data: number, score: number): Promise<void> {
+		await this.client.query(QUERIES.INSERT_RSI_SIGNAL, [
+			this.uuid,
+			data,
+			score,
+		]);
 	}
 }

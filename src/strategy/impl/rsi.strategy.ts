@@ -63,9 +63,9 @@ export class RsiStrategy implements iStrategy {
 		if (rsi <= 30) {
 			score = 1 / (1 + Math.exp(-(30 - rsi) / 5)) - 0.5;
 		} else if (rsi >= 70) {
-			score = -(rsi - 70) / 30; // 매도세 강화
+			score = -1 * (1 / (1 + Math.exp(-(rsi - 70) / 5)) - 0.5); // 시그모이드 함수 적용
 		} else {
-			score = (rsi - 50) / 20; // 중립 범위
+			score = (rsi - 50) / 20;
 		}
 
 		const prevRsiValues = await this.getRecentSignals();

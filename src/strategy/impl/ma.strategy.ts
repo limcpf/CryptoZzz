@@ -41,11 +41,14 @@ export class MaStrategy implements iStrategy {
 
 	async execute(): Promise<number> {
 		const data = await this.getData();
-
+		const volatility = await this.calculateVolatility();
 		const score = await this.score(data);
 
-		this.saveData(data, score);
+		if (!this.isValidSignal(score, volatility)) {
+			return 0;
+		}
 
+		await this.saveData(data, score);
 		return score * this.weight;
 	}
 
@@ -92,5 +95,20 @@ export class MaStrategy implements iStrategy {
 			data.prev_short_ma,
 			score,
 		]);
+	}
+
+	private async calculateVolatility(): Promise<number> {
+		const result = await this.client.query({
+			name: `get_volatility_${this.symbol}_${this.uuid}`,
+			text: QUERIES.GET_PRICE_VOLATILITY,
+			values: [this.symbol],
+		});
+
+		return result.rows[0]?.volatility ?? 0.1;
+	}
+
+	private isValidSignal(score: number, volatility: number): boolean {
+		const threshold = 0.2 * (1 + volatility);
+		return Math.abs(score) > threshold;
 	}
 }

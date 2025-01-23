@@ -370,4 +370,33 @@ ORDER BY symbol, date;
 			100 - (100 / (1 + (avg_gain / NULLIF(avg_loss, 0)))) as rsi
 		FROM avg_changes;
 	`,
+	GET_PRICE_VOLATILITY: `
+        WITH hourly_prices AS (
+            SELECT 
+                symbol,
+                date_trunc('hour', timestamp) as hour,
+                AVG(close_price) as avg_price
+            FROM Market_Data
+            WHERE 
+                symbol = $1
+                AND timestamp >= NOW() - INTERVAL '24 hours'
+            GROUP BY symbol, date_trunc('hour', timestamp)
+        ),
+        price_changes AS (
+            SELECT 
+                symbol,
+                hour,
+                avg_price,
+                ((avg_price - LAG(avg_price) OVER (ORDER BY hour)) / LAG(avg_price) OVER (ORDER BY hour)) as price_change
+            FROM hourly_prices
+        )
+        SELECT 
+            symbol,
+            COALESCE(
+                STDDEV(price_change) * SQRT(24), -- 24시간 기준으로 변동성 연율화
+                0.1 -- 데이터가 부족할 경우 기본값
+            ) as volatility
+        FROM price_changes
+        GROUP BY symbol;
+    `,
 };

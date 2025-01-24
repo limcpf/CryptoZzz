@@ -32,7 +32,7 @@ export class MaStrategy implements iStrategy {
 	readonly uuid: string;
 	readonly symbol: string;
 
-	constructor(client: PoolClient, uuid: string, symbol: string, weight = 0.8) {
+	constructor(client: PoolClient, uuid: string, symbol: string, weight = 0.7) {
 		this.client = client;
 		this.weight = weight;
 		this.uuid = uuid;

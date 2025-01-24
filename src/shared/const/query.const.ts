@@ -96,6 +96,17 @@ export const QUERIES = {
         score NUMERIC NOT NULL,
         FOREIGN KEY (signal_id) REFERENCES SignalLog(id)
     );
+
+    CREATE TABLE IF NOT EXISTS BollingerSignal (
+        signal_id UUID PRIMARY KEY,
+        upper_band NUMERIC NOT NULL,
+        middle_band NUMERIC NOT NULL,
+        lower_band NUMERIC NOT NULL,
+        close_price NUMERIC NOT NULL,
+        band_width NUMERIC NOT NULL,
+        score NUMERIC NOT NULL,
+        FOREIGN KEY (signal_id) REFERENCES SignalLog(id)
+    );
 `,
 	GET_CURRENT_PRICE: `
     SELECT close_price FROM Market_Data WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1;
@@ -489,6 +500,48 @@ LIMIT 1;
         histogram,
         zero_cross,
         trend_strength,
+        score
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7);
+`,
+	GET_BOLLINGER_BANDS: `
+    WITH period_data AS (
+        SELECT
+            symbol,
+            timestamp,
+            close_price,
+            AVG(close_price) OVER (
+                PARTITION BY symbol
+                ORDER BY timestamp
+                ROWS BETWEEN $2::integer - 1 PRECEDING AND CURRENT ROW
+            ) AS moving_avg,
+            STDDEV(close_price) OVER (
+                PARTITION BY symbol
+                ORDER BY timestamp
+                ROWS BETWEEN $2::integer - 1 PRECEDING AND CURRENT ROW
+            ) AS moving_stddev
+        FROM Market_Data
+        WHERE 
+            symbol = $1 AND
+            timestamp >= NOW() - INTERVAL '1 hour' * $3::integer
+    )
+    SELECT
+        symbol,
+        timestamp,
+        close_price,
+        ROUND((moving_avg + (2 * moving_stddev))::numeric, 5) AS bollinger_upper,
+        ROUND(moving_avg::numeric, 5) AS bollinger_middle,
+        ROUND((moving_avg - (2 * moving_stddev))::numeric, 5) AS bollinger_lower
+    FROM period_data
+    ORDER BY timestamp DESC;
+`,
+	INSERT_BOLLINGER_SIGNAL: `
+    INSERT INTO BollingerSignal (
+        signal_id,
+        upper_band,
+        middle_band,
+        lower_band,
+        close_price,
+        band_width,
         score
     ) VALUES ($1, $2, $3, $4, $5, $6, $7);
 `,

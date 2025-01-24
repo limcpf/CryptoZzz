@@ -34,7 +34,7 @@ export class MacdStrategy implements iStrategy {
 			longPeriod: number;
 			signalPeriod: number;
 		},
-		weight = 0.7,
+		weight = 0.95,
 	) {
 		this.client = client;
 		this.weight = weight;

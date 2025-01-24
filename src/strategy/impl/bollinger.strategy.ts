@@ -23,7 +23,7 @@ import type { iStrategy } from "../iStrategy";
  * @param hours - 데이터 분석 시간 창 (기본값: 2)
  */
 export class BollingerStrategy implements iStrategy {
-	readonly weight = 0.6;
+	readonly weight = 0.85;
 	readonly client: PoolClient;
 	readonly uuid: string;
 	readonly symbol: string;

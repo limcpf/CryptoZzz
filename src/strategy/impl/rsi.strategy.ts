@@ -44,7 +44,7 @@ export class RsiStrategy implements iStrategy {
 		client: PoolClient,
 		uuid: string,
 		symbol: string,
-		weight = 0.8,
+		weight = 1,
 		period = 14,
 		oversoldThreshold = 30,
 		overboughtThreshold = 70,

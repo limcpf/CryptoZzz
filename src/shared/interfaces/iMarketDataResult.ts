@@ -29,3 +29,19 @@ export type {
 	iVolumeAnalysisResult,
 	iMarketDataResult,
 };
+
+export interface iMACDParams {
+	shortPeriod: number; // 단기 EMA 기간
+	longPeriod: number; // 장기 EMA 기간
+	signalPeriod: number; // 시그널 라인 기간
+	lookbackHours: number; // 분석 기간
+}
+
+export interface iMACDResult {
+	current_macd: number;
+	current_signal: number;
+	prev_macd: number;
+	prev_signal: number;
+	histogram: number;
+	prev_histogram: number;
+}

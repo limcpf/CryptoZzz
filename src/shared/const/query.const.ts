@@ -85,6 +85,17 @@ export const QUERIES = {
         total_volume NUMERIC,
         PRIMARY KEY (symbol, date)
     );
+
+    CREATE TABLE IF NOT EXISTS MacdSignal (
+        signal_id UUID PRIMARY KEY,
+        macd_line NUMERIC NOT NULL,
+        signal_line NUMERIC NOT NULL,
+        histogram NUMERIC NOT NULL,
+        zero_cross BOOLEAN NOT NULL,
+        trend_strength NUMERIC NOT NULL,
+        score NUMERIC NOT NULL,
+        FOREIGN KEY (signal_id) REFERENCES SignalLog(id)
+    );
 `,
 	GET_CURRENT_PRICE: `
     SELECT close_price FROM Market_Data WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1;
@@ -413,4 +424,72 @@ ORDER BY symbol, date;
         FROM price_changes
         GROUP BY symbol;
     `,
+	GET_MACD_ANALYSIS: `
+WITH hourly_candles AS (
+    SELECT 
+        time_bucket('1 hour', timestamp) AS hourly_time,
+        symbol,
+        FIRST(open_price, timestamp) as open_price,
+        MAX(high_price) as high_price,
+        MIN(low_price) as low_price,
+        LAST(close_price, timestamp) as close_price,
+        SUM(volume) as volume
+    FROM Market_Data
+    WHERE symbol = $1
+        AND timestamp >= NOW() - INTERVAL '$2 hours'
+    GROUP BY hourly_time, symbol
+    ORDER BY hourly_time DESC
+),
+ema_calc AS (
+    SELECT 
+        hourly_time,
+        close_price,
+        symbol,
+        EXP(SUM(LN(close_price)) FILTER (ORDER BY hourly_time DESC) 
+            OVER (ROWS BETWEEN ($3::integer - 1) PRECEDING AND CURRENT ROW) / $3::float) as ema_short,
+        EXP(SUM(LN(close_price)) FILTER (ORDER BY hourly_time DESC) 
+            OVER (ROWS BETWEEN ($4::integer - 1) PRECEDING AND CURRENT ROW) / $4::float) as ema_long
+    FROM hourly_candles
+),
+macd_calc AS (
+    SELECT 
+        hourly_time,
+        (ema_short - ema_long) as macd_line,
+        ema_short,
+        ema_long
+    FROM ema_calc
+    WHERE ema_short IS NOT NULL AND ema_long IS NOT NULL
+),
+signal_calc AS (
+    SELECT 
+        hourly_time,
+        macd_line,
+        EXP(SUM(LN(ABS(macd_line))) FILTER (ORDER BY hourly_time DESC) 
+            OVER (ROWS BETWEEN ($5::integer - 1) PRECEDING AND CURRENT ROW) / $5::float) 
+            * SIGN(macd_line) as signal_line
+    FROM macd_calc
+)
+SELECT 
+    macd_line as current_macd,
+    signal_line as current_signal,
+    LAG(macd_line) OVER (ORDER BY hourly_time DESC) as prev_macd,
+    LAG(signal_line) OVER (ORDER BY hourly_time DESC) as prev_signal,
+    (macd_line - signal_line) as histogram,
+    LAG(macd_line - signal_line) OVER (ORDER BY hourly_time DESC) as prev_histogram
+FROM signal_calc
+WHERE signal_line IS NOT NULL
+ORDER BY hourly_time DESC
+LIMIT 1;
+`,
+	INSERT_MACD_SIGNAL: `
+    INSERT INTO MacdSignal (
+        signal_id,
+        macd_line,
+        signal_line,
+        histogram,
+        zero_cross,
+        trend_strength,
+        score
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7);
+`,
 };

@@ -13,16 +13,20 @@ import { VolumeStrategy } from "./impl/volume.strategy";
  * 전략 이름에 따라 거래 전략 인스턴스를 생성하고 반환
  */
 export class StrategyFactory {
-	constructor(private client: PoolClient) {}
+	constructor(
+		private client: PoolClient,
+		private uuid: string,
+		private symbol: string,
+	) {}
 
 	createStrategy(strategyName: string): iStrategy {
 		switch (strategyName) {
 			case StrategyName.RSI:
-				return new RsiStrategy(this.client);
+				return new RsiStrategy(this.client, this.uuid, this.symbol);
 			case StrategyName.MA:
-				return new MaStrategy(this.client);
+				return new MaStrategy(this.client, this.uuid, this.symbol);
 			case StrategyName.VOLUME:
-				return new VolumeStrategy(this.client);
+				return new VolumeStrategy(this.client, this.uuid, this.symbol);
 		}
 
 		throw new Error(

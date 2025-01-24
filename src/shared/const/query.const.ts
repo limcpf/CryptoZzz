@@ -1,10 +1,12 @@
 export const QUERIES = {
 	AGGREGATE_DAILY_METRICS: `
-    INSERT INTO Daily_Market_Data (symbol, date, avg_close_price, total_volume)
+    INSERT INTO Daily_Market_Data (symbol, date, avg_close_price, high_price, low_price, total_volume)
     SELECT
         symbol,
         DATE(timestamp) AS date,
         ROUND(AVG(close_price)::numeric, 5) AS avg_close_price,
+        MAX(high_price) AS high_price,
+        MIN(low_price) AS low_price,
         SUM(volume) AS total_volume
     FROM Market_Data
     WHERE DATE(timestamp) = $1::DATE
@@ -12,15 +14,19 @@ export const QUERIES = {
     ON CONFLICT (symbol, date)
     DO UPDATE SET
         avg_close_price = EXCLUDED.avg_close_price,
+        high_price = EXCLUDED.high_price,
+        low_price = EXCLUDED.low_price,
         total_volume = EXCLUDED.total_volume
-    RETURNING date, avg_close_price, total_volume;
+    RETURNING date, avg_close_price, high_price, low_price, total_volume;
 `,
 	CREATE_INDEXES: `
-    CREATE INDEX IF NOT EXISTS idx_orders_symbol ON Orders(symbol);
-    CREATE INDEX IF NOT EXISTS idx_orders_status ON Orders(status);
-    CREATE INDEX IF NOT EXISTS idx_orders_created_at ON Orders(created_at);
-    CREATE INDEX IF NOT EXISTS idx_market_data_symbol_timestamp ON Market_Data(symbol, timestamp);
-    CREATE INDEX IF NOT EXISTS idx_daily_market_data_symbol_date ON Daily_Market_Data (symbol, date);
+    -- Market_Data 테이블
+    CREATE INDEX IF NOT EXISTS idx_market_data_symbol_timestamp ON Market_Data(symbol, timestamp DESC);
+    CREATE INDEX IF NOT EXISTS idx_market_data_timestamp_brin ON Market_Data USING BRIN(timestamp);
+    
+    -- Daily_Market_Data 테이블
+    CREATE INDEX IF NOT EXISTS idx_daily_market_data_date ON Daily_Market_Data(date DESC);
+    CREATE INDEX IF NOT EXISTS idx_daily_market_data_symbol_date_include ON Daily_Market_Data(symbol, date) INCLUDE (high_price, low_price);
 `,
 	CREATE_TABLES: `
     CREATE TABLE IF NOT EXISTS Market_Data (
@@ -54,6 +60,14 @@ export const QUERIES = {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
+    CREATE TABLE IF NOT EXISTS StochasticSignal (
+        signal_id UUID PRIMARY KEY,
+        k_value NUMERIC NOT NULL,
+        d_value NUMERIC NOT NULL,
+        score NUMERIC NOT NULL,
+        FOREIGN KEY (signal_id) REFERENCES SignalLog(id)
+    );
+
     CREATE TABLE IF NOT EXISTS RsiSignal (
         signal_id UUID PRIMARY KEY,
         rsi NUMERIC NOT NULL,
@@ -82,6 +96,8 @@ export const QUERIES = {
         symbol VARCHAR(10),
         date DATE,
         avg_close_price NUMERIC,
+        high_price NUMERIC,
+        low_price NUMERIC,
         total_volume NUMERIC,
         PRIMARY KEY (symbol, date)
     );
@@ -544,5 +560,73 @@ LIMIT 1;
         band_width,
         score
     ) VALUES ($1, $2, $3, $4, $5, $6, $7);
+`,
+	GET_STOCHASTIC_OSCILLATOR: `
+WITH 
+daily_data AS (
+    SELECT 
+        symbol,
+        date,
+        high_price,
+        low_price,
+        avg_close_price AS close
+    FROM Daily_Market_Data
+    WHERE symbol = $1
+        AND date < CURRENT_DATE
+),
+minute_data AS (
+    SELECT
+        time_bucket('1 minute', timestamp) AS bucket,
+        symbol,
+        MAX(high_price) AS high,
+        MIN(low_price) AS low,
+        LAST(close_price, timestamp) AS close
+    FROM Market_Data
+    WHERE symbol = $1
+        AND timestamp >= NOW() - INTERVAL '$4 minutes'
+    GROUP BY bucket, symbol
+),
+combined_data AS (
+    SELECT 
+        date::timestamp AS bucket, 
+        symbol,
+        high_price AS high,
+        low_price AS low,
+        close
+    FROM daily_data
+    UNION ALL
+    SELECT 
+        bucket,
+        symbol,
+        high,
+        low,
+        close
+    FROM minute_data
+),
+stochastic_calculation AS (
+    SELECT
+        bucket,
+        symbol,
+        close,
+        (close - MIN(low) OVER w) / 
+        NULLIF(MAX(high) OVER w - MIN(low) OVER w, 0) * 100 AS percent_k,
+        AVG(
+            (close - MIN(low) OVER w) / 
+            NULLIF(MAX(high) OVER w - MIN(low) OVER w, 0) * 100
+        ) OVER (ORDER BY bucket ROWS BETWEEN $4 PRECEDING AND CURRENT ROW) AS percent_d
+    FROM combined_data
+    WINDOW w AS (PARTITION BY symbol ORDER BY bucket ROWS BETWEEN ($3 * 1440) PRECEDING AND CURRENT ROW)
+)
+SELECT
+    bucket AS timestamp,
+    ROUND(percent_k::numeric, 2) AS k_value,
+    ROUND(percent_d::numeric, 2) AS d_value
+FROM stochastic_calculation
+ORDER BY bucket DESC
+LIMIT 1;
+`,
+	INSERT_STOCHASTIC_SIGNAL: `
+    INSERT INTO StochasticSignal (signal_id, k_value, d_value, score)
+    VALUES ($1, $2, $3, $4);
 `,
 };

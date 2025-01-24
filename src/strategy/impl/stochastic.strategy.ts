@@ -31,7 +31,7 @@ export class StochasticStrategy implements iStrategy {
 			dPeriod: number;
 			lookbackDays: number;
 		},
-		weight = 0.5,
+		weight = 0.7,
 	) {
 		this.client = client;
 		this.weight = weight;

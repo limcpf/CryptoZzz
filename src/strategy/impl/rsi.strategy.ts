@@ -24,7 +24,7 @@ import type { iStrategy } from "../iStrategy";
  * @param client - PostgreSQL 데이터베이스 연결
  * @param uuid - 전략 실행 식별자
  * @param symbol - 거래 심볼
- * @param weight - 전략 가중치 (기본값: 0.7)
+ * @param weight - 전략 가중치 (기본값: 0.8)
  * @param period - RSI 계산 기간 (기본값: 14)
  * @param oversoldThreshold - 과매도 임계값 (기본값: 30)
  * @param overboughtThreshold - 과매수 임계값 (기본값: 70)
@@ -44,7 +44,7 @@ export class RsiStrategy implements iStrategy {
 		client: PoolClient,
 		uuid: string,
 		symbol: string,
-		weight = 0.7,
+		weight = 0.8,
 		period = 14,
 		oversoldThreshold = 30,
 		overboughtThreshold = 70,

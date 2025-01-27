@@ -40,5 +40,14 @@ interface OrderResponse {
 	identifier: string;
 }
 
-export type { iOrder, OrderResponse };
+interface iOrderProps {
+	market: string;
+	price: string | null;
+	volume: string | null;
+	side: "bid" | "ask";
+	ord_type: "price" | "market";
+	identifier?: string;
+}
+
+export type { iOrder, OrderResponse, iOrderProps };
 export { OrderType, OrderStatus };

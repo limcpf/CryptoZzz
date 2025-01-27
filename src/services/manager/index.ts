@@ -32,8 +32,6 @@ async function setup() {
 	try {
 		[pool, client] = await getConnection(loggerPrefix);
 
-		console.log("모냥3");
-
 		// 데이터베이스 초기 설정
 		await client.query(QUERIES.CREATE_TABLES);
 
@@ -120,8 +118,6 @@ async function send(msg: string) {
 async function setupCronJobs() {
 	if (process.env.NODE_ENV === "production") {
 		cron.schedule("0 0 * * *", aggregateDailyMetrics);
-	} else {
-		cron.schedule("*/1 * * * *", aggregateDailyMetrics);
 	}
 }
 

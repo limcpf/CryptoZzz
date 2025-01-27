@@ -51,6 +51,19 @@ const messages: MSG = {
 	SIGNAL_RSI_ERROR_INVALID: "⚠️ RSI 데이터가 유효하지 않습니다.",
 	VOLUME_DATA_NOT_FOUND: "⚠️ 거래량 데이터가 없습니다.",
 	VOLUME_DATA_ERROR: "⚠️ 거래량 데이터 조회 중 오류 발생",
+	COIN_NOT_FOUND: "⚠️ 코인 정보를 찾을 수 없습니다",
+	MIN_ORDER_AMOUNT_ERROR: "⚠️ 주문 금액이 최소 주문 금액(10,000원) 미만입니다",
+	TRADING_EXCUTE_ORDER_ERROR: "⚠️ 거래 주문 실행 중 오류가 발생했습니다",
+	GET_CURRENT_POSITION_ERROR: "⚠️ 현재 포지션 정보 조회에 실패했습니다",
+	CALCULATE_THRESHOLD_ERROR: "⚠️ 동적 임계값 계산에 실패했습니다",
+	BUY_ORDER_DEV_ERROR: "⚠️ 개발 환경에서 매수 주문 실행에 실패했습니다",
+	BUY_ORDER_ERROR: "⚠️ 매수 주문 실행에 실패했습니다",
+	SELL_ORDER_ERROR: "⚠️ 매도 주문 실행에 실패했습니다",
+	SELL_ORDER_DEV_ERROR: "⚠️ 개발 환경에서 매도 주문 실행에 실패했습니다",
+	STOP_LOSS_TRIGGERED: "⚠️ 손절매가 발동되어 매도 주문을 실행합니다",
+	REGULAR_SELL: "📊 일반 매도 신호가 발생하여 매도 주문을 실행합니다",
+	AVG_BUY_PRICE_NOT_FOUND: "⚠️ 평균 매수가를 찾을 수 없습니다",
+	PROFIT_TAKE_TRIGGERED: "✅ 목표 수익률에 도달하여 매도 주문을 실행합니다",
 } as const;
 
 export default messages;

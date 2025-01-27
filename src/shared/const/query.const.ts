@@ -27,35 +27,41 @@ export const QUERIES = {
     -- Daily_Market_Data 테이블
     CREATE INDEX IF NOT EXISTS idx_daily_market_data_date ON Daily_Market_Data(date DESC);
     CREATE INDEX IF NOT EXISTS idx_daily_market_data_symbol_date_include ON Daily_Market_Data(symbol, date) INCLUDE (high_price, low_price);
+
+
+    -- Trades 테이블
+    CREATE INDEX IF NOT EXISTS idx_trades_composite_pk ON Trades(uuid, type, sequence); -- 기본 키 복제 인덱스
+    CREATE INDEX IF NOT EXISTS idx_trades_symbol_created ON Trades(symbol, created_at); -- 심볼+시간 조회
+    CREATE INDEX IF NOT EXISTS idx_trades_sequence_btree ON Trades(sequence); -- 순번 조회
 `,
 	CREATE_TABLES: `
     CREATE TABLE IF NOT EXISTS Market_Data (
-    symbol VARCHAR(10),
-    timestamp TIMESTAMPTZ,
-    open_price NUMERIC,
-    high_price NUMERIC,
-    low_price NUMERIC,
-    close_price NUMERIC,
-    volume NUMERIC,
-    PRIMARY KEY (symbol, timestamp)
+        symbol TEXT,
+        timestamp TIMESTAMPTZ,
+        open_price NUMERIC,
+        high_price NUMERIC,
+        low_price NUMERIC,
+        close_price NUMERIC,
+        volume NUMERIC,
+        PRIMARY KEY (symbol, timestamp)
     );
 
-    CREATE TABLE IF NOT EXISTS Orders (
-        id UUID PRIMARY KEY,
-        symbol VARCHAR(10) NOT NULL,
-        buy_price NUMERIC NOT NULL,
-        sell_price NUMERIC,
+    CREATE TABLE IF NOT EXISTS Trades (
+        uuid UUID NOT NULL,
+        type VARCHAR(4) NOT NULL CHECK (type IN ('BUY', 'SELL')),
+        symbol TEXT NOT NULL,
+        price NUMERIC NOT NULL,
         quantity NUMERIC NOT NULL,
-        status VARCHAR(10) NOT NULL,
-        created_at TIMESTAMPTZ NOT NULL,
-        updated_at TIMESTAMPTZ NOT NULL,
-        CONSTRAINT order_type_check CHECK (status IN ('BUY', 'SELL')),
-        CONSTRAINT status_check CHECK (status IN ('PENDING', 'FILLED', 'CANCELLED'))
+        is_dev BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        sequence INTEGER NOT NULL DEFAULT 1,
+        fee NUMERIC NOT NULL DEFAULT 0,
+        PRIMARY KEY (uuid, type, sequence)
     );
 
     CREATE TABLE IF NOT EXISTS SignalLog (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        symbol VARCHAR(10) NOT NULL,
+        symbol TEXT NOT NULL,
         hour_time TIMESTAMP NOT NULL DEFAULT NOW(),
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -93,7 +99,7 @@ export const QUERIES = {
     );
 
     CREATE TABLE IF NOT EXISTS Daily_Market_Data (
-        symbol VARCHAR(10),
+        symbol TEXT,
         date DATE,
         avg_close_price NUMERIC,
         high_price NUMERIC,
@@ -123,6 +129,11 @@ export const QUERIES = {
         score NUMERIC NOT NULL,
         FOREIGN KEY (signal_id) REFERENCES SignalLog(id)
     );
+
+    -- 인덱스 설정
+    CREATE INDEX IF NOT EXISTS idx_trades_uuid ON Trades(uuid); -- UUID 기반 조회
+    CREATE INDEX IF NOT EXISTS idx_trades_symbol_type ON Trades(symbol, type); -- 심볼+타입 조회
+    CREATE INDEX IF NOT EXISTS idx_trades_created_at_brin ON Trades USING BRIN(created_at); -- 시간범위 조회
 `,
 	GET_CURRENT_PRICE: `
     SELECT close_price FROM Market_Data WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1;
@@ -358,8 +369,7 @@ ORDER BY symbol, date;
     SELECT create_hypertable('Market_Data', 'timestamp', if_not_exists => TRUE);
     SELECT create_hypertable('Daily_Market_Data', 'date', if_not_exists => TRUE);
 `,
-	SETUP_RETENTION_POLICY: `
-    DO $$ 
+	SETUP_RETENTION_POLICY: `    DO $$ 
     BEGIN 
         -- Market_Data 보존 정책
         IF NOT EXISTS (
@@ -628,5 +638,10 @@ LIMIT 1;
 	INSERT_STOCHASTIC_SIGNAL: `
     INSERT INTO StochasticSignal (signal_id, k_value, d_value, score)
     VALUES ($1, $2, $3, $4);
+`,
+	INSERT_TRADE: `
+    INSERT INTO Trades (uuid, type, symbol, price, quantity, is_dev, fee)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    RETURNING uuid, type;
 `,
 };

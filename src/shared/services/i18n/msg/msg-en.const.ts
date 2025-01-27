@@ -53,6 +53,20 @@ const messages: MSG = {
 	SIGNAL_RSI_ERROR_INVALID: "⚠️ Invalid RSI data",
 	VOLUME_DATA_NOT_FOUND: "⚠️ No volume data available",
 	VOLUME_DATA_ERROR: "⚠️ Error occurred while fetching volume data",
+	COIN_NOT_FOUND: "⚠️ Coin information not found",
+	MIN_ORDER_AMOUNT_ERROR:
+		"⚠️ Order amount is below minimum requirement (10,000 KRW)",
+	TRADING_EXCUTE_ORDER_ERROR: "⚠️ Error occurred while executing trading order",
+	GET_CURRENT_POSITION_ERROR: "⚠️ Failed to get current position information",
+	CALCULATE_THRESHOLD_ERROR: "⚠️ Failed to calculate dynamic threshold",
+	BUY_ORDER_DEV_ERROR: "⚠️ Failed to execute buy order in development mode",
+	BUY_ORDER_ERROR: "⚠️ Failed to execute buy order",
+	SELL_ORDER_ERROR: "⚠️ Failed to execute sell order",
+	SELL_ORDER_DEV_ERROR: "⚠️ Failed to execute sell order in development mode",
+	STOP_LOSS_TRIGGERED: "⚠️ Stop loss triggered - executing sell order",
+	REGULAR_SELL: "📊 Regular sell signal - executing sell order",
+	AVG_BUY_PRICE_NOT_FOUND: "⚠️ Average buy price not found",
+	PROFIT_TAKE_TRIGGERED: "✅ Profit take target reached - executing sell order",
 } as const;
 
 export default messages;

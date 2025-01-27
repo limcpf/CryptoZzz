@@ -6,7 +6,11 @@ import { v4 as uuidv4 } from "uuid";
 import logger from "../../../config/logger";
 import type { iAccount, iAccountStatus } from "../../../interfaces/iAccount";
 import type { iCandle } from "../../../interfaces/iCandle";
-import type { OrderResponse, iOrder } from "../../../interfaces/iOrder";
+import type {
+	OrderResponse,
+	iOrder,
+	iOrderProps,
+} from "../../../interfaces/iOrder";
 import { developmentLog } from "../../../services/util";
 import i18n from "../../i18n";
 import type { Api } from "../api.interface";
@@ -119,15 +123,12 @@ export class UpbitApi implements Api {
 
 	async order(
 		client: PoolClient,
-		market: string,
-		side: "bid" | "ask",
-		volume: string,
-		price: string | null,
-		ord_type: "price" | "market",
-		identifier: string,
+		orderProps: iOrderProps,
 	): Promise<OrderResponse> {
 		const endpoint = "/v1/orders";
 		const url = `${this.MARKET_URL}${endpoint}`;
+
+		const { market, side, volume, price, ord_type, identifier } = orderProps;
 
 		const nPrice = price ? Number(price) : null;
 

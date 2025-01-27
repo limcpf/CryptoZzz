@@ -14,7 +14,7 @@ module.exports = {
 			},
 			exp_backoff_restart_delay: 100,
 			max_restarts: 3,
-			autorestart: false,
+			autorestart: true,
 			merge_logs: true,
 			error_file: "logs/test/manager-error.log",
 			out_file: "logs/test/manager-out.log",

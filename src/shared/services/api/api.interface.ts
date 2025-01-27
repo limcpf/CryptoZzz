@@ -1,21 +1,13 @@
 import type { PoolClient } from "pg";
 import type { iAccount, iAccountStatus } from "../../interfaces/iAccount";
 import type { iCandle } from "../../interfaces/iCandle";
-import type { OrderResponse, iOrder } from "../../interfaces/iOrder";
+import type { OrderResponse, iOrderProps } from "../../interfaces/iOrder";
 export interface Api {
 	MARKET_URL: string;
 
 	getAccount(): Promise<iAccount[]>;
 	getCandles(market: string, count: number, to: string): Promise<iCandle[]>;
-	order(
-		client: PoolClient,
-		market: string,
-		side: "bid" | "ask",
-		volume: string,
-		price: string,
-		ord_type: "price" | "market",
-		identifier: string,
-	): Promise<OrderResponse>;
+	order(client: PoolClient, orderProps: iOrderProps): Promise<OrderResponse>;
 	getAuthToken(
 		body: Dict<
 			| string

@@ -1,64 +1,77 @@
 import type { PoolClient } from "pg";
 import { v4 as uuidv4 } from "uuid";
-import logger from "../../../shared/config/logger";
 import { QUERIES } from "../../../shared/const/query.const";
+import type { iOrderProps } from "../../../shared/interfaces/iOrder";
 import API from "../../../shared/services/api";
-import { developmentLog, errorHandler } from "../../../shared/services/util";
+import { getMsg } from "../../../shared/services/i18n/msg/msg.const";
 
-export async function executeBuyOrder(
+export async function excuteBuy(
 	client: PoolClient,
-	symbol: string,
-	loggerPrefix: string,
-): Promise<void> {
-	const coin = symbol.replace("KRW-", "");
-	const account = await API.GET_ACCOUNT();
-	const krwAccount = account.find((acc) => acc.currency === "KRW");
-
-	if (!krwAccount) return;
-
-	const availableKRW = Number(krwAccount.balance);
-	if (availableKRW < 10000) {
-		logger.error(client, "BUY_SIGNAL_ERROR", loggerPrefix);
-		return;
-	}
-
+	coin: string,
+	KRWBalance: number,
+): Promise<string> {
 	if (process.env.NODE_ENV === "development") {
-		logger.send(client, "테스트 매수 완료", loggerPrefix);
-		return;
+		return await excuteBuyDev(client, coin, KRWBalance);
 	}
 
-	try {
-		const order = await API.ORDER(
-			client,
-			symbol,
-			"bid",
-			"",
-			availableKRW.toString(),
-			"price",
-			uuidv4(),
-		);
+	const uuid = uuidv4();
 
-		const insertResult = await client.query<{ identifier: string }>(
-			QUERIES.INSERT_ORDER,
-			[order.market, order.price, order.volume, "BUY", order.identifier],
-		);
+	const orderProps: iOrderProps = {
+		market: coin,
+		side: "bid",
+		volume: null,
+		price: KRWBalance.toString(),
+		ord_type: "price",
+		identifier: uuid,
+	};
 
-		logger.send(
-			client,
-			`✅ 매수 주문 실행
-          주문 ID: ${insertResult.rows[0].identifier}
-          수량: ${order.volume}${coin}
-          매수가: ${order.price.toLocaleString()}KRW`,
-			loggerPrefix,
-		);
+	const order = await API.ORDER(client, orderProps);
 
-		developmentLog(
-			`[${new Date().toLocaleString()}] [TRADING] 매수 주문 실행: ${availableKRW}KRW`,
-		);
-
-		logger.info("BUY_SIGNAL_SUCCESS", loggerPrefix);
-	} catch (error: unknown) {
-		errorHandler(client, "BUY_SIGNAL_ERROR", loggerPrefix, error);
-		throw error;
+	// order가 정상적으로 처리되었을 때만 INSERT_TRADE 실행
+	if (order?.price && order?.volume) {
+		await client.query(QUERIES.INSERT_TRADE, [
+			uuid,
+			"BUY",
+			coin,
+			order.price,
+			order.volume,
+			false,
+			Number(order.paid_fee),
+		]);
+		return uuid;
 	}
+
+	throw new Error(String(getMsg("BUY_ORDER_ERROR")));
+}
+
+async function excuteBuyDev(
+	client: PoolClient,
+	coin: string,
+	KRWBalance: number,
+): Promise<string> {
+	const uuid = uuidv4();
+
+	const currentPrices = await API.GET_CANDLE_DATA(
+		coin,
+		1,
+		new Date().toISOString(),
+	);
+
+	const currentPrice = currentPrices[0].candle_acc_trade_price;
+
+	if (currentPrice) {
+		await client.query(QUERIES.INSERT_TRADE, [
+			uuid,
+			"BUY",
+			coin,
+			currentPrice,
+			KRWBalance / currentPrice,
+			false,
+			0,
+		]);
+
+		return uuid;
+	}
+
+	throw new Error(String(getMsg("BUY_ORDER_DEV_ERROR")));
 }

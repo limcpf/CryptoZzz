@@ -91,8 +91,6 @@ async function aggregateDailyMetrics() {
 			avg_close_price: number;
 			total_volume: number;
 		}>(QUERIES.AGGREGATE_DAILY_METRICS, [yesterdayStr]);
-
-		console.log(result);
 	} catch (error: unknown) {
 		errorHandler(client, "AGGREGATE_DAILY_METRICS_ERROR", loggerPrefix, error);
 	}
@@ -121,5 +119,4 @@ async function setupCronJobs() {
 	}
 }
 
-console.log("hi");
 await setup();

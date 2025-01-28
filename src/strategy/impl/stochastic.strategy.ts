@@ -81,9 +81,9 @@ export class StochasticStrategy implements iStrategy {
 			text: QUERIES.GET_STOCHASTIC_OSCILLATOR,
 			values: [
 				this.symbol,
+				this.params.lookbackDays * 1440, // days to minutes
 				this.params.kPeriod,
 				this.params.dPeriod,
-				this.params.lookbackDays * 1440, // days to minutes
 			],
 		});
 

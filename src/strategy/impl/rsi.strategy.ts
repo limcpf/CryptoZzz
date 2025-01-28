@@ -61,7 +61,18 @@ export class RsiStrategy implements iStrategy {
 	}
 
 	async execute(): Promise<number> {
-		const rsi = await this.getData();
+		let rsi: number;
+
+		try {
+			rsi = await this.getData();
+		} catch (error: unknown) {
+			if (error instanceof Error) {
+				throw new Error(
+					String(getMsg("SIGNAL_RSI_ERROR_GET_DATA")) + error.message,
+				);
+			}
+			throw new Error(String(getMsg("SIGNAL_RSI_ERROR_GET_DATA")));
+		}
 
 		const score = await this.score(rsi);
 
@@ -72,23 +83,26 @@ export class RsiStrategy implements iStrategy {
 
 	private async score(rsi: number): Promise<number> {
 		let score = 0;
+
+		// RSI 기반 기본 점수 계산 (TANH 적용으로 자연스러운 범위 제한)
 		if (rsi <= this.oversoldThreshold) {
-			score = 1 / (1 + Math.exp(-(this.oversoldThreshold - rsi) / 5)) - 0.5;
+			score = Math.tanh((this.oversoldThreshold - rsi) / 10); // -1 ~ 1 범위
 		} else if (rsi >= this.overboughtThreshold) {
-			score =
-				-1 * (1 / (1 + Math.exp(-(rsi - this.overboughtThreshold) / 5)) - 0.5); // 시그모이드 함수 적용
+			score = -Math.tanh((rsi - this.overboughtThreshold) / 10); // -1 ~ 1 범위
 		} else {
-			score = (rsi - 50) / 20;
+			score = Math.tanh((rsi - 50) / 20); // -1 ~ 1 범위
 		}
 
+		// 모멘텀 가중치 계산 (변화율 정규화)
 		const prevRsiValues = await this.getRecentSignals();
-
 		if (prevRsiValues.length > 0) {
 			const averageDelta = this.calculateAverageDelta(rsi, prevRsiValues);
-			score += this.momentumWeight * averageDelta; // 평균 변화량을 스코어에 반영
+			// 모멘텀 변화율을 TANH로 정규화 (-0.2 ~ 0.2 범위)
+			score += this.momentumWeight * Math.tanh(averageDelta / 10);
 		}
 
-		return score;
+		// 최종 점수 클램핑
+		return Math.max(-1, Math.min(1, score));
 	}
 
 	private async getRecentSignals(): Promise<number[]> {
@@ -124,9 +138,13 @@ export class RsiStrategy implements iStrategy {
 			throw new Error(String(getMsg("SIGNAL_RSI_ERROR_NO_DATA")));
 		}
 
-		const rsiValue = result.rows[0].rsi;
+		let rsiValue = result.rows[0].rsi;
 
 		if (typeof rsiValue !== "number") {
+			rsiValue = Number(rsiValue);
+		}
+
+		if (Number.isNaN(rsiValue)) {
 			throw new Error(String(getMsg("SIGNAL_RSI_ERROR_INVALID")));
 		}
 

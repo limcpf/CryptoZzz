@@ -285,24 +285,24 @@ FROM volume_analysis;
     RETURNING identifier, quantity, buy_price, sell_price;
 `,
 	GET_RECENT_RSI_SIGNALS: `
-		WITH HourlySignals AS (
-			SELECT 
-				symbol,
-				date_trunc('hour', hour_time) as hour_time,
-				AVG(rs.rsi) as rsi
-			FROM SignalLog sl
-			INNER JOIN RsiSignal rs ON sl.id = rs.signal_id
-			WHERE sl.symbol = $1
-			AND sl.hour_time >= NOW() - INTERVAL '$2 hours'
-			GROUP BY symbol, date_trunc('hour', hour_time)
-		)
-		SELECT 
-			symbol,
-			hour_time,
-			rsi
-		FROM HourlySignals
-		ORDER BY hour_time DESC;
-	`,
+    WITH HourlySignals AS (
+        SELECT 
+            sl.symbol,
+            date_trunc('hour', sl.hour_time) as hour_time,
+            AVG(rs.rsi) as rsi
+        FROM SignalLog sl
+        INNER JOIN RsiSignal rs ON sl.id = rs.signal_id
+        WHERE sl.symbol = $1
+        AND sl.hour_time >= NOW() - ($2 || ' hours')::INTERVAL
+        GROUP BY sl.symbol, date_trunc('hour', sl.hour_time)
+    )
+    SELECT 
+        symbol,
+        hour_time,
+        rsi
+    FROM HourlySignals
+    ORDER BY hour_time DESC;
+`,
 	GET_RECENT_MA_SIGNALS: `
 WITH
     -- 실시간(오늘) 데이터 집계
@@ -311,16 +311,19 @@ WITH
             symbol,
             NOW()::DATE AS date,
             AVG(close_price) AS avg_close_price,
+            NULL::NUMERIC AS high_price,  -- Daily_Market_Data 구조에 맞게 추가
+            NULL::NUMERIC AS low_price,   -- 누락된 컬럼 보완
             SUM(volume) AS total_volume
         FROM Market_Data
         WHERE symbol = $1
         AND timestamp >= NOW()::DATE
+        GROUP BY symbol
     ),
     -- 과거 데이터와 실시간 데이터 결합
     combined_data AS (
-        SELECT * FROM Daily_Market_Data
+        SELECT symbol, date, avg_close_price, high_price, low_price, total_volume FROM Daily_Market_Data
         UNION ALL
-        SELECT * FROM today_data
+        SELECT symbol, date, avg_close_price, high_price, low_price, total_volume FROM today_data
     ),
     -- MA 계산
     ma_calculations AS (
@@ -339,17 +342,21 @@ WITH
                 PARTITION BY symbol
                 ORDER BY date
                 ROWS BETWEEN 19 PRECEDING AND CURRENT ROW
-            ) AS long_ma,
-            -- 이전 단기 MA (5일)
-            LAG(AVG(avg_close_price) OVER (
-                PARTITION BY symbol
-                ORDER BY date
-                ROWS BETWEEN 4 PRECEDING AND CURRENT ROW
-            )) OVER (
-                PARTITION BY symbol
-                ORDER BY date
-            ) AS prev_short_ma
+            ) AS long_ma
         FROM combined_data
+    ),
+    -- 이전 단기 MA 계산 (분리된 단계에서 처리)
+    prev_ma_calculations AS (
+        SELECT
+            *,
+            COALESCE(
+                LAG(short_ma) OVER (
+                    PARTITION BY symbol
+                    ORDER BY date
+                ),
+                0
+            ) AS prev_short_ma
+        FROM ma_calculations
     )
 SELECT
     symbol,
@@ -361,7 +368,7 @@ SELECT
     -- 변화율 반영 스코어
     TANH(5 * (short_ma - long_ma) / long_ma) +
     0.1 * ((short_ma - prev_short_ma) / NULLIF(prev_short_ma, 0)) AS final_score
-FROM ma_calculations
+FROM prev_ma_calculations
 WHERE date >= NOW()::DATE - INTERVAL '20 days'
 ORDER BY symbol, date;
 `,
@@ -405,33 +412,55 @@ ORDER BY symbol, date;
     END $$;
 `,
 	GET_RSI_ANALYSIS: `
-		WITH price_changes AS (
-			SELECT 
-				symbol,
-				timestamp,
-				close_price,
-				close_price - LAG(close_price) OVER (
-					PARTITION BY symbol 
-					ORDER BY timestamp
-				) as price_change
-			FROM Market_Data
-			WHERE symbol = $1
-			AND timestamp >= NOW() - INTERVAL '$2 hours'
-		),
-		avg_changes AS (
-			SELECT 
-				symbol,
-				AVG(CASE WHEN price_change > 0 THEN price_change ELSE 0 END) as avg_gain,
-				ABS(AVG(CASE WHEN price_change < 0 THEN price_change ELSE 0 END)) as avg_loss
-			FROM price_changes
-			WHERE price_change IS NOT NULL
-			GROUP BY symbol
-		)
-		SELECT 
-			symbol,
-			100 - (100 / (1 + (avg_gain / NULLIF(avg_loss, 0)))) as rsi
-		FROM avg_changes;
-	`,
+    WITH hourly_prices AS (
+        SELECT 
+            symbol,
+            date_trunc('hour', timestamp) as hour_time,
+            AVG(close_price) as avg_close_price
+        FROM market_data
+        WHERE symbol = $1
+        AND timestamp >= NOW() - ($2 || ' hours')::INTERVAL
+        GROUP BY symbol, date_trunc('hour', timestamp)
+    ),
+    price_changes AS (
+        SELECT 
+            symbol,
+            hour_time,
+            avg_close_price,
+            avg_close_price - LAG(avg_close_price) OVER (
+                ORDER BY hour_time
+            ) as price_change
+        FROM hourly_prices
+    ),
+    gains_losses AS (
+        SELECT 
+            symbol,
+            hour_time,
+            CASE WHEN price_change > 0 THEN price_change ELSE 0 END as gains,
+            CASE WHEN price_change < 0 THEN ABS(price_change) ELSE 0 END as losses
+        FROM price_changes
+        WHERE price_change IS NOT NULL
+    ),
+    avg_gains_losses AS (
+        SELECT 
+            symbol,
+            hour_time,
+            AVG(gains) as avg_gain,
+            AVG(losses) as avg_loss
+        FROM gains_losses
+        GROUP BY symbol, hour_time
+    )
+    SELECT 
+        symbol,
+        hour_time,
+        CASE 
+            WHEN avg_loss = 0 THEN 100
+            ELSE 100 - (100 / (1 + (avg_gain / avg_loss)))
+        END as rsi
+    FROM avg_gains_losses
+    ORDER BY hour_time DESC
+    LIMIT 1;
+`,
 	GET_PRICE_VOLATILITY: `
         WITH hourly_prices AS (
             SELECT 
@@ -473,7 +502,7 @@ WITH hourly_candles AS (
         SUM(volume) as volume
     FROM Market_Data
     WHERE symbol = $1
-        AND timestamp >= NOW() - INTERVAL '$2 hours'
+        AND timestamp >= NOW() - ($2::integer * INTERVAL '1 hour')
     GROUP BY hourly_time, symbol
     ORDER BY hourly_time DESC
 ),
@@ -482,10 +511,14 @@ ema_calc AS (
         hourly_time,
         close_price,
         symbol,
-        EXP(SUM(LN(close_price)) FILTER (ORDER BY hourly_time DESC) 
-            OVER (ROWS BETWEEN ($3::integer - 1) PRECEDING AND CURRENT ROW) / $3::float) as ema_short,
-        EXP(SUM(LN(close_price)) FILTER (ORDER BY hourly_time DESC) 
-            OVER (ROWS BETWEEN ($4::integer - 1) PRECEDING AND CURRENT ROW) / $4::float) as ema_long
+        EXP(SUM(LN(close_price)) OVER (
+            ORDER BY hourly_time DESC
+            ROWS BETWEEN ($3::integer - 1) PRECEDING AND CURRENT ROW
+        ) / $3::float) as ema_short,
+        EXP(SUM(LN(close_price)) OVER (
+            ORDER BY hourly_time DESC
+            ROWS BETWEEN ($4::integer - 1) PRECEDING AND CURRENT ROW
+        ) / $4::float) as ema_long
     FROM hourly_candles
 ),
 macd_calc AS (
@@ -501,8 +534,10 @@ signal_calc AS (
     SELECT 
         hourly_time,
         macd_line,
-        EXP(SUM(LN(ABS(macd_line))) FILTER (ORDER BY hourly_time DESC) 
-            OVER (ROWS BETWEEN ($5::integer - 1) PRECEDING AND CURRENT ROW) / $5::float) 
+        EXP(SUM(LN(ABS(macd_line))) OVER (
+            ORDER BY hourly_time DESC
+            ROWS BETWEEN ($5::integer - 1) PRECEDING AND CURRENT ROW
+        ) / $5::float) 
             * SIGN(macd_line) as signal_line
     FROM macd_calc
 )
@@ -586,14 +621,14 @@ daily_data AS (
 ),
 minute_data AS (
     SELECT
-        time_bucket('1 minute', timestamp) AS bucket,
+        time_bucket(($4::integer || ' minutes')::interval, timestamp) AS bucket,
         symbol,
         MAX(high_price) AS high,
         MIN(low_price) AS low,
         LAST(close_price, timestamp) AS close
     FROM Market_Data
     WHERE symbol = $1
-        AND timestamp >= NOW() - INTERVAL '$4 minutes'
+        AND timestamp >= NOW() - ($4::integer * INTERVAL '1 minute')
     GROUP BY bucket, symbol
 ),
 combined_data AS (
@@ -613,25 +648,30 @@ combined_data AS (
         close
     FROM minute_data
 ),
-stochastic_calculation AS (
+raw_k_values AS (
     SELECT
         bucket,
         symbol,
         close,
-        (close - MIN(low) OVER w) / 
-        NULLIF(MAX(high) OVER w - MIN(low) OVER w, 0) * 100 AS percent_k,
-        AVG(
-            (close - MIN(low) OVER w) / 
-            NULLIF(MAX(high) OVER w - MIN(low) OVER w, 0) * 100
-        ) OVER (ORDER BY bucket ROWS BETWEEN $4 PRECEDING AND CURRENT ROW) AS percent_d
+        MIN(low) OVER w AS period_low,
+        MAX(high) OVER w AS period_high,
+        close - MIN(low) OVER w AS numerator,
+        NULLIF(MAX(high) OVER w - MIN(low) OVER w, 0) AS denominator
     FROM combined_data
-    WINDOW w AS (PARTITION BY symbol ORDER BY bucket ROWS BETWEEN ($3 * 1440) PRECEDING AND CURRENT ROW)
+    WINDOW w AS (PARTITION BY symbol ORDER BY bucket ROWS BETWEEN ($2::integer * 1440) PRECEDING AND CURRENT ROW)
+),
+k_values AS (
+    SELECT
+        bucket,
+        symbol,
+        (numerator / denominator * 100) AS percent_k
+    FROM raw_k_values
 )
 SELECT
     bucket AS timestamp,
     ROUND(percent_k::numeric, 2) AS k_value,
-    ROUND(percent_d::numeric, 2) AS d_value
-FROM stochastic_calculation
+    ROUND(AVG(percent_k) OVER (ORDER BY bucket ROWS BETWEEN $3::integer PRECEDING AND CURRENT ROW)::numeric, 2) AS d_value
+FROM k_values
 ORDER BY bucket DESC
 LIMIT 1;
 `,
@@ -644,4 +684,22 @@ LIMIT 1;
     VALUES ($1, $2, $3, $4, $5, $6, $7)
     RETURNING uuid, type;
 `,
+	INSERT_MARKET_DATA: `
+        INSERT INTO Market_Data (
+            symbol,
+            timestamp,
+            open_price,
+            high_price,
+            low_price,
+            close_price,
+            volume
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        ON CONFLICT (symbol, timestamp)
+        DO UPDATE SET
+            open_price = EXCLUDED.open_price,
+            high_price = EXCLUDED.high_price,
+            low_price = EXCLUDED.low_price,
+            close_price = EXCLUDED.close_price,
+            volume = EXCLUDED.volume;
+    `,
 };

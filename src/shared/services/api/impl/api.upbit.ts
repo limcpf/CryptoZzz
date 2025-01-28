@@ -158,10 +158,6 @@ export class UpbitApi implements Api {
 		});
 
 		if (!response.ok) {
-			developmentLog(
-				`[${new Date().toLocaleString()}] [UPBIT-ORDER] ${response.statusText}`,
-			);
-			developmentLog(response);
 			logger.error(
 				client,
 				"ORDER_API_ERROR",

@@ -78,7 +78,12 @@ export class BollingerStrategy implements iStrategy {
 		return Math.max(-1, Math.min(1, rawScore));
 	}
 
-	private async getData(): Promise<any> {
+	private async getData(): Promise<{
+		bollinger_upper: number;
+		bollinger_middle: number;
+		bollinger_lower: number;
+		close_price: number;
+	}> {
 		const result = await this.client.query({
 			name: `get_bollinger_${this.symbol}_${this.uuid}`,
 			text: QUERIES.GET_BOLLINGER_BANDS,

@@ -64,6 +64,8 @@ const messages: MSG = {
 	REGULAR_SELL: "📊 일반 매도 신호가 발생하여 매도 주문을 실행합니다",
 	AVG_BUY_PRICE_NOT_FOUND: "⚠️ 평균 매수가를 찾을 수 없습니다",
 	PROFIT_TAKE_TRIGGERED: "✅ 목표 수익률에 도달하여 매도 주문을 실행합니다",
+	TABLE_NOT_FOUND: "⚠️ 필요한 테이블을 찾을 수 없습니다: ",
+	MA_DATA_NOT_FOUND: "⚠️ 이동평균 데이터를 찾을 수 없습니다",
 } as const;
 
 export default messages;

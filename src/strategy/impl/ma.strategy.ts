@@ -1,7 +1,7 @@
 import type { PoolClient } from "pg";
-import { QUERIES } from "../../shared/const/query.const";
 import type { iMovingAveragesResult } from "../../shared/interfaces/iMarketDataResult";
-import { getMsg } from "../../shared/services/i18n/msg/msg.const";
+import i18n from "../../shared/services/i18n";
+import { errorHandler, innerErrorHandler } from "../../shared/services/util";
 import type { iStrategy } from "../iStrategy";
 
 /**
@@ -32,6 +32,109 @@ export class MaStrategy implements iStrategy {
 	readonly uuid: string;
 	readonly symbol: string;
 
+	private readonly GET_MA_SCORE = `
+		WITH
+			-- 실시간(오늘) 데이터 집계
+			today_data AS (
+				SELECT
+					symbol,
+					NOW()::DATE AS date,
+					AVG(close_price) AS avg_close_price,
+					NULL::NUMERIC AS high_price,  -- Daily_Market_Data 구조에 맞게 추가
+					NULL::NUMERIC AS low_price,   -- 누락된 컬럼 보완
+					SUM(volume) AS total_volume
+				FROM Market_Data
+				WHERE symbol = $1
+					AND timestamp >= NOW()::DATE
+				GROUP BY symbol
+			),
+			-- 과거 데이터와 실시간 데이터 결합
+			combined_data AS (
+				SELECT symbol, date, avg_close_price, high_price, low_price, total_volume 
+				FROM Daily_Market_Data
+				UNION ALL
+				SELECT symbol, date, avg_close_price, high_price, low_price, total_volume 
+				FROM today_data
+			),
+			-- MA 계산
+			ma_calculations AS (
+				SELECT
+					symbol,
+					date,
+					avg_close_price,
+					-- 단기 MA (5일)
+					AVG(avg_close_price) OVER (
+						PARTITION BY symbol
+						ORDER BY date
+						ROWS BETWEEN 4 PRECEDING AND CURRENT ROW
+					) AS short_ma,
+					-- 장기 MA (20일)
+					AVG(avg_close_price) OVER (
+						PARTITION BY symbol
+						ORDER BY date
+						ROWS BETWEEN 19 PRECEDING AND CURRENT ROW
+					) AS long_ma
+				FROM combined_data
+			),
+			-- 이전 단기 MA 계산 (분리된 단계에서 처리)
+			prev_ma_calculations AS (
+				SELECT
+					*,
+					COALESCE(
+						LAG(short_ma) OVER (
+							PARTITION BY symbol
+							ORDER BY date
+						),
+						0
+					) AS prev_short_ma
+				FROM ma_calculations
+			)
+		SELECT
+			symbol,
+			date,
+			short_ma,
+			long_ma,
+			prev_short_ma
+		FROM prev_ma_calculations
+		WHERE date >= NOW()::DATE - INTERVAL '20 days'
+		ORDER BY symbol, date;
+	`;
+
+	private readonly INSERT_MA_SIGNAL = `
+	    INSERT INTO MaSignal (signal_id, short_ma, long_ma, prev_short_ma, score)
+		VALUES ($1, $2, $3, $4, $5);
+	`;
+
+	private readonly GET_PRICE_VOLATILITY = `
+        WITH hourly_prices AS (
+            SELECT 
+                symbol,
+                date_trunc('hour', timestamp) as hour,
+                AVG(close_price) as avg_price
+            FROM Market_Data
+            WHERE 
+                symbol = $1
+                AND timestamp >= NOW() - INTERVAL '24 hours'
+            GROUP BY symbol, date_trunc('hour', timestamp)
+        ),
+        price_changes AS (
+            SELECT 
+                symbol,
+                hour,
+                avg_price,
+                ((avg_price - LAG(avg_price) OVER (ORDER BY hour)) / LAG(avg_price) OVER (ORDER BY hour)) as price_change
+            FROM hourly_prices
+        )
+        SELECT 
+            symbol,
+            COALESCE(
+                STDDEV(price_change) * SQRT(24), -- 24시간 기준으로 변동성 연율화
+                0.1 -- 데이터가 부족할 경우 기본값
+            ) as volatility
+        FROM price_changes
+        GROUP BY symbol;
+    `;
+
 	constructor(client: PoolClient, uuid: string, symbol: string, weight = 0.9) {
 		this.client = client;
 		this.weight = weight;
@@ -40,15 +143,33 @@ export class MaStrategy implements iStrategy {
 	}
 
 	async execute(): Promise<number> {
-		const data = await this.getData();
-		const volatility = await this.calculateVolatility();
-		const score = await this.score(data);
+		let course = "this.getData";
+		let score = 0;
 
-		if (!this.isValidSignal(score, volatility)) {
-			return 0;
+		try {
+			const data = await this.getData();
+
+			course = "this.calculateVolatility";
+			const volatility = await this.calculateVolatility();
+
+			course = "this.score";
+			score = await this.score(data);
+
+			course = "this.isValidSignal";
+			if (!this.isValidSignal(score, volatility)) {
+				return 0;
+			}
+
+			course = "this.saveData";
+			await this.saveData(data, score);
+		} catch (error) {
+			if (error instanceof Error && "code" in error && error.code === "42P01") {
+				errorHandler(this.client, "TABLE_NOT_FOUND", "MA_SIGNAL", error);
+			} else {
+				innerErrorHandler("SIGNAL_MA_ERROR", error, course);
+			}
 		}
 
-		await this.saveData(data, score);
 		return score * this.weight;
 	}
 
@@ -73,12 +194,12 @@ export class MaStrategy implements iStrategy {
 	private async getData(): Promise<iMovingAveragesResult> {
 		const result = await this.client.query<iMovingAveragesResult>({
 			name: `get_ma_${this.symbol}_${this.uuid}`,
-			text: QUERIES.GET_RECENT_MA_SIGNALS,
+			text: this.GET_MA_SCORE,
 			values: [this.symbol],
 		});
 
 		if (result.rows.length === 0) {
-			throw new Error(String(getMsg("SIGNAL_MA_ERROR")));
+			throw new Error(i18n.getMessage("MA_DATA_NOT_FOUND"));
 		}
 
 		return result.rows[0];
@@ -88,7 +209,7 @@ export class MaStrategy implements iStrategy {
 		data: iMovingAveragesResult,
 		score: number,
 	): Promise<void> {
-		await this.client.query(QUERIES.INSERT_MA_SIGNAL, [
+		await this.client.query(this.INSERT_MA_SIGNAL, [
 			this.uuid,
 			data.short_ma,
 			data.long_ma,
@@ -98,9 +219,9 @@ export class MaStrategy implements iStrategy {
 	}
 
 	private async calculateVolatility(): Promise<number> {
-		const result = await this.client.query({
+		const result = await this.client.query<{ volatility: number }>({
 			name: `get_volatility_${this.symbol}_${this.uuid}`,
-			text: QUERIES.GET_PRICE_VOLATILITY,
+			text: this.GET_PRICE_VOLATILITY,
 			values: [this.symbol],
 		});
 

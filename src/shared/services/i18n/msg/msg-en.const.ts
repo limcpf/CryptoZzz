@@ -67,6 +67,8 @@ const messages: MSG = {
 	REGULAR_SELL: "📊 Regular sell signal - executing sell order",
 	AVG_BUY_PRICE_NOT_FOUND: "⚠️ Average buy price not found",
 	PROFIT_TAKE_TRIGGERED: "✅ Profit take target reached - executing sell order",
+	TABLE_NOT_FOUND: "⚠️ Required table not found: ",
+	MA_DATA_NOT_FOUND: "⚠️ Moving average data not found",
 } as const;
 
 export default messages;

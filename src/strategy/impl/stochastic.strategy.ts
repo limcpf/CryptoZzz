@@ -107,7 +107,7 @@ export class StochasticStrategy implements iStrategy {
 
 		// 스토캐스틱 신호 저장
 		await this.client.query({
-			name: `insert_stochastic_signal_${this.symbol}_${this.uuid}`,
+			name: `insert_sto_sgn_${this.symbol}_${this.uuid}`,
 			text: QUERIES.INSERT_STOCHASTIC_SIGNAL,
 			values: [
 				signalLog.rows[0].id, // SignalLog ID

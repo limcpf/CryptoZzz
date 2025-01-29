@@ -62,6 +62,8 @@ export interface MSG {
 	REGULAR_SELL: string;
 	AVG_BUY_PRICE_NOT_FOUND: string;
 	PROFIT_TAKE_TRIGGERED: string;
+	TABLE_NOT_FOUND: string;
+	MA_DATA_NOT_FOUND: string;
 }
 
 export const getMsg = (language: string) => {

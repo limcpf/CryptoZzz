@@ -33,11 +33,9 @@ async function setup() {
 		[pool, client] = await getConnection(loggerPrefix);
 
 		// 데이터베이스 초기 설정
-		await client.query(QUERIES.CREATE_TABLES);
-
-		client.query(QUERIES.SETUP_HYPERTABLE);
-		client.query(QUERIES.CREATE_INDEXES);
-		client.query(QUERIES.SETUP_RETENTION_POLICY);
+		await client.query(QUERIES.init);
+		await client.query(QUERIES.SETUP_HYPERTABLE);
+		await client.query(QUERIES.SETUP_RETENTION_POLICY);
 
 		await setupPubSub(client, [CHANNEL.MANAGER_CHANNEL]);
 

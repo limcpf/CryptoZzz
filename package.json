@@ -7,7 +7,8 @@
 		"@types/jsonwebtoken": "^9.0.7",
 		"@types/node-cron": "^3.0.11",
 		"@types/pg": "^8.11.10",
-		"@types/uuid": "^10.0.0"
+		"@types/uuid": "^10.0.0",
+		"testcontainers": "^10.17.2"
 	},
 	"peerDependencies": {
 		"typescript": "^5.7.2"

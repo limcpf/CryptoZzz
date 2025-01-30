@@ -32,6 +32,13 @@ export class MaStrategy implements iStrategy {
 	readonly uuid: string;
 	readonly symbol: string;
 
+	constructor(client: PoolClient, uuid: string, symbol: string, weight = 0.9) {
+		this.client = client;
+		this.weight = weight;
+		this.uuid = uuid;
+		this.symbol = symbol;
+	}
+
 	private readonly GET_MA_SCORE = `
 		WITH
 			-- 실시간(오늘) 데이터 집계
@@ -135,13 +142,6 @@ export class MaStrategy implements iStrategy {
         GROUP BY symbol;
     `;
 
-	constructor(client: PoolClient, uuid: string, symbol: string, weight = 0.9) {
-		this.client = client;
-		this.weight = weight;
-		this.uuid = uuid;
-		this.symbol = symbol;
-	}
-
 	async execute(): Promise<number> {
 		let course = "this.getData";
 		let score = 0;
@@ -180,15 +180,22 @@ export class MaStrategy implements iStrategy {
 	}): Promise<number> {
 		const { short_ma, long_ma, prev_short_ma } = data;
 
-		// 기본 스코어 (baseScore)
-		const baseScore = Math.tanh((5 * (short_ma - long_ma)) / long_ma);
+		// 유효하지 않은 MA 값 필터링
+		if (short_ma <= 0 || long_ma <= 0) {
+			return 0;
+		}
 
-		// 변화율 반영 스코어 (finalScore)
-		const rateOfChange = prev_short_ma
-			? (short_ma - prev_short_ma) / prev_short_ma
-			: 0; // 이전 값이 없으면 변화율은 0
+		const maRatio = (short_ma - long_ma) / long_ma;
 
-		return baseScore + 0.1 * rateOfChange;
+		// 비정상적으로 큰 값 방지를 위한 클램핑
+		const clampedRatio = Math.max(-0.5, Math.min(0.5, maRatio));
+		const baseScore = Math.tanh(5 * clampedRatio);
+
+		// 변화율 계산 시 이전 값 유효성 검사
+		const rateOfChange =
+			prev_short_ma > 0 ? (short_ma - prev_short_ma) / prev_short_ma : 0;
+
+		return Number((baseScore + 0.1 * rateOfChange).toFixed(2));
 	}
 
 	private async getData(): Promise<iMovingAveragesResult> {
@@ -202,7 +209,13 @@ export class MaStrategy implements iStrategy {
 			throw new Error(i18n.getMessage("MA_DATA_NOT_FOUND"));
 		}
 
-		return result.rows[0];
+		const data = result.rows[0];
+		// 데이터 유효성 검사 추가
+		if (data.short_ma <= 0 || data.long_ma <= 0) {
+			throw new Error(i18n.getMessage("MA_INVALID_DATA"));
+		}
+
+		return data;
 	}
 
 	private async saveData(

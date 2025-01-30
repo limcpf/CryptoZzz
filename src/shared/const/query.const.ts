@@ -1,337 +1,595 @@
-export const QUERIES = {
-	CREATE_TABLES: `
+import { StochasticStrategy } from "../../strategy/impl/stochastic.strategy";
+
+// 테이블별 모듈식 정의
+const TABLE_DEFINITIONS: Record<
+	string,
+	{
+		table: string;
+		indexes?: string[];
+		hypertable?: string;
+		retention?: string;
+	}
+> = {
+	Market_Data: {
+		table: `
         CREATE TABLE IF NOT EXISTS Market_Data (
-        symbol VARCHAR(10),
-        timestamp TIMESTAMPTZ,
-        open_price NUMERIC,
-        high_price NUMERIC,
-        low_price NUMERIC,
-        close_price NUMERIC,
-        volume NUMERIC,
-        PRIMARY KEY (symbol, timestamp)
-        );
+            symbol TEXT,
+            timestamp TIMESTAMPTZ,
+            open_price NUMERIC,
+            high_price NUMERIC,
+            low_price NUMERIC,
+            close_price NUMERIC,
+            volume NUMERIC,
+            PRIMARY KEY (symbol, timestamp)
+        );`,
+		indexes: [
+			"CREATE INDEX IF NOT EXISTS idx_market_data_symbol_timestamp ON Market_Data(symbol, timestamp DESC);",
+			"CREATE INDEX IF NOT EXISTS idx_market_data_timestamp_brin ON Market_Data USING BRIN(timestamp);",
+		],
+		hypertable:
+			"SELECT create_hypertable('Market_Data', 'timestamp', if_not_exists => TRUE);",
+	},
 
-        CREATE TABLE IF NOT EXISTS Orders (
-            id UUID PRIMARY KEY,
-            symbol VARCHAR(10) NOT NULL,
-            buy_price NUMERIC NOT NULL,
-            sell_price NUMERIC,
-            quantity NUMERIC NOT NULL,
-            status VARCHAR(10) NOT NULL,
-            created_at TIMESTAMPTZ NOT NULL,
-            updated_at TIMESTAMPTZ NOT NULL,
-            CONSTRAINT order_type_check CHECK (status IN ('BUY', 'SELL')),
-            CONSTRAINT status_check CHECK (status IN ('PENDING', 'FILLED', 'CANCELLED'))
-        );
+	Trades: {
+		table: `
+      CREATE TABLE IF NOT EXISTS Trades (
+        uuid UUID NOT NULL,
+        type VARCHAR(4) NOT NULL CHECK (type IN ('BUY', 'SELL')),
+        symbol TEXT NOT NULL,
+        price NUMERIC NOT NULL,
+        quantity NUMERIC NOT NULL,
+        is_dev BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        sequence INTEGER NOT NULL DEFAULT 1,
+        fee NUMERIC NOT NULL DEFAULT 0,
+        PRIMARY KEY (uuid, type, sequence)
+      );`,
+		indexes: [
+			"CREATE INDEX IF NOT EXISTS idx_trades_composite_pk ON Trades(uuid, type, sequence);",
+			"CREATE INDEX IF NOT EXISTS idx_trades_symbol_created ON Trades(symbol, created_at);",
+			"CREATE INDEX IF NOT EXISTS idx_trades_sequence_btree ON Trades(sequence);",
+			"CREATE INDEX IF NOT EXISTS idx_trades_uuid ON Trades(uuid);",
+			"CREATE INDEX IF NOT EXISTS idx_trades_symbol_type ON Trades(symbol, type);",
+			"CREATE INDEX IF NOT EXISTS idx_trades_created_at_brin ON Trades USING BRIN(created_at);",
+		],
+	},
 
-        CREATE TABLE IF NOT EXISTS SignalLog (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            symbol VARCHAR(10) NOT NULL,
-            hour_time TIMESTAMP NOT NULL DEFAULT NOW(),
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+	DailyMarketData: {
+		table: `
+        CREATE TABLE IF NOT EXISTS Daily_Market_Data (
+            symbol TEXT,
+            date DATE,
+            avg_close_price NUMERIC,
+            high_price NUMERIC,
+            low_price NUMERIC,
+            total_volume NUMERIC,
+            PRIMARY KEY (symbol, date)
         );
+        `,
+		indexes: [
+			"CREATE INDEX IF NOT EXISTS idx_daily_market_data_date ON Daily_Market_Data(date DESC);",
+			"CREATE INDEX IF NOT EXISTS idx_daily_market_data_symbol_date_include ON Daily_Market_Data(symbol, date) INCLUDE (high_price, low_price);",
+		],
+	},
 
+	SignalLog: {
+		table: `
+      CREATE TABLE IF NOT EXISTS SignalLog (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        symbol TEXT NOT NULL,
+        hour_time TIMESTAMP NOT NULL DEFAULT NOW(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );`,
+	},
+
+	StochasticSignal: {
+		table: `
+        CREATE TABLE IF NOT EXISTS StochasticSignal (
+            signal_id UUID PRIMARY KEY,
+            k_value NUMERIC NOT NULL,
+            d_value NUMERIC NOT NULL,
+            score NUMERIC NOT NULL,
+            FOREIGN KEY (signal_id) REFERENCES SignalLog(id)
+        );
+    `,
+	},
+	RsiSignal: {
+		table: `
         CREATE TABLE IF NOT EXISTS RsiSignal (
             signal_id UUID PRIMARY KEY,
             rsi NUMERIC NOT NULL,
+            score NUMERIC NOT NULL,
             FOREIGN KEY (signal_id) REFERENCES SignalLog(id)
         );
-
+    `,
+	},
+	MaSignal: {
+		table: `
         CREATE TABLE IF NOT EXISTS MaSignal (
             signal_id UUID PRIMARY KEY,
             short_ma NUMERIC NOT NULL,
             long_ma NUMERIC NOT NULL,
+            prev_short_ma NUMERIC NOT NULL,
+            score NUMERIC NOT NULL,
             FOREIGN KEY (signal_id) REFERENCES SignalLog(id)
         );
-
+    `,
+	},
+	VolumeSignal: {
+		table: `
         CREATE TABLE IF NOT EXISTS VolumeSignal (
             signal_id UUID PRIMARY KEY,
             current_volume NUMERIC NOT NULL,
             avg_volume NUMERIC NOT NULL,
+            score NUMERIC NOT NULL,
             FOREIGN KEY (signal_id) REFERENCES SignalLog(id)
         );
-
-        CREATE TABLE IF NOT EXISTS Daily_Market_Data (
-            symbol VARCHAR(10),
-            date DATE,
-            avg_close_price NUMERIC,
-            total_volume NUMERIC,
-            PRIMARY KEY (symbol, date)
+    `,
+	},
+	MacdSignal: {
+		table: `
+        CREATE TABLE IF NOT EXISTS MacdSignal (
+            signal_id UUID PRIMARY KEY,
+            macd_line NUMERIC NOT NULL,
+            signal_line NUMERIC NOT NULL,
+            histogram NUMERIC NOT NULL,
+            zero_cross BOOLEAN NOT NULL,
+            trend_strength NUMERIC NOT NULL,
+            score NUMERIC NOT NULL,
+            FOREIGN KEY (signal_id) REFERENCES SignalLog(id)
         );
     `,
-	SETUP_HYPERTABLE: `
-        SELECT create_hypertable('Market_Data', 'timestamp', if_not_exists => TRUE);
-        SELECT create_hypertable('Daily_Market_Data', 'date', if_not_exists => TRUE);
-    `,
-	CREATE_INDEXES: `
-        CREATE INDEX IF NOT EXISTS idx_orders_symbol ON Orders(symbol);
-        CREATE INDEX IF NOT EXISTS idx_orders_status ON Orders(status);
-        CREATE INDEX IF NOT EXISTS idx_orders_created_at ON Orders(created_at);
-        CREATE INDEX IF NOT EXISTS idx_market_data_symbol_timestamp ON Market_Data(symbol, timestamp);
-        CREATE INDEX IF NOT EXISTS idx_daily_market_data_symbol_date ON Daily_Market_Data (symbol, date);
-    `,
-	SETUP_RETENTION_POLICY: `
-DO $$ 
-BEGIN 
-    -- Market_Data 보존 정책
-    IF NOT EXISTS (
-        SELECT 1 
-        FROM timescaledb_information.jobs 
-        WHERE application_name LIKE '%Retention%' 
-        AND hypertable_name = 'market_data'
-    ) THEN
-        PERFORM add_retention_policy('market_data', INTERVAL '48 hours', if_not_exists => TRUE);
-        PERFORM alter_job(job_id, schedule_interval => INTERVAL '1 day', next_start => CURRENT_DATE + INTERVAL '1 day')
-        FROM timescaledb_information.jobs
-        WHERE application_name LIKE '%Retention%' AND hypertable_name = 'market_data';
-        RAISE NOTICE '새로운 Market_Data 보존 정책이 추가되었습니다.';
-    ELSE
-        RAISE NOTICE '이미 Market_Data 보존 정책이 존재합니다.';
-    END IF;
+	},
+	BollingerSignal: {
+		table: `
+        CREATE TABLE IF NOT EXISTS BollingerSignal (
+            signal_id UUID PRIMARY KEY,
+            upper_band NUMERIC NOT NULL,
+            middle_band NUMERIC NOT NULL,
+            lower_band NUMERIC NOT NULL,
+            close_price NUMERIC NOT NULL,
+            band_width NUMERIC NOT NULL,
+            score NUMERIC NOT NULL,
+            FOREIGN KEY (signal_id) REFERENCES SignalLog(id)
+        );`,
+	},
+};
 
-    -- Daily_Market_Data 보존 정책
-    IF NOT EXISTS (
-        SELECT 1 
-        FROM timescaledb_information.jobs 
-        WHERE application_name LIKE '%Retention%' 
-        AND hypertable_name = 'daily_market_data'
-    ) THEN
-        PERFORM add_retention_policy('daily_market_data', INTERVAL '50 days', if_not_exists => TRUE);
-        PERFORM alter_job(job_id, schedule_interval => INTERVAL '1 day', next_start => CURRENT_DATE + INTERVAL '1 day')
-        FROM timescaledb_information.jobs
-        WHERE application_name LIKE '%Retention%' AND hypertable_name = 'daily_market_data';
-        RAISE NOTICE '새로운 Daily_Market_Data 보존 정책이 추가되었습니다.';
-    ELSE
-        RAISE NOTICE '이미 Daily_Market_Data 보존 정책이 존재합니다.';
-    END IF;
-END $$;
+// 조합 함수 수정
+export const composeSchema = (tables: (keyof typeof TABLE_DEFINITIONS)[]) => {
+	return tables
+		.map((t) => {
+			const definition = TABLE_DEFINITIONS[t];
+			const components = [
+				definition.table,
+				...(definition.indexes || []),
+				...(definition.hypertable ? [definition.hypertable] : []),
+			];
+			return components.join("\n");
+		})
+		.join("\n\n");
+};
+
+// 전체 스키마 (기존 구조와 호환 유지)
+export const QUERIES = {
+	init: composeSchema([
+		"Market_Data",
+		"Trades",
+		"SignalLog",
+		"DailyMarketData",
+		"StochasticSignal",
+		"RsiSignal",
+		"MaSignal",
+		"VolumeSignal",
+		"MacdSignal",
+		"BollingerSignal",
+	]),
+	AGGREGATE_DAILY_METRICS: `
+    INSERT INTO Daily_Market_Data (symbol, date, avg_close_price, high_price, low_price, total_volume)
+    SELECT
+        symbol,
+        DATE(timestamp) AS date,
+        ROUND(AVG(close_price)::numeric, 5) AS avg_close_price,
+        MAX(high_price) AS high_price,
+        MIN(low_price) AS low_price,
+        SUM(volume) AS total_volume
+    FROM Market_Data
+    WHERE DATE(timestamp) = $1::DATE
+    GROUP BY symbol, DATE(timestamp)
+    ON CONFLICT (symbol, date)
+    DO UPDATE SET
+        avg_close_price = EXCLUDED.avg_close_price,
+        high_price = EXCLUDED.high_price,
+        low_price = EXCLUDED.low_price,
+        total_volume = EXCLUDED.total_volume
+    RETURNING date, avg_close_price, high_price, low_price, total_volume;
     `,
-	INSERT_MARKET_DATA: `
-      INSERT INTO Market_Data (
-        symbol, 
-        timestamp, 
-        open_price, 
-        high_price, 
-        low_price, 
-        close_price, 
-        volume
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      ON CONFLICT (symbol, timestamp)
-      DO UPDATE
-      SET open_price = EXCLUDED.open_price,
-          high_price = EXCLUDED.high_price,
-          low_price = EXCLUDED.low_price,
-          close_price = EXCLUDED.close_price,
-          volume = EXCLUDED.volume;
-    `,
-	GET_RSI_INDICATOR: `
-    WITH hourly_data AS (
-        SELECT
+	// 기존 쿼리들 유지
+	GET_CURRENT_PRICE:
+		"SELECT close_price FROM Market_Data WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1;",
+	GET_LAST_MARKET_DATA_TIMESTAMP:
+		"SELECT timestamp FROM Market_Data WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1;",
+	GET_LAST_ORDER:
+		"SELECT id FROM Orders WHERE symbol = $1 ORDER BY created_at DESC LIMIT 1;",
+	GET_VOLUME_ANALYSIS: `
+WITH RECURSIVE time_intervals AS (
+    SELECT 
+        NOW() as interval_start
+    UNION ALL
+    SELECT 
+        interval_start - INTERVAL '60 minutes'
+    FROM time_intervals
+    WHERE interval_start > NOW() - ($2 * INTERVAL '60 minutes')
+),
+volume_by_interval AS (
+    SELECT
+        ti.interval_start,
+        md.symbol,
+        AVG(md.volume) AS avg_volume
+    FROM time_intervals ti
+    LEFT JOIN Market_Data md ON 
+        md.symbol = $1 AND
+        md.timestamp > ti.interval_start - INTERVAL '60 minutes' AND
+        md.timestamp <= ti.interval_start
+    GROUP BY ti.interval_start, md.symbol
+),
+volume_analysis AS (
+    SELECT 
+        symbol,
+        interval_start,
+        avg_volume as current_volume,
+        (
+            SELECT AVG(avg_volume)
+            FROM volume_by_interval
+            WHERE interval_start < NOW() - INTERVAL '60 minutes'
+        ) as historical_avg_volume,
+        (
+            SELECT avg_volume
+            FROM volume_by_interval
+            WHERE interval_start = (SELECT MAX(interval_start) FROM volume_by_interval)
+        ) as latest_hour_volume
+    FROM volume_by_interval
+    WHERE interval_start = (SELECT MAX(interval_start) FROM volume_by_interval)
+)
+SELECT 
+    COALESCE(symbol, $1) as symbol,
+    COALESCE(latest_hour_volume, 0) as latest_hour_volume,
+    COALESCE(historical_avg_volume, 0) as historical_avg_volume
+FROM volume_analysis;
+`,
+	INSERT_SIGNAL_LOG: `
+    INSERT INTO SignalLog (symbol, hour_time)
+    VALUES ($1, $2)
+    RETURNING id;
+`,
+	INSERT_RSI_SIGNAL: `
+    INSERT INTO RsiSignal (signal_id, rsi, score)
+    VALUES ($1, $2, $3);
+`,
+	INSERT_VOLUME_SIGNAL: `
+    INSERT INTO VolumeSignal (signal_id, current_volume, avg_volume, score)
+    VALUES ($1, $2, $3, $4);
+`,
+	GET_RECENT_RSI_SIGNALS: `
+    WITH HourlySignals AS (
+        SELECT 
+            sl.symbol,
+            date_trunc('hour', sl.hour_time) as hour_time,
+            AVG(rs.rsi) as rsi
+        FROM SignalLog sl
+        INNER JOIN RsiSignal rs ON sl.id = rs.signal_id
+        WHERE sl.symbol = $1
+        AND sl.hour_time >= NOW() - ($2 || ' hours')::INTERVAL
+        GROUP BY sl.symbol, date_trunc('hour', sl.hour_time)
+    )
+    SELECT 
+        symbol,
+        hour_time,
+        rsi
+    FROM HourlySignals
+    ORDER BY hour_time DESC;
+`,
+	GET_RECENT_MA_SIGNALS: `
+`,
+	SETUP_HYPERTABLE: `
+    SELECT create_hypertable('Market_Data', 'timestamp', if_not_exists => TRUE);
+    SELECT create_hypertable('Daily_Market_Data', 'date', if_not_exists => TRUE);
+`,
+	SETUP_RETENTION_POLICY: `    DO $$ 
+    BEGIN 
+        -- Market_Data 보존 정책
+        IF NOT EXISTS (
+            SELECT 1 
+            FROM timescaledb_information.jobs 
+            WHERE application_name LIKE '%Retention%' 
+            AND hypertable_name = 'market_data'
+        ) THEN
+            PERFORM add_retention_policy('market_data', INTERVAL '48 hours', if_not_exists => TRUE);
+            PERFORM alter_job(job_id, schedule_interval => INTERVAL '1 day', next_start => CURRENT_DATE + INTERVAL '1 day')
+            FROM timescaledb_information.jobs
+            WHERE application_name LIKE '%Retention%' AND hypertable_name = 'market_data';
+            RAISE NOTICE '새로운 Market_Data 보존 정책이 추가되었습니다.';
+        ELSE
+            RAISE NOTICE '이미 Market_Data 보존 정책이 존재합니다.';
+        END IF;
+
+        -- Daily_Market_Data 보존 정책
+        IF NOT EXISTS (
+            SELECT 1 
+            FROM timescaledb_information.jobs 
+            WHERE application_name LIKE '%Retention%' 
+            AND hypertable_name = 'daily_market_data'
+        ) THEN
+            PERFORM add_retention_policy('daily_market_data', INTERVAL '50 days', if_not_exists => TRUE);
+            PERFORM alter_job(job_id, schedule_interval => INTERVAL '1 day', next_start => CURRENT_DATE + INTERVAL '1 day')
+            FROM timescaledb_information.jobs
+            WHERE application_name LIKE '%Retention%' AND hypertable_name = 'daily_market_data';
+            RAISE NOTICE '새로운 Daily_Market_Data 보존 정책이 추가되었습니다.';
+        ELSE
+            RAISE NOTICE '이미 Daily_Market_Data 보존 정책이 존재합니다.';
+        END IF;
+    END $$;
+`,
+	GET_RSI_ANALYSIS: `
+    WITH hourly_prices AS (
+        SELECT 
             symbol,
-            date_trunc('hour', timestamp) AS hour_time,
-            AVG(close_price) AS avg_close_price
-        FROM Market_Data
+            date_trunc('hour', timestamp) as hour_time,
+            AVG(close_price) as avg_close_price
+        FROM market_data
         WHERE symbol = $1
+        AND timestamp >= NOW() - ($2 || ' hours')::INTERVAL
         GROUP BY symbol, date_trunc('hour', timestamp)
     ),
     price_changes AS (
-        SELECT
+        SELECT 
             symbol,
             hour_time,
             avg_close_price,
-            GREATEST(
-                avg_close_price - LAG(avg_close_price) OVER (PARTITION BY symbol ORDER BY hour_time), 
-                0
-            ) AS gain,
-            GREATEST(
-                LAG(avg_close_price) OVER (PARTITION BY symbol ORDER BY hour_time) - avg_close_price, 
-                0
-            ) AS loss
-        FROM hourly_data
+            avg_close_price - LAG(avg_close_price) OVER (
+                ORDER BY hour_time
+            ) as price_change
+        FROM hourly_prices
     ),
-    avg_gain_loss AS (
-        SELECT
+    gains_losses AS (
+        SELECT 
             symbol,
             hour_time,
-            AVG(gain) OVER (
-                PARTITION BY symbol 
-                ORDER BY hour_time 
-                ROWS BETWEEN 8 PRECEDING AND CURRENT ROW
-            ) AS avg_gain,
-            AVG(loss) OVER (
-                PARTITION BY symbol 
-                ORDER BY hour_time 
-                ROWS BETWEEN 8 PRECEDING AND CURRENT ROW
-            ) AS avg_loss,
-            COUNT(*) OVER (
-                PARTITION BY symbol 
-                ORDER BY hour_time 
-                ROWS BETWEEN 8 PRECEDING AND CURRENT ROW
-            ) AS data_points
+            CASE WHEN price_change > 0 THEN price_change ELSE 0 END as gains,
+            CASE WHEN price_change < 0 THEN ABS(price_change) ELSE 0 END as losses
         FROM price_changes
+        WHERE price_change IS NOT NULL
+    ),
+    avg_gains_losses AS (
+        SELECT 
+            symbol,
+            hour_time,
+            AVG(gains) as avg_gain,
+            AVG(losses) as avg_loss
+        FROM gains_losses
+        GROUP BY symbol, hour_time
     )
-    SELECT
+    SELECT 
         symbol,
         hour_time,
         CASE 
-            WHEN data_points >= 9 THEN 100 - (100 / (1 + (avg_gain / NULLIF(avg_loss, 0))))
-            ELSE NULL
-        END AS rsi
-    FROM avg_gain_loss
+            WHEN avg_loss = 0 THEN 100
+            ELSE 100 - (100 / (1 + (avg_gain / avg_loss)))
+        END as rsi
+    FROM avg_gains_losses
     ORDER BY hour_time DESC
     LIMIT 1;
-  `,
-	GET_MOVING_AVERAGES: `
-    WITH hourly_data AS (
+`,
+	GET_MACD_ANALYSIS: `
+WITH hourly_candles AS (
+    SELECT 
+        time_bucket('1 hour', timestamp) AS hourly_time,
+        symbol,
+        FIRST(open_price, timestamp) as open_price,
+        MAX(high_price) as high_price,
+        MIN(low_price) as low_price,
+        LAST(close_price, timestamp) as close_price,
+        SUM(volume) as volume
+    FROM Market_Data
+    WHERE symbol = $1
+        AND timestamp >= NOW() - ($2::integer * INTERVAL '1 hour')
+    GROUP BY hourly_time, symbol
+    ORDER BY hourly_time DESC
+),
+ema_calc AS (
+    SELECT 
+        hourly_time,
+        close_price,
+        symbol,
+        EXP(SUM(LN(close_price)) OVER (
+            ORDER BY hourly_time DESC
+            ROWS BETWEEN ($3::integer - 1) PRECEDING AND CURRENT ROW
+        ) / $3::float) as ema_short,
+        EXP(SUM(LN(close_price)) OVER (
+            ORDER BY hourly_time DESC
+            ROWS BETWEEN ($4::integer - 1) PRECEDING AND CURRENT ROW
+        ) / $4::float) as ema_long
+    FROM hourly_candles
+),
+macd_calc AS (
+    SELECT 
+        hourly_time,
+        (ema_short - ema_long) as macd_line,
+        ema_short,
+        ema_long
+    FROM ema_calc
+    WHERE ema_short IS NOT NULL AND ema_long IS NOT NULL
+),
+signal_calc AS (
+    SELECT 
+        hourly_time,
+        macd_line,
+        EXP(SUM(LN(ABS(macd_line))) OVER (
+            ORDER BY hourly_time DESC
+            ROWS BETWEEN ($5::integer - 1) PRECEDING AND CURRENT ROW
+        ) / $5::float) 
+            * SIGN(macd_line) as signal_line
+    FROM macd_calc
+)
+SELECT 
+    macd_line as current_macd,
+    signal_line as current_signal,
+    LAG(macd_line) OVER (ORDER BY hourly_time DESC) as prev_macd,
+    LAG(signal_line) OVER (ORDER BY hourly_time DESC) as prev_signal,
+    (macd_line - signal_line) as histogram,
+    LAG(macd_line - signal_line) OVER (ORDER BY hourly_time DESC) as prev_histogram
+FROM signal_calc
+WHERE signal_line IS NOT NULL
+ORDER BY hourly_time DESC
+LIMIT 1;
+`,
+	INSERT_MACD_SIGNAL: `
+    INSERT INTO MacdSignal (
+        signal_id,
+        macd_line,
+        signal_line,
+        histogram,
+        zero_cross,
+        trend_strength,
+        score
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7);
+`,
+	GET_BOLLINGER_BANDS: `
+    WITH period_data AS (
         SELECT
             symbol,
-            date_trunc('hour', timestamp) AS hour_time,
-            AVG(close_price) AS avg_close_price
+            timestamp,
+            close_price,
+            AVG(close_price) OVER (
+                PARTITION BY symbol
+                ORDER BY timestamp
+                ROWS BETWEEN $2::integer - 1 PRECEDING AND CURRENT ROW
+            ) AS moving_avg,
+            STDDEV(close_price) OVER (
+                PARTITION BY symbol
+                ORDER BY timestamp
+                ROWS BETWEEN $2::integer - 1 PRECEDING AND CURRENT ROW
+            ) AS moving_stddev
         FROM Market_Data
-        WHERE symbol = $1
-        GROUP BY symbol, date_trunc('hour', timestamp)
+        WHERE 
+            symbol = $1 AND
+            timestamp >= NOW() - INTERVAL '1 hour' * $3::integer
     )
     SELECT
         symbol,
-        hour_time,
-        AVG(avg_close_price) OVER (
-            PARTITION BY symbol 
-            ORDER BY hour_time 
-            ROWS BETWEEN 4 PRECEDING AND CURRENT ROW
-        ) AS short_ma,
-        AVG(avg_close_price) OVER (
-            PARTITION BY symbol 
-            ORDER BY hour_time 
-            ROWS BETWEEN 9 PRECEDING AND CURRENT ROW
-        ) AS long_ma
-    FROM hourly_data
-    ORDER BY hour_time DESC
-    LIMIT 1;
-  `,
-	GET_VOLUME_ANALYSIS: `
-        WITH minute_data AS (
-            SELECT
-                symbol,
-                date_trunc('minute', timestamp) AS minute_time,
-                SUM(volume) AS total_volume
-            FROM Market_Data
-            WHERE 
-                symbol = $1
-                AND timestamp > NOW() - INTERVAL '6 hours'
-            GROUP BY symbol, date_trunc('minute', timestamp)
-        ),
-        hourly_groups AS (
-            SELECT
-                symbol,
-                FLOOR(EXTRACT(EPOCH FROM (NOW() - minute_time)) / 3600) AS hours_ago,
-                SUM(total_volume) AS hour_volume
-            FROM minute_data
-            GROUP BY 
-                symbol,
-                FLOOR(EXTRACT(EPOCH FROM (NOW() - minute_time)) / 3600)
-        )
-        SELECT 
-            h1.symbol,
-            h1.hour_volume as current_volume,
-            (
-                SELECT AVG(h2.hour_volume) 
-                FROM hourly_groups h2 
-                WHERE h2.hours_ago > 0
-            ) as avg_volume
-        FROM hourly_groups h1
-        WHERE h1.hours_ago = 0;
-  `,
-	INSERT_SIGNAL_LOG: `
-        INSERT INTO SignalLog (symbol, hour_time)
-        VALUES ($1, $2)
-        RETURNING id;
-    `,
-	INSERT_RSI_SIGNAL: `
-        INSERT INTO RsiSignal (signal_id, rsi)
-        VALUES ($1, $2);
-    `,
-	INSERT_MA_SIGNAL: `
-        INSERT INTO MaSignal (signal_id, short_ma, long_ma)
-        VALUES ($1, $2, $3);
-    `,
-	INSERT_VOLUME_SIGNAL: `
-        INSERT INTO VolumeSignal (signal_id, current_volume, avg_volume)
-        VALUES ($1, $2, $3);
-    `,
-	INSERT_ORDER: `
-        INSERT INTO Orders (
-            id,
-            symbol,
-            buy_price,
-            quantity,
-            status,
-            created_at,
-            updated_at,
-        )
-        VALUES (
-            $5,
-            $1,
-            $2,
-            $3,
-            $4,
-            NOW(),
-            NOW()
-        )
-        RETURNING id, identifier;
-    `,
-	UPDATE_ORDER: `
-        UPDATE Orders
-        SET sell_price = $2, status = $3, updated_at = NOW()
-        WHERE id = $1;
-        RETURNING identifier, quantity, buy_price, sell_price;
-    `,
-	GET_LAST_ORDER: `
-        SELECT id FROM Orders WHERE symbol = $1 ORDER BY created_at DESC LIMIT 1;
-    `,
-	GET_LATEST_STRATEGY: `
-SELECT 
-    sl.id,
-    sl.hour_time,
-    rs.rsi,
-    ms.short_ma,
-    ms.long_ma,
-    vs.current_volume,
-    vs.avg_volume
-FROM SignalLog sl
-LEFT JOIN RsiSignal rs ON sl.id = rs.signal_id
-LEFT JOIN MaSignal ms ON sl.id = ms.signal_id
-LEFT JOIN VolumeSignal vs ON sl.id = vs.signal_id
-WHERE 
-    sl.symbol = $1 AND
-    rs.rsi IS NOT NULL AND 
-    ms.short_ma IS NOT NULL AND 
-    ms.long_ma IS NOT NULL AND 
-    vs.current_volume IS NOT NULL AND 
-    vs.avg_volume IS NOT NULL
-ORDER BY sl.hour_time DESC
+        timestamp,
+        close_price,
+        ROUND((moving_avg + (2 * moving_stddev))::numeric, 5) AS bollinger_upper,
+        ROUND(moving_avg::numeric, 5) AS bollinger_middle,
+        ROUND((moving_avg - (2 * moving_stddev))::numeric, 5) AS bollinger_lower
+    FROM period_data
+    ORDER BY timestamp DESC;
+`,
+	INSERT_BOLLINGER_SIGNAL: `
+    INSERT INTO BollingerSignal (
+        signal_id,
+        upper_band,
+        middle_band,
+        lower_band,
+        close_price,
+        band_width,
+        score
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7);
+`,
+	GET_STOCHASTIC_OSCILLATOR: `
+WITH 
+daily_data AS (
+    SELECT 
+        symbol,
+        date,
+        high_price,
+        low_price,
+        avg_close_price AS close
+    FROM Daily_Market_Data
+    WHERE symbol = $1
+        AND date < CURRENT_DATE
+),
+minute_data AS (
+    SELECT
+        time_bucket(($4::integer || ' minutes')::interval, timestamp) AS bucket,
+        symbol,
+        MAX(high_price) AS high,
+        MIN(low_price) AS low,
+        LAST(close_price, timestamp) AS close
+    FROM Market_Data
+    WHERE symbol = $1
+        AND timestamp >= NOW() - ($4::integer * INTERVAL '1 minute')
+    GROUP BY bucket, symbol
+),
+combined_data AS (
+    SELECT 
+        date::timestamp AS bucket, 
+        symbol,
+        high_price AS high,
+        low_price AS low,
+        close
+    FROM daily_data
+    UNION ALL
+    SELECT 
+        bucket,
+        symbol,
+        high,
+        low,
+        close
+    FROM minute_data
+),
+raw_k_values AS (
+    SELECT
+        bucket,
+        symbol,
+        close,
+        MIN(low) OVER w AS period_low,
+        MAX(high) OVER w AS period_high,
+        close - MIN(low) OVER w AS numerator,
+        NULLIF(MAX(high) OVER w - MIN(low) OVER w, 0) AS denominator
+    FROM combined_data
+    WINDOW w AS (PARTITION BY symbol ORDER BY bucket ROWS BETWEEN ($2::integer * 1440) PRECEDING AND CURRENT ROW)
+),
+k_values AS (
+    SELECT
+        bucket,
+        symbol,
+        (numerator / denominator * 100) AS percent_k
+    FROM raw_k_values
+)
+SELECT
+    bucket AS timestamp,
+    ROUND(percent_k::numeric, 2) AS k_value,
+    ROUND(AVG(percent_k) OVER (ORDER BY bucket ROWS BETWEEN $3::integer PRECEDING AND CURRENT ROW)::numeric, 2) AS d_value
+FROM k_values
+ORDER BY bucket DESC
 LIMIT 1;
-    `,
-	GET_CURRENT_PRICE: `
-        SELECT close_price FROM Market_Data WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1;
-    `,
-	GET_LAST_MARKET_DATA_TIMESTAMP: `
-        SELECT timestamp FROM Market_Data WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1;
-    `,
-	AGGREGATE_DAILY_METRICS: `
-        INSERT INTO Daily_Market_Data (symbol, date, avg_close_price, total_volume)
-        SELECT
+`,
+	INSERT_STOCHASTIC_SIGNAL: `
+    INSERT INTO StochasticSignal (signal_id, k_value, d_value, score)
+    VALUES ($1, $2, $3, $4);
+`,
+	INSERT_TRADE: `
+    INSERT INTO Trades (uuid, type, symbol, price, quantity, is_dev, fee)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    RETURNING uuid, type;
+`,
+	INSERT_MARKET_DATA: `
+        INSERT INTO Market_Data (
             symbol,
-            DATE(timestamp) AS date,
-            ROUND(AVG(close_price)::numeric, 5) AS avg_close_price,
-            SUM(volume) AS total_volume
-        FROM Market_Data
-        WHERE DATE(timestamp) = $1::DATE
-        GROUP BY symbol, DATE(timestamp)
-        ON CONFLICT (symbol, date)
+            timestamp,
+            open_price,
+            high_price,
+            low_price,
+            close_price,
+            volume
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        ON CONFLICT (symbol, timestamp)
         DO UPDATE SET
-            avg_close_price = EXCLUDED.avg_close_price,
-            total_volume = EXCLUDED.total_volume
-        RETURNING date, avg_close_price, total_volume;
+            open_price = EXCLUDED.open_price,
+            high_price = EXCLUDED.high_price,
+            low_price = EXCLUDED.low_price,
+            close_price = EXCLUDED.close_price,
+            volume = EXCLUDED.volume;
     `,
 };

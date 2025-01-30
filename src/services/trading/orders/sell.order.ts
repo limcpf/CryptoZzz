@@ -1,79 +1,76 @@
 import type { PoolClient } from "pg";
 import { v4 as uuidv4 } from "uuid";
-import logger from "../../../shared/config/logger";
 import { QUERIES } from "../../../shared/const/query.const";
+import type { iOrderProps } from "../../../shared/interfaces/iOrder";
 import API from "../../../shared/services/api";
-import { developmentLog, errorHandler } from "../../../shared/services/util";
+import { getMsg } from "../../../shared/services/i18n/msg/msg.const";
 
-export async function executeSellOrder(
+export async function excuteSell(
 	client: PoolClient,
-	symbol: string,
-	loggerPrefix: string,
+	coin: string,
+	coinBalance: number,
+	uuid?: string,
 ): Promise<void> {
-	const coin = symbol.replace("KRW-", "");
-	const account = await API.GET_ACCOUNT();
-	const cryptoAccount = account.find((acc) => acc.currency === coin);
-
-	if (!cryptoAccount) return;
-
-	const availableCrypto = Number(cryptoAccount.balance);
-	if (availableCrypto < 0.00001) {
-		logger.error(client, "SELL_SIGNAL_ERROR", loggerPrefix);
-		return;
-	}
-
 	if (process.env.NODE_ENV === "development") {
-		logger.send(client, "테스트 매도 완료", loggerPrefix);
+		await excuteSellDev(client, coin, coinBalance, uuid);
 		return;
 	}
 
-	try {
-		const order = await API.ORDER(
-			client,
-			symbol,
-			"ask",
-			availableCrypto.toString(),
-			null,
-			"market",
-			uuidv4(),
-		);
+	const orderProps: iOrderProps = {
+		market: coin,
+		side: "ask",
+		volume: coinBalance.toString(),
+		price: null,
+		ord_type: "market",
+		identifier: uuid || uuidv4(),
+	};
 
-		const lastOrder = await client.query<{ id: string }>(
-			QUERIES.GET_LAST_ORDER,
-			[symbol],
-		);
+	const order = await API.ORDER(client, orderProps);
 
-		const id = lastOrder.rows[0].id;
-
-		const result = await client.query(QUERIES.UPDATE_ORDER, [
-			id,
-			order.price,
+	if (order?.price && order?.volume) {
+		await client.query(QUERIES.INSERT_TRADE, [
+			uuid || order.identifier,
 			"SELL",
+			coin,
+			order.price,
+			order.volume,
+			false,
+			Number(order.paid_fee),
+		]);
+	}
+
+	throw new Error(String(getMsg("SELL_ORDER_ERROR")));
+}
+
+async function excuteSellDev(
+	client: PoolClient,
+	coin: string,
+	coinBalance: number,
+	uuid?: string,
+): Promise<string> {
+	const u = uuid || uuidv4();
+
+	const currentPrices = await API.GET_CANDLE_DATA(
+		coin,
+		1,
+		new Date().toISOString(),
+	);
+
+	const currentPrice = currentPrices[0].candle_acc_trade_price;
+
+	if (currentPrice) {
+		await client.query(QUERIES.INSERT_TRADE, [
+			u,
+			"SELL",
+			coin,
+			currentPrice,
+			coinBalance,
+			false,
+			0,
 		]);
 
-		const { quantity, buy_price, sell_price } = result.rows[0];
-
-		const profitAmount = (sell_price - buy_price) * quantity;
-		const profitRate = ((sell_price - buy_price) / buy_price) * 100;
-
-		logger.send(
-			client,
-			`✅ 매도 주문 실행
-          주문 ID: ${id}
-          수량: ${quantity}BTC
-          매수가: ${buy_price.toLocaleString()}KRW
-          매도가: ${sell_price.toLocaleString()}KRW
-          손익금: ${profitAmount.toLocaleString()}KRW (${profitRate.toFixed(2)}%)`,
-			loggerPrefix,
-		);
-
-		developmentLog(
-			`[${new Date().toLocaleString()}] [TRADING] 매도 주문 실행: ${availableCrypto}${coin}`,
-		);
-
-		logger.info("SELL_SIGNAL_SUCCESS", loggerPrefix);
-	} catch (error: unknown) {
-		errorHandler(client, "SELL_SIGNAL_ERROR", loggerPrefix, error);
-		throw error;
+		return u;
 	}
+
+	throw new Error(String(getMsg("SELL_ORDER_DEV_ERROR")));
 }

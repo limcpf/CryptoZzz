@@ -45,6 +45,25 @@ export interface MSG {
 	TRADING_START: string;
 	ANALYZE_START: string;
 	CANDLE_COLLECTING_START: string;
+	SIGNAL_RSI_ERROR_NO_DATA: string;
+	SIGNAL_RSI_ERROR_INVALID: string;
+	VOLUME_DATA_NOT_FOUND: string;
+	VOLUME_DATA_ERROR: string;
+	COIN_NOT_FOUND: string;
+	MIN_ORDER_AMOUNT_ERROR: string;
+	TRADING_EXCUTE_ORDER_ERROR: string;
+	GET_CURRENT_POSITION_ERROR: string;
+	CALCULATE_THRESHOLD_ERROR: string;
+	BUY_ORDER_DEV_ERROR: string;
+	BUY_ORDER_ERROR: string;
+	SELL_ORDER_ERROR: string;
+	SELL_ORDER_DEV_ERROR: string;
+	STOP_LOSS_TRIGGERED: string;
+	REGULAR_SELL: string;
+	AVG_BUY_PRICE_NOT_FOUND: string;
+	PROFIT_TAKE_TRIGGERED: string;
+	TABLE_NOT_FOUND: string;
+	MA_DATA_NOT_FOUND: string;
 }
 
 export const getMsg = (language: string) => {

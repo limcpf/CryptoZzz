@@ -42,7 +42,6 @@ async function setup() {
 		COIN = (process.env.CRYPTO_CODE || "BTC").replace("KRW-", "");
 
 		setupCronJobs();
-		checkAndSendStatus();
 
 		logger.warn(client, "CANDLE_COLLECTING_START", loggerPrefix);
 	} catch (error: unknown) {
@@ -60,23 +59,10 @@ async function setup() {
 }
 
 function setupCronJobs() {
-	// 캔들 저장 크론
-	cron.schedule(`${process.env.TIME} * * * * *`, async () => {
-		try {
-			await fetchAndSaveCandles();
-		} catch (error: unknown) {
-			if (!IS_CANDLE_ERROR_SENT) {
-				IS_CANDLE_ERROR_SENT = true;
-				errorHandler(client, "CANDLE_SAVE_API_ERROR", loggerPrefix, error);
-			}
-		}
-	});
+	cron.schedule(`${process.env.TIME} * * * * *`, () => fetchAndSaveCandles());
 
 	// 코인 상태 체크 크론
-	cron.schedule("*/15 8-21 * * *", () => sendCoinStatus(COIN));
-
-	// 상태 체크 크론
-	cron.schedule(`${process.env.TIME} * * * *`, checkAndSendStatus);
+	cron.schedule("0 8-21 * * *", () => sendCoinStatus(COIN));
 
 	// 에러 플래그 초기화 크론
 	cron.schedule(process.env.CANDLE_SAVE_INTERVAL || "0 */5 * * * *", () => {
@@ -99,7 +85,7 @@ async function fetchAndSaveCandles(count = 1) {
 
 		const result = await saveCandleData(data);
 	} catch (error: unknown) {
-		errorHandler(client, "CANDLE_SAVE_DB_ERROR", loggerPrefix, error);
+		errorHandler(client, "CANDLE_SAVE_API_ERROR", loggerPrefix, error);
 	}
 }
 
@@ -130,7 +116,15 @@ async function saveCandleData(data: iCandle[]) {
 			)}`,
 		);
 
-		notify(client, CHANNEL.ANALYZE_CHANNEL, `${process.env.CRYPTO_CODE}`);
+		// KST 시간 계산
+		const kstTime = new Date(Date.now() + 9 * 60 * 60 * 1000); // UTC+9
+		const hour = kstTime.getUTCHours();
+		const minute = kstTime.getUTCMinutes();
+
+		// TODO : 후에 레디스 도입 후에 상태값으로 막자...
+		if (!(hour === 0 && minute < 15)) {
+			notify(client, CHANNEL.ANALYZE_CHANNEL, `${process.env.CRYPTO_CODE}`);
+		}
 	} catch (error: unknown) {
 		errorHandler(client, "CANDLE_SAVE_DB_ERROR", loggerPrefix, error);
 	}
@@ -164,31 +158,6 @@ async function sendCoinStatus(coin: string) {
 **총 매수 금액**: ${status.cryptoEvalAmount}
 **현재 평가 금액**: ${evaluationAmount}
 	`);
-}
-
-async function checkAndSendStatus() {
-	try {
-		const strategyQuery = await client.query<iStrategyInfo>(
-			QUERIES.GET_LATEST_STRATEGY,
-			[process.env.CRYPTO_CODE || ""],
-		);
-		const strategy = strategyQuery.rows[0];
-
-		if (strategy) {
-			webhook.send(
-				`
-### [${process.env.CRYPTO_CODE} 분석 정보 🔍]
-**기준 시간**: ${strategy.hour_time}
-**RSI**: ${strategy.rsi}
-**단기 MA**: ${strategy.short_ma}
-**장기 MA**: ${strategy.long_ma}
-**현재 거래량**: ${strategy.current_volume}
-**평균 거래량**: ${strategy.avg_volume}`,
-			);
-		}
-	} catch (error: unknown) {
-		errorHandler(client, "CHECK_STATUS_ERROR", loggerPrefix, error);
-	}
 }
 
 const init = async () => {

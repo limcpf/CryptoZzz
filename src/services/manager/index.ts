@@ -32,14 +32,10 @@ async function setup() {
 	try {
 		[pool, client] = await getConnection(loggerPrefix);
 
-		console.log("모냥3");
-
 		// 데이터베이스 초기 설정
-		await client.query(QUERIES.CREATE_TABLES);
-
-		client.query(QUERIES.SETUP_HYPERTABLE);
-		client.query(QUERIES.CREATE_INDEXES);
-		client.query(QUERIES.SETUP_RETENTION_POLICY);
+		await client.query(QUERIES.init);
+		await client.query(QUERIES.SETUP_HYPERTABLE);
+		await client.query(QUERIES.SETUP_RETENTION_POLICY);
 
 		await setupPubSub(client, [CHANNEL.MANAGER_CHANNEL]);
 
@@ -93,8 +89,6 @@ async function aggregateDailyMetrics() {
 			avg_close_price: number;
 			total_volume: number;
 		}>(QUERIES.AGGREGATE_DAILY_METRICS, [yesterdayStr]);
-
-		console.log(result);
 	} catch (error: unknown) {
 		errorHandler(client, "AGGREGATE_DAILY_METRICS_ERROR", loggerPrefix, error);
 	}
@@ -120,10 +114,7 @@ async function send(msg: string) {
 async function setupCronJobs() {
 	if (process.env.NODE_ENV === "production") {
 		cron.schedule("0 0 * * *", aggregateDailyMetrics);
-	} else {
-		cron.schedule("*/1 * * * *", aggregateDailyMetrics);
 	}
 }
 
-console.log("hi");
 await setup();

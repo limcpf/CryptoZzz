@@ -1,4 +1,5 @@
 import type { PoolClient } from "pg";
+import type { iOrderProps } from "../../interfaces/iOrder";
 import { apiFactory } from "./api.factory";
 
 const api = apiFactory();
@@ -19,15 +20,8 @@ const API = {
 	GET_CANDLE_DATA: (market: string, count: number, to: string) =>
 		api.getCandles(market, count, to),
 	GET_ACCOUNT: () => api.getAccount(),
-	ORDER: (
-		client: PoolClient,
-		market: string,
-		side: "bid" | "ask",
-		volume: string,
-		price: string | null,
-		ord_type: "price" | "market",
-		identifier: string,
-	) => api.order(client, market, side, volume, price, ord_type, identifier),
+	ORDER: (client: PoolClient, orderProps: iOrderProps) =>
+		api.order(client, orderProps),
 	GET_ACCOUNT_STATUS: (coin = "BTC") => api.getAccountStatus(coin),
 };
 

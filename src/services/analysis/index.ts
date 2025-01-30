@@ -7,13 +7,12 @@ import {
 } from "../../shared/config/database";
 import logger from "../../shared/config/logger";
 import { CHANNEL } from "../../shared/const/channel.const";
+import { QUERIES } from "../../shared/const/query.const";
 import { getMsg } from "../../shared/services/i18n/msg/msg.const";
 import { setupProcessHandlers } from "../../shared/services/process-handler";
-import { errorHandler } from "../../shared/services/util";
+import { developmentLog, errorHandler } from "../../shared/services/util";
 import webhook from "../../shared/services/webhook";
-import { Signal } from "../../strategy/iStrategy";
-import { checkAccountStatus } from "./services/check-account-status";
-import { executeBuySignal, executeSellSignal } from "./signals";
+import { StrategyFactory } from "../../strategy/strategy.factory";
 
 const loggerPrefix = "[ANALYZE]";
 
@@ -69,43 +68,59 @@ async function main(COIN_CODE: string | undefined) {
 		return;
 	}
 
-	let status: "BUY" | "SELL" | "HOLD";
-	const coin = COIN_CODE.replace("KRW-", "");
-
-	/* Determine buy/sell based on account status */
-	/* 계좌 상태로 매수/매도 판단 */
 	try {
-		status = await checkAccountStatus(coin);
+		const now = new Date();
+		const koreanTime = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+		const isoString = koreanTime.toISOString();
+
+		const buyParent = await client.query<{ id: string }>({
+			name: `insert_signal_log_${COIN_CODE}_${isoString}`,
+			text: QUERIES.INSERT_SIGNAL_LOG,
+			values: [COIN_CODE, isoString],
+		});
+
+		const uuid = buyParent.rows[0].id;
+
+		if (!uuid) {
+			logger.error(client, "SIGNAL_LOG_ERROR", loggerPrefix);
+			return;
+		}
+
+		const strategies = process.env.STRATEGIES?.split(",") || [];
+
+		if (strategies.length === 0) {
+			logger.error(client, "NOT_FOUND_STRATEGY", loggerPrefix);
+			return;
+		}
+
+		const factory = new StrategyFactory(client, uuid, COIN_CODE);
+
+		const signals = await Promise.all(
+			strategies.map(async (strategy) => {
+				const strategyInstance = factory.createStrategy(strategy);
+				const s = await strategyInstance.execute();
+				developmentLog(
+					`[${new Date().toLocaleString()}] [ANALYZE] ${strategy} 점수: ${s}`,
+				);
+				return s;
+			}),
+		);
+
+		const score = signals.reduce((acc, curr) => acc + curr, 0);
+
+		developmentLog(`[${new Date().toLocaleString()}] [ANALYZE] 점수: ${score}`);
+
+		const result = {
+			coin: COIN_CODE,
+			score: score,
+		};
+
+		notify(client, CHANNEL.TRADING_CHANNEL, JSON.stringify(result));
 	} catch (error: unknown) {
 		errorHandler(client, "ACCOUNT_STATUS_ERROR", loggerPrefix, error);
 		return;
 	}
-
-	/* Execute buy/sell signal */
-	/* 매수/매도 신호 실행 */
-	try {
-		switch (status) {
-			case "BUY": {
-				const signal = await executeBuySignal(client, COIN_CODE);
-				if (signal === Signal.BUY)
-					notify(client, CHANNEL.TRADING_CHANNEL, `BUY:${COIN_CODE}`);
-				break;
-			}
-			case "SELL": {
-				const signal = await executeSellSignal(client, COIN_CODE, coin);
-				if (signal === Signal.SELL)
-					notify(client, CHANNEL.TRADING_CHANNEL, `SELL:${COIN_CODE}`);
-				break;
-			}
-			case "HOLD":
-				await executeBuySignal(client, COIN_CODE, true);
-				break;
-		}
-	} catch (error: unknown) {
-		errorHandler(client, "SIGNAL_ERROR", loggerPrefix, error);
-	}
 }
-
 const init = async () => {
 	await setup();
 };

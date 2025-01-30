@@ -83,6 +83,5 @@ export function handleNotifications(
 }
 
 export function notify(client: PoolClient, channel: ChannelType, message = "") {
-	console.log(message);
 	return client.query(`NOTIFY ${CHANNEL[channel]}, '${message}'`);
 }

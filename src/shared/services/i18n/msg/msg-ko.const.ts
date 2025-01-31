@@ -66,8 +66,10 @@ const messages: MSG = {
 	PROFIT_TAKE_TRIGGERED: "✅ 목표 수익률에 도달하여 매도 주문을 실행합니다",
 	TABLE_NOT_FOUND: "⚠️ 필요한 테이블을 찾을 수 없습니다: ",
 	MA_DATA_NOT_FOUND: "⚠️ 이동평균 데이터를 찾을 수 없습니다",
+	DELETE_48_HOURS_AGO_DATA: "48시간 이전 데이터 삭제 중",
 	DELETE_48_HOURS_AGO_DATA_ERROR:
 		"⚠️ 48시간 이전 데이터 삭제 중 오류가 발생했습니다",
+	MA_INVALID_DATA: "⚠️ 이동평균 데이터가 유효하지 않습니다",
 } as const;
 
 export default messages;

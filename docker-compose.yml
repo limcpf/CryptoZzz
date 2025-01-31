@@ -9,7 +9,6 @@ services:
       - TZ=Asia/Seoul
     volumes:
       - ./logs:/app/logs
-      - ./src:/app/src
       - ./.env:/app/.env  # .env 파일을 볼륨으로 연결
     depends_on:
       - db
@@ -34,7 +33,9 @@ services:
 
 networks:
   money-network:
+    name: money-network  # 네트워크 이름 명시적 지정
     driver: bridge
+    attachable: true  # 다른 컨테이너 연결 허용
 
 volumes:
   postgres_data:

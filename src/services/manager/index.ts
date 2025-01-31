@@ -107,13 +107,36 @@ async function aggregateDailyMetrics() {
 	}
 }
 
+async function delete48HoursAgoData() {
+	logger.warn(client, "DELETE_48_HOURS_AGO_DATA", loggerPrefix);
+
+	try {
+		const result = await client.query(
+			"DELETE FROM Market_Data WHERE timestamp < (NOW() - INTERVAL '48 hours');",
+		);
+
+		logger.send(
+			client,
+			`
+**48시간 전 데이터 삭제 완료**
+**삭제된 행 수:** ${result.rowCount}
+		`,
+		);
+	} catch (error: unknown) {
+		errorHandler(client, "DELETE_48_HOURS_AGO_DATA_ERROR", loggerPrefix, error);
+	}
+}
+
 async function send(msg: string) {
 	webhook.send(msg);
 }
 
 async function setupCronJobs() {
 	if (process.env.NODE_ENV === "production") {
-		cron.schedule("0 0 * * *", aggregateDailyMetrics);
+		cron.schedule("0 0 * * *", async () => {
+			await delete48HoursAgoData();
+			await aggregateDailyMetrics();
+		});
 	}
 }
 

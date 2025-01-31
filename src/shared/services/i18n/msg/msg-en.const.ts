@@ -69,6 +69,8 @@ const messages: MSG = {
 	PROFIT_TAKE_TRIGGERED: "✅ Profit take target reached - executing sell order",
 	TABLE_NOT_FOUND: "⚠️ Required table not found: ",
 	MA_DATA_NOT_FOUND: "⚠️ Moving average data not found",
+	DELETE_48_HOURS_AGO_DATA_ERROR:
+		"⚠️ Error occurred while deleting data older than 48 hours",
 } as const;
 
 export default messages;

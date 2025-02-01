@@ -47,8 +47,8 @@ export class MaStrategy implements iStrategy {
 					symbol,
 					NOW()::DATE AS date,
 					AVG(close_price) AS avg_close_price,
-					NULL::NUMERIC AS high_price,  -- Daily_Market_Data 구조에 맞게 추가
-					NULL::NUMERIC AS low_price,   -- 누락된 컬럼 보완
+					MAX(high_price) AS high_price,  -- Daily_Market_Data 구조에 맞게 추가
+					MIN(low_price) AS low_price,   -- 누락된 컬럼 보완
 					SUM(volume) AS total_volume
 				FROM Market_Data
 				WHERE symbol = $1
@@ -59,6 +59,7 @@ export class MaStrategy implements iStrategy {
 			combined_data AS (
 				SELECT symbol, date, avg_close_price, high_price, low_price, total_volume 
 				FROM Daily_Market_Data
+				WHERE symbol = $1
 				UNION ALL
 				SELECT symbol, date, avg_close_price, high_price, low_price, total_volume 
 				FROM today_data
@@ -103,8 +104,8 @@ export class MaStrategy implements iStrategy {
 			long_ma,
 			prev_short_ma
 		FROM prev_ma_calculations
-		WHERE date >= NOW()::DATE - INTERVAL '20 days'
-		ORDER BY symbol, date;
+		ORDER BY symbol, date DESC
+		LIMIT 1;
 	`;
 
 	private readonly INSERT_MA_SIGNAL = `

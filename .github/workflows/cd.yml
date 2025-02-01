@@ -1,0 +1,65 @@
+name: Money Deployment
+
+on:
+  push:
+    branches:
+      - main  # main 브랜치에 push될 때 실행
+  pull_request:
+    branches:
+      - main  # main 브랜치로 PR merge 시 실행
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 코드 체크아웃
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 2. 버전 넘버 생성 (Git 태그 또는 커밋 SHA 사용)
+      - name: Determine version
+        id: vars
+        run: |
+          if git describe --tags --exact-match 2>/dev/null; then
+            echo "VERSION=$(git describe --tags --exact-match)" >> $GITHUB_ENV
+          else
+            VERSION=$(git rev-parse --short HEAD)
+            echo "VERSION=$VERSION" >> $GITHUB_ENV
+          fi
+          echo "Image version: $VERSION"
+
+      # 3. Docker 이미지 빌드 (버전 태그와 latest 태그를 함께 사용)
+      - name: Build Docker image
+        run: |
+          docker build --compress -t daeseong0226/money:latest -t daeseong0226/money:${{ env.VERSION }} . -f ./env/Dockerfile --platform linux/amd64
+
+      # 4. DockerHub 로그인
+      - name: Log in to DockerHub
+        run: echo "${{ secrets.DOCKERHUB_PASSWORD }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      # 5. Docker 이미지 푸시 (latest와 버전 태그 둘 다 푸시)
+      - name: Push Docker image to DockerHub
+        run: |
+          docker push daeseong0226/money:latest
+          docker push daeseong0226/money:${{ env.VERSION }}
+
+      # 6. SSH로 서버에 접속하여 'run' 명령어 실
+      - name: Set up SSH for deployment
+        uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Create SSH directory and set permissions
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          
+      - name: Add known hosts (to avoid host key verification)
+        run: |
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_IP }} >> ~/.ssh/known_hosts
+          
+      - name: Deploy to server
+        run: |
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_IP }} 'bash /scripts/money/build_push.sh'

@@ -1,25 +1,24 @@
-FROM oven/bun:1.1.42
+# 알파인 기반 경량 이미지 사용
+FROM oven/bun:1.1.42-alpine
 
 WORKDIR /app
 
-# Install PM2 globally with bun
+# PM2 전역 설치
 RUN bun install -g @pm2/io pm2
 
-# Copy package files
+# 종속성 관리 (lockfile 버전 고정)
 COPY package.json bun.lockb ./
+RUN bun install --frozen-lockfile
 
-# Install dependencies
-RUN bun install
-
-# Copy source code
+# 애플리케이션 코드 복사
 COPY . .
 
-# Create log directory
+# 로그 디렉토리 생성
 RUN mkdir -p logs logs/test
 
-# Set environment variables
+# 환경 변수 설정
 ENV TZ=Asia/Seoul
 ENV PM2_RUNTIME_NODE_PATH=bun
 
-# Run PM2 in no-daemon mode with bun
+# 실행 명령어
 CMD ["bun", "run", "start"]

@@ -64,6 +64,9 @@ export interface MSG {
 	PROFIT_TAKE_TRIGGERED: string;
 	TABLE_NOT_FOUND: string;
 	MA_DATA_NOT_FOUND: string;
+	DELETE_48_HOURS_AGO_DATA_ERROR: string;
+	DELETE_48_HOURS_AGO_DATA: string;
+	MA_INVALID_DATA: string;
 }
 
 export const getMsg = (language: string) => {

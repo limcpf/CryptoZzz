@@ -113,36 +113,6 @@ export class MaStrategy implements iStrategy {
 		VALUES ($1, $2, $3, $4, $5);
 	`;
 
-	private readonly GET_PRICE_VOLATILITY = `
-        WITH hourly_prices AS (
-            SELECT 
-                symbol,
-                date_trunc('hour', timestamp) as hour,
-                AVG(close_price) as avg_price
-            FROM Market_Data
-            WHERE 
-                symbol = $1
-                AND timestamp >= NOW() - INTERVAL '24 hours'
-            GROUP BY symbol, date_trunc('hour', timestamp)
-        ),
-        price_changes AS (
-            SELECT 
-                symbol,
-                hour,
-                avg_price,
-                ((avg_price - LAG(avg_price) OVER (ORDER BY hour)) / LAG(avg_price) OVER (ORDER BY hour)) as price_change
-            FROM hourly_prices
-        )
-        SELECT 
-            symbol,
-            COALESCE(
-                STDDEV(price_change) * SQRT(24), -- 24시간 기준으로 변동성 연율화
-                0.1 -- 데이터가 부족할 경우 기본값
-            ) as volatility
-        FROM price_changes
-        GROUP BY symbol;
-    `;
-
 	async execute(): Promise<number> {
 		let course = "this.getData";
 		let score = 0;
@@ -150,17 +120,8 @@ export class MaStrategy implements iStrategy {
 		try {
 			const data = await this.getData();
 
-			course = "this.calculateVolatility";
-			const volatility = await this.calculateVolatility();
-
 			course = "this.score";
 			score = await this.score(data);
-
-			course = "this.isValidSignal";
-
-			if (!this.isValidSignal(score, volatility)) {
-				score = 0;
-			}
 
 			course = "this.saveData";
 			await this.saveData(data, score);
@@ -182,10 +143,6 @@ export class MaStrategy implements iStrategy {
 	}): Promise<number> {
 		const { short_ma, long_ma, prev_short_ma } = data;
 
-		console.log("short_ma : ", short_ma);
-		console.log("long_ma : ", long_ma);
-		console.log("prev_short_ma : ", prev_short_ma);
-
 		// 유효하지 않은 MA 값 필터링
 		if (short_ma <= 0 || long_ma <= 0) {
 			return 0;
@@ -195,14 +152,11 @@ export class MaStrategy implements iStrategy {
 
 		// 비정상적으로 큰 값 방지를 위한 클램핑
 		const clampedRatio = Math.max(-0.5, Math.min(0.5, maRatio));
-		console.log("clampedRatio : ", clampedRatio);
 		const baseScore = Math.tanh(5 * clampedRatio);
-		console.log("baseScore : ", baseScore);
 
 		// 변화율 계산 시 이전 값 유효성 검사
 		const rateOfChange =
 			prev_short_ma > 0 ? (short_ma - prev_short_ma) / prev_short_ma : 0;
-		console.log("rateOfChange : ", rateOfChange);
 		return Number((baseScore + 0.1 * rateOfChange).toFixed(2));
 	}
 
@@ -230,8 +184,6 @@ export class MaStrategy implements iStrategy {
 		data: iMovingAveragesResult,
 		score: number,
 	): Promise<void> {
-		console.log("[MA] saveData");
-
 		const { command } = await this.client.query(this.INSERT_MA_SIGNAL, [
 			this.uuid,
 			data.short_ma,
@@ -239,24 +191,5 @@ export class MaStrategy implements iStrategy {
 			data.prev_short_ma,
 			score,
 		]);
-
-		console.log("command : ", command);
-	}
-
-	private async calculateVolatility(): Promise<number> {
-		const result = await this.client.query<{ volatility: number }>({
-			name: `get_volatility_${this.symbol}_${this.uuid}`,
-			text: this.GET_PRICE_VOLATILITY,
-			values: [this.symbol],
-		});
-
-		return result.rows[0]?.volatility ?? 0.1;
-	}
-
-	private isValidSignal(score: number, volatility: number): boolean {
-		const threshold = 0.2 * (1 + volatility);
-		console.log("score : ", score);
-		console.log("threshold : ", threshold);
-		return Math.abs(score) > threshold;
 	}
 }

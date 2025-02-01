@@ -142,30 +142,23 @@ export class MaStrategy implements iStrategy {
 		prev_short_ma: number;
 	}): Promise<number> {
 		const { short_ma, long_ma, prev_short_ma } = data;
-
-		console.log("--------------------------------");
-		console.log("coin", this.symbol);
-		console.log(short_ma, long_ma, prev_short_ma);
 		// 유효하지 않은 MA 값 필터링
 		if (short_ma <= 0 || long_ma <= 0) {
 			return 0;
 		}
 
 		const maRatio = (short_ma - long_ma) / long_ma;
-		console.log("maRatio", maRatio);
 
-		// 비정상적으로 큰 값 방지를 위한 클램핑
-		const clampedRatio = Math.max(-0.5, Math.min(0.5, maRatio));
-		console.log("clampedRatio", clampedRatio);
-		const baseScore = Math.tanh(5 * clampedRatio);
-		console.log("baseScore", baseScore);
-		// 변화율 계산 시 이전 값 유효성 검사
+		// tanh 특성상 자체 클램핑(-1~1) 적용되지만 추가 보정 필요
+		const baseScore = Math.tanh(maRatio * 2); // 민감도 2배 증가
 		const rateOfChange =
 			prev_short_ma > 0 ? (short_ma - prev_short_ma) / prev_short_ma : 0;
-		console.log("rateOfChange", rateOfChange);
-		const result = Number((baseScore + 0.1 * rateOfChange).toFixed(2));
-		console.log("result", result);
-		console.log("--------------------------------");
+
+		// 최종 점수 클램핑 추가
+		const result = Math.max(
+			-1,
+			Math.min(1, Number((baseScore + 0.1 * rateOfChange).toFixed(2))),
+		);
 		return result;
 	}
 

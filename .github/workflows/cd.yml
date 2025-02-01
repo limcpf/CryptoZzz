@@ -32,7 +32,7 @@ jobs:
       # 3. Docker 이미지 빌드 (버전 태그와 latest 태그를 함께 사용)
       - name: Build Docker image
         run: |
-          docker build --compress -t daeseong0226/money:latest -t daeseong0226/money:${{ env.VERSION }} . -f ./env/Dockerfile --platform linux/amd64
+          docker build --compress -t daeseong0226/money:latest -t daeseong0226/money:${{ env.VERSION }} . -f ./dockerfile --platform linux/amd64
 
       # 4. DockerHub 로그인
       - name: Log in to DockerHub

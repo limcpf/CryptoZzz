@@ -11,6 +11,9 @@ export class WebhookDiscord implements Webhook {
 		const timestamp = new Date().toLocaleString("ko-KR", {
 			timeZone: "Asia/Seoul",
 		});
+		console.log("[WEBHOOK] send - URL : ", this.WEBHOOK_URL);
+		console.log("[WEBHOOK] send - message : ", message);
+
 		fetch(this.WEBHOOK_URL, {
 			method: "POST",
 			headers: {

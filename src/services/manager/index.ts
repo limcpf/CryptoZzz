@@ -128,6 +128,7 @@ async function delete48HoursAgoData() {
 }
 
 async function send(msg: string) {
+	console.log("[MANAGER] send", msg);
 	webhook.send(msg);
 }
 

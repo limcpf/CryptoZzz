@@ -121,7 +121,6 @@ async function saveCandleData(data: iCandle[]) {
 		const hour = kstTime.getUTCHours();
 		const minute = kstTime.getUTCMinutes();
 
-		// TODO : 후에 레디스 도입 후에 상태값으로 막자...
 		if (!(hour === 0 && minute < 15)) {
 			notify(client, CHANNEL.ANALYZE_CHANNEL, `${process.env.CRYPTO_CODE}`);
 		}

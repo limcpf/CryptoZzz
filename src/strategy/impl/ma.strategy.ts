@@ -222,13 +222,15 @@ export class MaStrategy implements iStrategy {
 		data: iMovingAveragesResult,
 		score: number,
 	): Promise<void> {
-		await this.client.query(this.INSERT_MA_SIGNAL, [
+		const { command } = await this.client.query(this.INSERT_MA_SIGNAL, [
 			this.uuid,
 			data.short_ma,
 			data.long_ma,
 			data.prev_short_ma,
 			score,
 		]);
+
+		console.log("command : ", command);
 	}
 
 	private async calculateVolatility(): Promise<number> {

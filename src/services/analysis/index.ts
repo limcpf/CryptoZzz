@@ -49,6 +49,7 @@ async function setup() {
 			client,
 		});
 
+		console.log("[ANALYZE] setup");
 		logger.warn(client, "ANALYZE_START", loggerPrefix);
 	} catch (error: unknown) {
 		if (error instanceof Error) {
@@ -95,10 +96,17 @@ async function main(COIN_CODE: string | undefined) {
 
 		const factory = new StrategyFactory(client, uuid, COIN_CODE);
 
+		console.log("uuid : ", uuid);
+
 		const signals = await Promise.all(
 			strategies.map(async (strategy) => {
 				const strategyInstance = factory.createStrategy(strategy);
+				console.log("strategy : ", strategy);
+				console.log("strategyInstance is null?", !!strategyInstance);
 				const s = await strategyInstance.execute();
+				console.log(
+					`[${new Date().toLocaleString()}] [ANALYZE] ${strategy} 점수: ${s}`,
+				);
 				developmentLog(
 					`[${new Date().toLocaleString()}] [ANALYZE] ${strategy} 점수: ${s}`,
 				);

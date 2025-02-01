@@ -156,8 +156,9 @@ export class MaStrategy implements iStrategy {
 			score = await this.score(data);
 
 			course = "this.isValidSignal";
+
 			if (!this.isValidSignal(score, volatility)) {
-				return 0;
+				score = 0;
 			}
 
 			course = "this.saveData";
@@ -180,6 +181,10 @@ export class MaStrategy implements iStrategy {
 	}): Promise<number> {
 		const { short_ma, long_ma, prev_short_ma } = data;
 
+		console.log("short_ma : ", short_ma);
+		console.log("long_ma : ", long_ma);
+		console.log("prev_short_ma : ", prev_short_ma);
+
 		// 유효하지 않은 MA 값 필터링
 		if (short_ma <= 0 || long_ma <= 0) {
 			return 0;
@@ -189,12 +194,14 @@ export class MaStrategy implements iStrategy {
 
 		// 비정상적으로 큰 값 방지를 위한 클램핑
 		const clampedRatio = Math.max(-0.5, Math.min(0.5, maRatio));
+		console.log("clampedRatio : ", clampedRatio);
 		const baseScore = Math.tanh(5 * clampedRatio);
+		console.log("baseScore : ", baseScore);
 
 		// 변화율 계산 시 이전 값 유효성 검사
 		const rateOfChange =
 			prev_short_ma > 0 ? (short_ma - prev_short_ma) / prev_short_ma : 0;
-
+		console.log("rateOfChange : ", rateOfChange);
 		return Number((baseScore + 0.1 * rateOfChange).toFixed(2));
 	}
 
@@ -247,6 +254,8 @@ export class MaStrategy implements iStrategy {
 
 	private isValidSignal(score: number, volatility: number): boolean {
 		const threshold = 0.2 * (1 + volatility);
+		console.log("score : ", score);
+		console.log("threshold : ", threshold);
 		return Math.abs(score) > threshold;
 	}
 }

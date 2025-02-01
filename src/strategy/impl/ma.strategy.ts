@@ -222,6 +222,8 @@ export class MaStrategy implements iStrategy {
 		data: iMovingAveragesResult,
 		score: number,
 	): Promise<void> {
+		console.log("[MA] saveData");
+
 		const { command } = await this.client.query(this.INSERT_MA_SIGNAL, [
 			this.uuid,
 			data.short_ma,

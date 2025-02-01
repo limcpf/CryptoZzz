@@ -98,19 +98,12 @@ export class StochasticStrategy implements iStrategy {
 		data: { k_value: number; d_value: number },
 		score: number,
 	): Promise<void> {
-		// 시그널 로그 생성
-		const signalLog = await this.client.query({
-			name: `insert_signal_log_${this.symbol}_${this.uuid}`,
-			text: QUERIES.INSERT_SIGNAL_LOG,
-			values: [this.symbol, new Date().toISOString()],
-		});
-
 		// 스토캐스틱 신호 저장
 		await this.client.query({
 			name: `insert_sto_sgn_${this.symbol}_${this.uuid}`,
 			text: QUERIES.INSERT_STOCHASTIC_SIGNAL,
 			values: [
-				signalLog.rows[0].id, // SignalLog ID
+				this.uuid, // SignalLog ID
 				data.k_value,
 				data.d_value,
 				score,

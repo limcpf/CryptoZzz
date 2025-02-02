@@ -211,52 +211,6 @@ export const QUERIES = {
 		"SELECT timestamp FROM Market_Data WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1;",
 	GET_LAST_ORDER:
 		"SELECT id FROM Orders WHERE symbol = $1 ORDER BY created_at DESC LIMIT 1;",
-	GET_VOLUME_ANALYSIS: `
-WITH RECURSIVE time_intervals AS (
-    SELECT 
-        NOW() as interval_start
-    UNION ALL
-    SELECT 
-        interval_start - INTERVAL '60 minutes'
-    FROM time_intervals
-    WHERE interval_start > NOW() - ($2 * INTERVAL '60 minutes')
-),
-volume_by_interval AS (
-    SELECT
-        ti.interval_start,
-        md.symbol,
-        AVG(md.volume) AS avg_volume
-    FROM time_intervals ti
-    LEFT JOIN Market_Data md ON 
-        md.symbol = $1 AND
-        md.timestamp > ti.interval_start - INTERVAL '60 minutes' AND
-        md.timestamp <= ti.interval_start
-    GROUP BY ti.interval_start, md.symbol
-),
-volume_analysis AS (
-    SELECT 
-        symbol,
-        interval_start,
-        avg_volume as current_volume,
-        (
-            SELECT AVG(avg_volume)
-            FROM volume_by_interval
-            WHERE interval_start < NOW() - INTERVAL '60 minutes'
-        ) as historical_avg_volume,
-        (
-            SELECT avg_volume
-            FROM volume_by_interval
-            WHERE interval_start = (SELECT MAX(interval_start) FROM volume_by_interval)
-        ) as latest_hour_volume
-    FROM volume_by_interval
-    WHERE interval_start = (SELECT MAX(interval_start) FROM volume_by_interval)
-)
-SELECT 
-    COALESCE(symbol, $1) as symbol,
-    COALESCE(latest_hour_volume, 0) as latest_hour_volume,
-    COALESCE(historical_avg_volume, 0) as historical_avg_volume
-FROM volume_analysis;
-`,
 	INSERT_SIGNAL_LOG: `
     INSERT INTO SignalLog (symbol, hour_time)
     VALUES ($1, $2)
@@ -265,10 +219,6 @@ FROM volume_analysis;
 	INSERT_RSI_SIGNAL: `
     INSERT INTO RsiSignal (signal_id, rsi, score)
     VALUES ($1, $2, $3);
-`,
-	INSERT_VOLUME_SIGNAL: `
-    INSERT INTO VolumeSignal (signal_id, current_volume, avg_volume, score)
-    VALUES ($1, $2, $3, $4);
 `,
 	GET_RECENT_RSI_SIGNALS: `
     WITH HourlySignals AS (

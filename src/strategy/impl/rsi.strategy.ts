@@ -126,7 +126,7 @@ export class RsiStrategy implements iStrategy {
 			score = await this.score(rsi, prevRsi);
 
 			course = "score = score * this.weight";
-			score = score * this.weight;
+			score = Number((score * this.weight).toFixed(2));
 
 			course = "this.saveData";
 			this.saveData(rsi, score);

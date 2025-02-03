@@ -162,7 +162,7 @@ export class MacdStrategy implements iStrategy {
 			score = this.calculateScore(macdData);
 
 			course = "score = score * this.weight";
-			score = score * this.weight;
+			score = Number((score * this.weight).toFixed(2));
 
 			course = "this.saveData";
 			await this.saveData(macdData, score);

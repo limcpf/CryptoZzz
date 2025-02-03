@@ -96,7 +96,7 @@ export class VolumeStrategy implements iStrategy {
 			score = this.score(volumeData);
 
 			course = "score = score * this.weight";
-			score = score * this.weight;
+			score = Number((score * this.weight).toFixed(2));
 
 			course = "this.saveData";
 			await this.saveData(volumeData, score);

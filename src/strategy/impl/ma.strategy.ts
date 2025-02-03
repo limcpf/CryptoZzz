@@ -124,7 +124,7 @@ export class MaStrategy implements iStrategy {
 			score = await this.score(data);
 
 			course = "score = score * this.weight";
-			score = score * this.weight;
+			score = Number((score * this.weight).toFixed(2));
 
 			course = "this.saveData";
 			await this.saveData(data, score);

@@ -48,7 +48,7 @@ export class StochasticStrategy implements iStrategy {
 		const data = await this.getData();
 		const score = this.calculateScore(data);
 		await this.saveData(data, score);
-		return score * this.weight;
+		return Number((score * this.weight).toFixed(2));
 	}
 
 	private calculateScore(data: {

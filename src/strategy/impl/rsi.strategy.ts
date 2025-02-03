@@ -1,7 +1,9 @@
 import type { PoolClient } from "pg";
 import { QUERIES } from "../../shared/const/query.const";
 import type { iRSIResult } from "../../shared/interfaces/iMarketDataResult";
+import i18n from "../../shared/services/i18n";
 import { getMsg } from "../../shared/services/i18n/msg/msg.const";
+import { errorHandler, innerErrorHandler } from "../../shared/services/util";
 import type { iStrategy } from "../iStrategy";
 
 /**
@@ -60,28 +62,88 @@ export class RsiStrategy implements iStrategy {
 		this.momentumWeight = momentumWeight;
 	}
 
+	private readonly GET_RSI_QUERY = `
+	WITH PriceChanges AS (
+		SELECT 
+			symbol,
+			date,
+			avg_close_price,
+			avg_close_price - LAG(avg_close_price) OVER (PARTITION BY symbol ORDER BY date) AS price_change
+		FROM Daily_Market_Data
+		WHERE symbol = $1
+		AND date >= CURRENT_DATE - INTERVAL '14 days'
+	),
+	GainsLosses AS (
+		SELECT
+			symbol,
+			date,
+			CASE WHEN price_change > 0 THEN price_change ELSE 0 END AS gain,
+			CASE WHEN price_change < 0 THEN ABS(price_change) ELSE 0 END AS loss
+		FROM PriceChanges
+	),
+	AvgGainsLosses AS (
+		SELECT
+			symbol,
+			date,
+			AVG(gain) OVER (PARTITION BY symbol ORDER BY date ROWS BETWEEN 13 PRECEDING AND CURRENT ROW) AS avg_gain,
+			AVG(loss) OVER (PARTITION BY symbol ORDER BY date ROWS BETWEEN 13 PRECEDING AND CURRENT ROW) AS avg_loss
+		FROM GainsLosses
+	)
+	SELECT
+		symbol,
+		date,
+		CASE 
+		WHEN avg_gain = 0 AND avg_loss = 0 THEN 50
+		WHEN avg_loss = 0 THEN 100
+		WHEN avg_gain = 0 THEN 0
+		ELSE ROUND(100 - (100 / (1 + avg_gain / avg_loss)), 2)
+		END AS rsi
+	FROM AvgGainsLosses
+	WHERE date >= CURRENT_DATE - INTERVAL '14 days'
+	ORDER BY symbol, date DESC;
+	`;
+
+	private readonly INSERT_RSI_SIGNAL = `
+		INSERT INTO RsiSignal (signal_id, rsi, score)
+		VALUES ($1, $2, $3);
+	`;
+
 	async execute(): Promise<number> {
+		let course = "this.getData";
+		let score = 0;
 		let rsi: number;
+		let prevRsi: number[] = [];
 
 		try {
-			rsi = await this.getData();
-		} catch (error: unknown) {
-			if (error instanceof Error) {
-				throw new Error(
-					String(getMsg("SIGNAL_RSI_ERROR_GET_DATA")) + error.message,
-				);
+			const result = await this.getData();
+			rsi = result[0];
+
+			if (result.length > 1) {
+				prevRsi = result.slice(1);
 			}
-			throw new Error(String(getMsg("SIGNAL_RSI_ERROR_GET_DATA")));
+
+			course = "this.score";
+			score = await this.score(rsi, prevRsi);
+
+			course = "score = score * this.weight";
+			score = score * this.weight;
+
+			course = "this.saveData";
+			this.saveData(rsi, score);
+
+			return score;
+		} catch (error: unknown) {
+			if (error instanceof Error && "code" in error && error.code === "42P01") {
+				errorHandler(this.client, "TABLE_NOT_FOUND", "RSI_SIGNAL", error);
+			} else {
+				innerErrorHandler("RSI_DATA_ERROR", error, course);
+			}
 		}
 
-		const score = await this.score(rsi);
-
-		this.saveData(rsi, score);
-
-		return score * this.weight;
+		return 0;
 	}
 
-	private async score(rsi: number): Promise<number> {
+	private async score(rsi: number, prevRsi: number[]): Promise<number> {
 		let score = 0;
 
 		// RSI 기반 기본 점수 계산 (TANH 적용으로 자연스러운 범위 제한)
@@ -94,29 +156,14 @@ export class RsiStrategy implements iStrategy {
 		}
 
 		// 모멘텀 가중치 계산 (변화율 정규화)
-		const prevRsiValues = await this.getRecentSignals();
-		if (prevRsiValues.length > 0) {
-			const averageDelta = this.calculateAverageDelta(rsi, prevRsiValues);
+		if (prevRsi.length > 0) {
+			const averageDelta = this.calculateAverageDelta(rsi, prevRsi);
 			// 모멘텀 변화율을 TANH로 정규화 (-0.2 ~ 0.2 범위)
 			score += this.momentumWeight * Math.tanh(averageDelta / 10);
 		}
 
 		// 최종 점수 클램핑
 		return Math.max(-1, Math.min(1, score));
-	}
-
-	private async getRecentSignals(): Promise<number[]> {
-		const result = await this.client.query<iRSIResult>(
-			QUERIES.GET_RECENT_RSI_SIGNALS,
-			[this.symbol, this.period],
-		);
-
-		if (result.rows.length === 0) {
-			return [];
-		}
-
-		// RSI 값이 null이 아닌 경우만 필터링하고 반환
-		return result.rows.filter((row) => row.rsi !== null).map((row) => row.rsi);
 	}
 
 	private calculateAverageDelta(
@@ -127,35 +174,21 @@ export class RsiStrategy implements iStrategy {
 		return deltas.reduce((sum, delta) => sum + delta, 0) / deltas.length;
 	}
 
-	private async getData(): Promise<number> {
+	private async getData(): Promise<number[]> {
 		const result = await this.client.query<iRSIResult>({
 			name: `get_rsi_${this.symbol}_${this.uuid}`,
-			text: QUERIES.GET_RSI_ANALYSIS,
-			values: [this.symbol, this.period],
+			text: this.GET_RSI_QUERY,
+			values: [this.symbol],
 		});
 
 		if (result.rows.length === 0) {
-			throw new Error(String(getMsg("SIGNAL_RSI_ERROR_NO_DATA")));
+			throw new Error(i18n.getMessage("SIGNAL_RSI_ERROR_NO_DATA"));
 		}
 
-		let rsiValue = result.rows[0].rsi;
-
-		if (typeof rsiValue !== "number") {
-			rsiValue = Number(rsiValue);
-		}
-
-		if (Number.isNaN(rsiValue)) {
-			throw new Error(String(getMsg("SIGNAL_RSI_ERROR_INVALID")));
-		}
-
-		return rsiValue;
+		return result.rows.filter((row) => row.rsi !== null).map((row) => row.rsi);
 	}
 
 	private async saveData(data: number, score: number): Promise<void> {
-		await this.client.query(QUERIES.INSERT_RSI_SIGNAL, [
-			this.uuid,
-			data,
-			score,
-		]);
+		await this.client.query(this.INSERT_RSI_SIGNAL, [this.uuid, data, score]);
 	}
 }

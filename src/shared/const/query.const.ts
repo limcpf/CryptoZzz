@@ -216,31 +216,6 @@ export const QUERIES = {
     VALUES ($1, $2)
     RETURNING id;
 `,
-	INSERT_RSI_SIGNAL: `
-    INSERT INTO RsiSignal (signal_id, rsi, score)
-    VALUES ($1, $2, $3);
-`,
-	GET_RECENT_RSI_SIGNALS: `
-    WITH HourlySignals AS (
-        SELECT 
-            sl.symbol,
-            date_trunc('hour', sl.hour_time) as hour_time,
-            AVG(rs.rsi) as rsi
-        FROM SignalLog sl
-        INNER JOIN RsiSignal rs ON sl.id = rs.signal_id
-        WHERE sl.symbol = $1
-        AND sl.hour_time >= NOW() - ($2 || ' hours')::INTERVAL
-        GROUP BY sl.symbol, date_trunc('hour', sl.hour_time)
-    )
-    SELECT 
-        symbol,
-        hour_time,
-        rsi
-    FROM HourlySignals
-    ORDER BY hour_time DESC;
-`,
-	GET_RECENT_MA_SIGNALS: `
-`,
 	SETUP_HYPERTABLE: `
     SELECT create_hypertable('Market_Data', 'timestamp', if_not_exists => TRUE);
     SELECT create_hypertable('Daily_Market_Data', 'date', if_not_exists => TRUE);
@@ -281,7 +256,8 @@ export const QUERIES = {
     END $$;
 `,
 	GET_RSI_ANALYSIS: `
-    WITH hourly_prices AS (
+    WITH RECURSIVE
+    hourly_prices AS (
         SELECT 
             symbol,
             date_trunc('hour', timestamp) as hour_time,
@@ -296,37 +272,69 @@ export const QUERIES = {
             symbol,
             hour_time,
             avg_close_price,
-            avg_close_price - LAG(avg_close_price) OVER (
-                ORDER BY hour_time
-            ) as price_change
+            avg_close_price - LAG(avg_close_price) OVER (ORDER BY hour_time) as price_change
         FROM hourly_prices
     ),
     gains_losses AS (
         SELECT 
             symbol,
             hour_time,
-            CASE WHEN price_change > 0 THEN price_change ELSE 0 END as gains,
-            CASE WHEN price_change < 0 THEN ABS(price_change) ELSE 0 END as losses
+            CASE WHEN price_change > 0 THEN price_change ELSE 0 END as gain,
+            CASE WHEN price_change < 0 THEN ABS(price_change) ELSE 0 END as loss
         FROM price_changes
         WHERE price_change IS NOT NULL
     ),
-    avg_gains_losses AS (
+    numbered_data AS (
         SELECT 
+            *,
+            ROW_NUMBER() OVER (ORDER BY hour_time) as rn
+        FROM gains_losses
+    ),
+    period_param AS (
+        SELECT COALESCE($3::integer, 14) as period  -- 기본값 14 설정
+    ),
+    recursive_rsi AS (
+        SELECT 
+            rn,
             symbol,
             hour_time,
-            AVG(gains) as avg_gain,
-            AVG(losses) as avg_loss
-        FROM gains_losses
-        GROUP BY symbol, hour_time
+            gain,
+            loss,
+            gain::numeric as avg_gain,
+            loss::numeric as avg_loss,
+            1 as calc_count
+        FROM numbered_data
+        WHERE rn = 1
+        
+        UNION ALL
+        
+        SELECT 
+            nd.rn,
+            nd.symbol,
+            nd.hour_time,
+            nd.gain,
+            nd.loss,
+            CASE 
+                WHEN rr.calc_count < p.period THEN (rr.avg_gain * rr.calc_count + nd.gain) / (rr.calc_count + 1)
+                ELSE (rr.avg_gain * (p.period - 1) + nd.gain) / p.period
+            END,
+            CASE 
+                WHEN rr.calc_count < p.period THEN (rr.avg_loss * rr.calc_count + nd.loss) / (rr.calc_count + 1)
+                ELSE (rr.avg_loss * (p.period - 1) + nd.loss) / p.period
+            END,
+            rr.calc_count + 1
+        FROM numbered_data nd
+        CROSS JOIN period_param p
+        JOIN recursive_rsi rr ON nd.rn = rr.rn + 1
     )
     SELECT 
         symbol,
         hour_time,
         CASE 
             WHEN avg_loss = 0 THEN 100
-            ELSE 100 - (100 / (1 + (avg_gain / avg_loss)))
+            ELSE ROUND(100 - (100 / (1 + (avg_gain / NULLIF(avg_loss, 0)))), 2)
         END as rsi
-    FROM avg_gains_losses
+    FROM recursive_rsi
     ORDER BY hour_time DESC
     LIMIT 1;
 `,

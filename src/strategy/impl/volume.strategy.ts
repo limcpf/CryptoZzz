@@ -95,8 +95,13 @@ export class VolumeStrategy implements iStrategy {
 			course = "this.score";
 			score = this.score(volumeData);
 
+			course = "score = score * this.weight";
+			score = score * this.weight;
+
 			course = "this.saveData";
 			await this.saveData(volumeData, score);
+
+			return score;
 		} catch (error) {
 			if (error instanceof Error && "code" in error && error.code === "42P01") {
 				errorHandler(this.client, "TABLE_NOT_FOUND", "VOLUME_SIGNAL", error);
@@ -105,7 +110,7 @@ export class VolumeStrategy implements iStrategy {
 			}
 		}
 
-		return score * this.weight;
+		return 0;
 	}
 
 	private async getData(): Promise<iVolumeAnalysisResult> {

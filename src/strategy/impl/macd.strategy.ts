@@ -161,8 +161,13 @@ export class MacdStrategy implements iStrategy {
 			course = "this.calculateScore";
 			score = this.calculateScore(macdData);
 
+			course = "score = score * this.weight";
+			score = score * this.weight;
+
 			course = "this.saveData";
 			await this.saveData(macdData, score);
+
+			return score;
 		} catch (error) {
 			if (error instanceof Error && "code" in error && error.code === "42P01") {
 				errorHandler(this.client, "TABLE_NOT_FOUND", "MACD_SIGNAL", error);
@@ -170,7 +175,8 @@ export class MacdStrategy implements iStrategy {
 				innerErrorHandler("MACD_DATA_ERROR", error, course);
 			}
 		}
-		return score * this.weight;
+
+		return 0;
 	}
 
 	private calculateScore(data: iMACDResult): number {

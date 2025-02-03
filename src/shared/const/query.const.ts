@@ -264,7 +264,7 @@ export const QUERIES = {
 			avg_close_price - LAG(avg_close_price) OVER (PARTITION BY symbol ORDER BY date) AS price_change
 		FROM Daily_Market_Data
 		WHERE symbol = $1
-		AND date >= CURRENT_DATE - INTERVAL '$2 days'
+		AND date >= CURRENT_DATE - ($2 || ' days')::INTERVAL
 	),
 	GainsLosses AS (
 		SELECT
@@ -292,7 +292,7 @@ export const QUERIES = {
 		ELSE ROUND(100 - (100 / (1 + avg_gain / avg_loss)), 2)
 		END AS rsi
 	FROM AvgGainsLosses
-	WHERE date >= CURRENT_DATE - INTERVAL '$2 days'
+	WHERE date >= CURRENT_DATE - ($2 || ' days')::INTERVAL
 	ORDER BY symbol, date DESC;
 `,
 	GET_BOLLINGER_BANDS: `

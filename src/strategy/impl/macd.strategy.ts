@@ -174,7 +174,6 @@ export class MacdStrategy implements iStrategy {
 	}
 
 	private calculateScore(data: iMACDResult): number {
-		console.log("===========");
 		const {
 			current_macd,
 			current_signal,
@@ -184,56 +183,40 @@ export class MacdStrategy implements iStrategy {
 			prev_histogram,
 		} = data;
 
-		console.log("calculateScore", data);
-
 		let score = 0;
 
 		// 1. 크로스오버 신호 (최대 가중치: 0.4)
 		const currentCross = current_macd - current_signal;
 		const prevCross = prev_macd - prev_signal;
-		console.log("currentCross", currentCross);
-		console.log("prevCross", prevCross);
 		if (Math.sign(currentCross) !== Math.sign(prevCross)) {
 			const crossStrength =
 				Math.abs(currentCross - prevCross) / Math.abs(current_signal);
-			console.log("crossStrength", crossStrength);
 			score += Math.sign(currentCross) * 0.4 * Math.min(1, crossStrength);
-			console.log("score1", score);
 		}
 
 		// 2. 히스토그램 변화 (최대 가중치: 0.3)
 		const histogramChange = histogram - prev_histogram;
-		console.log("histogramChange", histogramChange);
 		const histogramStrength =
 			Math.abs(histogramChange) / Math.abs(prev_histogram);
-		console.log("histogramStrength", histogramStrength);
 		score += Math.sign(histogramChange) * 0.3 * Math.min(1, histogramStrength);
-		console.log("score2", score);
 		// 3. 0라인 돌파 (최대 가중치: 0.3)
 		const zeroLineDistance = Math.abs(current_macd);
-		console.log("zeroLineDistance", zeroLineDistance);
 		const zeroLineCrossStrength = Math.min(
 			1,
 			zeroLineDistance / Math.abs(prev_macd),
 		);
-		console.log("zeroLineCrossStrength", zeroLineCrossStrength);
 		if (Math.sign(current_macd) !== Math.sign(prev_macd)) {
 			score += Math.sign(current_macd) * 0.3 * zeroLineCrossStrength;
 		} else {
 			// 0라인에 가까워지는 정도도 반영
 			score += Math.sign(current_macd) * 0.15 * (1 - zeroLineCrossStrength);
-			console.log("score3", score);
 		}
 		// 추세 강도에 따른 스코어 조정
 		const trendStrength = Math.abs(histogram) / Math.abs(current_signal);
-		console.log("trendStrength", trendStrength);
 		score *= 1 + Math.tanh(trendStrength);
-		console.log("score4", score);
 
 		// 최종 스코어를 -1에서 1 사이로 정규화
 		score = Math.max(-1, Math.min(1, score));
-		console.log("score5", score);
-		console.log("===========");
 		return score;
 	}
 

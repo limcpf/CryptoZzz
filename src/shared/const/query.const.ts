@@ -278,8 +278,8 @@ export const QUERIES = {
 		SELECT
 			symbol,
 			date,
-			AVG(gain) OVER (PARTITION BY symbol ORDER BY date ROWS BETWEEN 13 PRECEDING AND CURRENT ROW) AS avg_gain,
-			AVG(loss) OVER (PARTITION BY symbol ORDER BY date ROWS BETWEEN 13 PRECEDING AND CURRENT ROW) AS avg_loss
+			AVG(gain) OVER (PARTITION BY symbol ORDER BY date ROWS BETWEEN $2::integer - 1 PRECEDING AND CURRENT ROW) AS avg_gain,
+			AVG(loss) OVER (PARTITION BY symbol ORDER BY date ROWS BETWEEN $2::integer - 1 PRECEDING AND CURRENT ROW) AS avg_loss
 		FROM GainsLosses
 	)
 	SELECT

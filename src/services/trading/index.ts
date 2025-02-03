@@ -233,12 +233,12 @@ async function calculateDynamicThreshold(
 	coin: string,
 ): Promise<{ buy: number; sell: number; max: number; profitTake: number }> {
 	try {
-		// 1. 장기적 추세 분석용 RSI (90 period)
-		const longTermRsi = await getRsi(client, coin, 90);
+		// 1. 장기적 추세 분석용 RSI (14 period)
+		const longTermRsi = await getRsi(client, coin, 14);
 		console.log("longTermRsi", longTermRsi);
 
-		// 2. 단기적 과매수/과매도 분석용 RSI (14 period)
-		const shortTermRsi = await getRsi(client, coin, 14);
+		// 2. 단기적 과매수/과매도 분석용 RSI (9 period)
+		const shortTermRsi = await getRsi(client, coin, 9);
 		console.log("shortTermRsi", shortTermRsi);
 		// 3. RSI 기반 시장 상태 분류
 		const marketCondition = classifyMarket(longTermRsi, shortTermRsi);

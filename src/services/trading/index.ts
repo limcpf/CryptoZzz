@@ -235,14 +235,17 @@ async function calculateDynamicThreshold(
 	try {
 		// 1. 장기적 추세 분석용 RSI (90 period)
 		const longTermRsi = await getRsi(client, coin, 90);
+		console.log("longTermRsi", longTermRsi);
 
 		// 2. 단기적 과매수/과매도 분석용 RSI (14 period)
 		const shortTermRsi = await getRsi(client, coin, 14);
-
+		console.log("shortTermRsi", shortTermRsi);
 		// 3. RSI 기반 시장 상태 분류
 		const marketCondition = classifyMarket(longTermRsi, shortTermRsi);
+		console.log("marketCondition", marketCondition);
 
 		const weights = CONDITION_WEIGHTS[marketCondition];
+		console.log("weights", weights);
 
 		return {
 			buy: BASE_BUY * weights.buy,
@@ -251,6 +254,7 @@ async function calculateDynamicThreshold(
 			profitTake: PROFIT_TAKE_THRESHOLD * weights.profitTake,
 		};
 	} catch (error: unknown) {
+		console.error(error);
 		throw new Error(i18n.getMessage("CALCULATE_THRESHOLD_ERROR"));
 	}
 }

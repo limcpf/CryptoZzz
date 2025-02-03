@@ -256,87 +256,44 @@ export const QUERIES = {
     END $$;
 `,
 	GET_RSI_ANALYSIS: `
-    WITH RECURSIVE
-    hourly_prices AS (
-        SELECT 
-            symbol,
-            date_trunc('hour', timestamp) as hour_time,
-            AVG(close_price) as avg_close_price
-        FROM market_data
-        WHERE symbol = $1
-        AND timestamp >= NOW() - ($2 || ' hours')::INTERVAL
-        GROUP BY symbol, date_trunc('hour', timestamp)
-    ),
-    price_changes AS (
-        SELECT 
-            symbol,
-            hour_time,
-            avg_close_price,
-            avg_close_price - LAG(avg_close_price) OVER (ORDER BY hour_time) as price_change
-        FROM hourly_prices
-    ),
-    gains_losses AS (
-        SELECT 
-            symbol,
-            hour_time,
-            CASE WHEN price_change > 0 THEN price_change ELSE 0 END as gain,
-            CASE WHEN price_change < 0 THEN ABS(price_change) ELSE 0 END as loss
-        FROM price_changes
-        WHERE price_change IS NOT NULL
-    ),
-    numbered_data AS (
-        SELECT 
-            *,
-            ROW_NUMBER() OVER (ORDER BY hour_time) as rn
-        FROM gains_losses
-    ),
-    period_param AS (
-        SELECT COALESCE($3::integer, 14) as period  -- 기본값 14 설정
-    ),
-    recursive_rsi AS (
-        SELECT 
-            rn,
-            symbol,
-            hour_time,
-            gain,
-            loss,
-            gain::numeric as avg_gain,
-            loss::numeric as avg_loss,
-            1 as calc_count
-        FROM numbered_data
-        WHERE rn = 1
-        
-        UNION ALL
-        
-        SELECT 
-            nd.rn,
-            nd.symbol,
-            nd.hour_time,
-            nd.gain,
-            nd.loss,
-            CASE 
-                WHEN rr.calc_count < p.period THEN (rr.avg_gain * rr.calc_count + nd.gain) / (rr.calc_count + 1)
-                ELSE (rr.avg_gain * (p.period - 1) + nd.gain) / p.period
-            END,
-            CASE 
-                WHEN rr.calc_count < p.period THEN (rr.avg_loss * rr.calc_count + nd.loss) / (rr.calc_count + 1)
-                ELSE (rr.avg_loss * (p.period - 1) + nd.loss) / p.period
-            END,
-            rr.calc_count + 1
-        FROM numbered_data nd
-        CROSS JOIN period_param p
-        JOIN recursive_rsi rr ON nd.rn = rr.rn + 1
-    )
-    SELECT 
-        symbol,
-        hour_time,
-        CASE 
-            WHEN avg_loss = 0 THEN 100
-            ELSE ROUND(100 - (100 / (1 + (avg_gain / NULLIF(avg_loss, 0)))), 2)
-        END as rsi
-    FROM recursive_rsi
-    ORDER BY hour_time DESC
-    LIMIT 1;
+	WITH PriceChanges AS (
+		SELECT 
+			symbol,
+			date,
+			avg_close_price,
+			avg_close_price - LAG(avg_close_price) OVER (PARTITION BY symbol ORDER BY date) AS price_change
+		FROM Daily_Market_Data
+		WHERE symbol = $1
+		AND date >= CURRENT_DATE - INTERVAL '$2 days'
+	),
+	GainsLosses AS (
+		SELECT
+			symbol,
+			date,
+			CASE WHEN price_change > 0 THEN price_change ELSE 0 END AS gain,
+			CASE WHEN price_change < 0 THEN ABS(price_change) ELSE 0 END AS loss
+		FROM PriceChanges
+	),
+	AvgGainsLosses AS (
+		SELECT
+			symbol,
+			date,
+			AVG(gain) OVER (PARTITION BY symbol ORDER BY date ROWS BETWEEN 13 PRECEDING AND CURRENT ROW) AS avg_gain,
+			AVG(loss) OVER (PARTITION BY symbol ORDER BY date ROWS BETWEEN 13 PRECEDING AND CURRENT ROW) AS avg_loss
+		FROM GainsLosses
+	)
+	SELECT
+		symbol,
+		date,
+		CASE 
+		WHEN avg_gain = 0 AND avg_loss = 0 THEN 50
+		WHEN avg_loss = 0 THEN 100
+		WHEN avg_gain = 0 THEN 0
+		ELSE ROUND(100 - (100 / (1 + avg_gain / avg_loss)), 2)
+		END AS rsi
+	FROM AvgGainsLosses
+	WHERE date >= CURRENT_DATE - INTERVAL '$2 days'
+	ORDER BY symbol, date DESC;
 `,
 	GET_BOLLINGER_BANDS: `
     WITH period_data AS (

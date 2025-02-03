@@ -4,10 +4,7 @@ on:
   push:
     branches:
       - main  # main 브랜치에 직접 push될 때만 실행
-  pull_request:
-    types: [closed]
-    branches:
-      - main  # main 브랜치로의 PR이 merge되어 closed될 때만 실행
+      
 
 jobs:
   deploy:

@@ -123,8 +123,13 @@ export class MaStrategy implements iStrategy {
 			course = "this.score";
 			score = await this.score(data);
 
+			course = "score = score * this.weight";
+			score = score * this.weight;
+
 			course = "this.saveData";
 			await this.saveData(data, score);
+
+			return score;
 		} catch (error) {
 			if (error instanceof Error && "code" in error && error.code === "42P01") {
 				errorHandler(this.client, "TABLE_NOT_FOUND", "MA_SIGNAL", error);
@@ -133,7 +138,7 @@ export class MaStrategy implements iStrategy {
 			}
 		}
 
-		return score * this.weight;
+		return 0;
 	}
 
 	private async score(data: {

@@ -9,7 +9,7 @@ import { CHANNEL } from "../../shared/const/channel.const";
 import { QUERIES } from "../../shared/const/query.const";
 import type { iTradingSignal } from "../../shared/interfaces/iTrading";
 import API from "../../shared/services/api";
-import { getMsg } from "../../shared/services/i18n/msg/msg.const";
+import i18n from "../../shared/services/i18n";
 import { setupProcessHandlers } from "../../shared/services/process-handler";
 import { errorHandler } from "../../shared/services/util";
 import webhook from "../../shared/services/webhook";
@@ -94,10 +94,12 @@ async function setup() {
 	} catch (error: unknown) {
 		if (error instanceof Error) {
 			webhook.send(
-				`${loggerPrefix} ${getMsg("TRADING_SERVICE_START_ERROR")} ${error.message}`,
+				`${loggerPrefix} ${i18n.getMessage("TRADING_SERVICE_START_ERROR")} ${error.message}`,
 			);
 		} else {
-			webhook.send(`${loggerPrefix} ${getMsg("TRADING_SERVICE_START_ERROR")}`);
+			webhook.send(
+				`${loggerPrefix} ${i18n.getMessage("TRADING_SERVICE_START_ERROR")}`,
+			);
 		}
 		process.exit(1);
 	}
@@ -147,7 +149,7 @@ async function executeOrder(payload: string) {
 				break;
 			case "BUY": {
 				if (!avgBuyPrice)
-					throw new Error(String(getMsg("AVG_BUY_PRICE_NOT_FOUND")));
+					throw new Error(i18n.getMessage("AVG_BUY_PRICE_NOT_FOUND"));
 
 				const priceChangePercentage =
 					((avgBuyPrice - currentPrice) / currentPrice) * 100;
@@ -214,7 +216,7 @@ async function checkPosition(coin: string) {
 			return coinAccount?.avg_buy_price;
 		}
 	} catch (error: unknown) {
-		throw new Error(String(getMsg("GET_CURRENT_POSITION_ERROR")));
+		throw new Error(i18n.getMessage("GET_CURRENT_POSITION_ERROR"));
 	}
 }
 
@@ -241,7 +243,7 @@ async function calculateDynamicThreshold(
 			profitTake: PROFIT_TAKE_THRESHOLD * weights.profitTake,
 		};
 	} catch (error: unknown) {
-		throw new Error(String(getMsg("CALCULATE_THRESHOLD_ERROR")));
+		throw new Error(i18n.getMessage("CALCULATE_THRESHOLD_ERROR"));
 	}
 }
 

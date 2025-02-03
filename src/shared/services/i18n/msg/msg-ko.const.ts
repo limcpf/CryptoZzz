@@ -71,6 +71,12 @@ const messages: MSG = {
 		"⚠️ 48시간 이전 데이터 삭제 중 오류가 발생했습니다",
 	MA_INVALID_DATA: "⚠️ 이동평균 데이터가 유효하지 않습니다",
 	MACD_DATA_ERROR: "⚠️ MACD 데이터 조회 중 오류가 발생했습니다",
+	TRADING_SERVICE_START_ERROR: "⚠️ TRADING 서비스 시작 중 오류가 발생했습니다",
+	ANALYZE_START_ERROR: "⚠️ ANALYZE 서비스 시작 중 오류가 발생했습니다",
+	CANDLE_SAVE_START_ERROR: "⚠️ CANDLE-SAVE 서비스 시작 중 오류가 발생했습니다",
+	BOLLINGER_DATA_ERROR: "⚠️ 볼린저 밴드 데이터 조회 중 오류가 발생했습니다",
+	SIGNAL_MACD_ERROR: "⚠️ MACD 전략 실행 중 오류가 발생했습니다",
+	STOCHASTIC_DATA_ERROR: "⚠️ 스토캐스틱 데이터 조회 중 오류가 발생했습니다",
 } as const;
 
 export default messages;

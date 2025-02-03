@@ -1,7 +1,6 @@
 import type { PoolClient } from "pg";
-import { QUERIES } from "../../shared/const/query.const";
 import type { iMACDResult } from "../../shared/interfaces/iMarketDataResult";
-import { getMsg } from "../../shared/services/i18n/msg/msg.const";
+import i18n from "../../shared/services/i18n";
 import { errorHandler, innerErrorHandler } from "../../shared/services/util";
 import type { iStrategy } from "../iStrategy";
 
@@ -240,7 +239,7 @@ export class MacdStrategy implements iStrategy {
 		});
 
 		if (result.rows.length === 0) {
-			throw new Error(String(getMsg("SIGNAL_MACD_ERROR")));
+			throw new Error(i18n.getMessage("SIGNAL_MACD_ERROR"));
 		}
 
 		return result.rows[0];

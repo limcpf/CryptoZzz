@@ -4,10 +4,8 @@ import { getConnection, notify } from "../../shared/config/database";
 import logger from "../../shared/config/logger";
 import { CHANNEL } from "../../shared/const/channel.const";
 import { QUERIES } from "../../shared/const/query.const";
-import type { iCandle } from "../../shared/interfaces/iCandle";
-import type { iStrategyInfo } from "../../shared/interfaces/iStrategy";
 import API from "../../shared/services/api";
-import { getMsg } from "../../shared/services/i18n/msg/msg.const";
+import i18n from "../../shared/services/i18n";
 import { setupProcessHandlers } from "../../shared/services/process-handler";
 import { developmentLog, errorHandler } from "../../shared/services/util";
 import webhook from "../../shared/services/webhook";
@@ -47,11 +45,11 @@ async function setup() {
 	} catch (error: unknown) {
 		if (error instanceof Error) {
 			webhook.send(
-				`${loggerPrefix} ${getMsg("CANDLE_SAVE_START_ERROR")}_${process.env.CRYPTO_CODE} ${error.message}`,
+				`${loggerPrefix} ${i18n.getMessage("CANDLE_SAVE_START_ERROR")}_${process.env.CRYPTO_CODE} ${error.message}`,
 			);
 		} else {
 			webhook.send(
-				`${loggerPrefix} ${getMsg("CANDLE_SAVE_START_ERROR")}_${process.env.CRYPTO_CODE}`,
+				`${loggerPrefix} ${i18n.getMessage("CANDLE_SAVE_START_ERROR")}_${process.env.CRYPTO_CODE}`,
 			);
 		}
 		process.exit(1);
@@ -111,7 +109,7 @@ async function saveCandleData(data: iCandle[]) {
 		);
 
 		developmentLog(
-			`[${new Date().toLocaleString()}] ${loggerPrefix} ${getMsg(
+			`[${new Date().toLocaleString()}] ${loggerPrefix} ${i18n.getMessage(
 				"CANDLE_SAVE_NORMAL_COLLECTING",
 			)}`,
 		);
@@ -165,7 +163,7 @@ const init = async () => {
 
 init().catch((error) => {
 	webhook.send(
-		`${loggerPrefix} ${getMsg("CANDLE_SAVE_START_ERROR")}_${process.env.CRYPTO_CODE} ${error.message}`,
+		`${loggerPrefix} ${i18n.getMessage("CANDLE_SAVE_START_ERROR")}_${process.env.CRYPTO_CODE} ${error.message}`,
 	);
 	process.exit(1);
 });

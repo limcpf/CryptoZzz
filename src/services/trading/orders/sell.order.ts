@@ -3,8 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import { QUERIES } from "../../../shared/const/query.const";
 import type { iOrderProps } from "../../../shared/interfaces/iOrder";
 import API from "../../../shared/services/api";
-import { getMsg } from "../../../shared/services/i18n/msg/msg.const";
-
+import i18n from "../../../shared/services/i18n";
 export async function excuteSell(
 	client: PoolClient,
 	coin: string,
@@ -39,7 +38,7 @@ export async function excuteSell(
 		]);
 	}
 
-	throw new Error(String(getMsg("SELL_ORDER_ERROR")));
+	throw new Error(i18n.getMessage("SELL_ORDER_ERROR"));
 }
 
 async function excuteSellDev(
@@ -72,5 +71,5 @@ async function excuteSellDev(
 		return u;
 	}
 
-	throw new Error(String(getMsg("SELL_ORDER_DEV_ERROR")));
+	throw new Error(i18n.getMessage("SELL_ORDER_DEV_ERROR"));
 }

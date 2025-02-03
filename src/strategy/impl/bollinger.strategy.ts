@@ -1,8 +1,7 @@
 import type { PoolClient } from "pg";
 import { QUERIES } from "../../shared/const/query.const";
-import { getMsg } from "../../shared/services/i18n/msg/msg.const";
+import i18n from "../../shared/services/i18n";
 import type { iStrategy } from "../iStrategy";
-
 /**
  * Bollinger Bands Strategy Implementation
  * Generates trading signals based on price position relative to volatility bands
@@ -91,7 +90,7 @@ export class BollingerStrategy implements iStrategy {
 		});
 
 		if (result.rows.length === 0) {
-			throw new Error(String(getMsg("BOLLINGER_DATA_ERROR")));
+			throw new Error(i18n.getMessage("BOLLINGER_DATA_ERROR"));
 		}
 
 		return result.rows[0];

@@ -74,6 +74,14 @@ const messages: MSG = {
 		"⚠️ Error occurred while deleting data older than 48 hours",
 	MA_INVALID_DATA: "⚠️ Invalid MA data",
 	MACD_DATA_ERROR: "⚠️ Error occurred while fetching MACD data",
+	TRADING_SERVICE_START_ERROR:
+		"⚠️ Error occurred while starting TRADING service",
+	ANALYZE_START_ERROR: "⚠️ Error occurred while starting ANALYZE service",
+	CANDLE_SAVE_START_ERROR:
+		"⚠️ Error occurred while starting CANDLE-SAVE service",
+	BOLLINGER_DATA_ERROR: "⚠️ Error occurred while fetching Bollinger data",
+	SIGNAL_MACD_ERROR: "⚠️ Error occurred while executing MACD strategy",
+	STOCHASTIC_DATA_ERROR: "⚠️ Error occurred while fetching stochastic data",
 } as const;
 
 export default messages;

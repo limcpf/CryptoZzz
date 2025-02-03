@@ -1,8 +1,6 @@
 import type { PoolClient } from "pg";
-import { QUERIES } from "../../shared/const/query.const";
 import type { iRSIResult } from "../../shared/interfaces/iMarketDataResult";
 import i18n from "../../shared/services/i18n";
-import { getMsg } from "../../shared/services/i18n/msg/msg.const";
 import { errorHandler, innerErrorHandler } from "../../shared/services/util";
 import type { iStrategy } from "../iStrategy";
 

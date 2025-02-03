@@ -68,6 +68,12 @@ export interface MSG {
 	DELETE_48_HOURS_AGO_DATA: string;
 	MA_INVALID_DATA: string;
 	MACD_DATA_ERROR: string;
+	ANALYZE_START_ERROR: string;
+	TRADING_SERVICE_START_ERROR: string;
+	CANDLE_SAVE_START_ERROR: string;
+	BOLLINGER_DATA_ERROR: string;
+	SIGNAL_MACD_ERROR: string;
+	STOCHASTIC_DATA_ERROR: string;
 }
 
 export const getMsg = (language: string) => {

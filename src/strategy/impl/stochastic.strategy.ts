@@ -1,6 +1,5 @@
 import type { PoolClient } from "pg";
-import { QUERIES } from "../../shared/const/query.const";
-import { getMsg } from "../../shared/services/i18n/msg/msg.const";
+import i18n from "../../shared/services/i18n";
 import type { iStrategy } from "../iStrategy";
 
 /**
@@ -88,7 +87,7 @@ export class StochasticStrategy implements iStrategy {
 		});
 
 		if (result.rows.length === 0) {
-			throw new Error(String(getMsg("STOCHASTIC_DATA_ERROR")));
+			throw new Error(i18n.getMessage("STOCHASTIC_DATA_ERROR"));
 		}
 
 		return result.rows[0];

@@ -73,6 +73,7 @@ const messages: MSG = {
 	DELETE_48_HOURS_AGO_DATA_ERROR:
 		"⚠️ Error occurred while deleting data older than 48 hours",
 	MA_INVALID_DATA: "⚠️ Invalid MA data",
+	MACD_DATA_ERROR: "⚠️ Error occurred while fetching MACD data",
 } as const;
 
 export default messages;

@@ -211,52 +211,6 @@ export const QUERIES = {
 		"SELECT timestamp FROM Market_Data WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1;",
 	GET_LAST_ORDER:
 		"SELECT id FROM Orders WHERE symbol = $1 ORDER BY created_at DESC LIMIT 1;",
-	GET_VOLUME_ANALYSIS: `
-WITH RECURSIVE time_intervals AS (
-    SELECT 
-        NOW() as interval_start
-    UNION ALL
-    SELECT 
-        interval_start - INTERVAL '60 minutes'
-    FROM time_intervals
-    WHERE interval_start > NOW() - ($2 * INTERVAL '60 minutes')
-),
-volume_by_interval AS (
-    SELECT
-        ti.interval_start,
-        md.symbol,
-        AVG(md.volume) AS avg_volume
-    FROM time_intervals ti
-    LEFT JOIN Market_Data md ON 
-        md.symbol = $1 AND
-        md.timestamp > ti.interval_start - INTERVAL '60 minutes' AND
-        md.timestamp <= ti.interval_start
-    GROUP BY ti.interval_start, md.symbol
-),
-volume_analysis AS (
-    SELECT 
-        symbol,
-        interval_start,
-        avg_volume as current_volume,
-        (
-            SELECT AVG(avg_volume)
-            FROM volume_by_interval
-            WHERE interval_start < NOW() - INTERVAL '60 minutes'
-        ) as historical_avg_volume,
-        (
-            SELECT avg_volume
-            FROM volume_by_interval
-            WHERE interval_start = (SELECT MAX(interval_start) FROM volume_by_interval)
-        ) as latest_hour_volume
-    FROM volume_by_interval
-    WHERE interval_start = (SELECT MAX(interval_start) FROM volume_by_interval)
-)
-SELECT 
-    COALESCE(symbol, $1) as symbol,
-    COALESCE(latest_hour_volume, 0) as latest_hour_volume,
-    COALESCE(historical_avg_volume, 0) as historical_avg_volume
-FROM volume_analysis;
-`,
 	INSERT_SIGNAL_LOG: `
     INSERT INTO SignalLog (symbol, hour_time)
     VALUES ($1, $2)
@@ -265,10 +219,6 @@ FROM volume_analysis;
 	INSERT_RSI_SIGNAL: `
     INSERT INTO RsiSignal (signal_id, rsi, score)
     VALUES ($1, $2, $3);
-`,
-	INSERT_VOLUME_SIGNAL: `
-    INSERT INTO VolumeSignal (signal_id, current_volume, avg_volume, score)
-    VALUES ($1, $2, $3, $4);
 `,
 	GET_RECENT_RSI_SIGNALS: `
     WITH HourlySignals AS (
@@ -379,80 +329,6 @@ FROM volume_analysis;
     FROM avg_gains_losses
     ORDER BY hour_time DESC
     LIMIT 1;
-`,
-	GET_MACD_ANALYSIS: `
-WITH hourly_candles AS (
-    SELECT 
-        time_bucket('1 hour', timestamp) AS hourly_time,
-        symbol,
-        FIRST(open_price, timestamp) as open_price,
-        MAX(high_price) as high_price,
-        MIN(low_price) as low_price,
-        LAST(close_price, timestamp) as close_price,
-        SUM(volume) as volume
-    FROM Market_Data
-    WHERE symbol = $1
-        AND timestamp >= NOW() - ($2::integer * INTERVAL '1 hour')
-    GROUP BY hourly_time, symbol
-    ORDER BY hourly_time DESC
-),
-ema_calc AS (
-    SELECT 
-        hourly_time,
-        close_price,
-        symbol,
-        EXP(SUM(LN(close_price)) OVER (
-            ORDER BY hourly_time DESC
-            ROWS BETWEEN ($3::integer - 1) PRECEDING AND CURRENT ROW
-        ) / $3::float) as ema_short,
-        EXP(SUM(LN(close_price)) OVER (
-            ORDER BY hourly_time DESC
-            ROWS BETWEEN ($4::integer - 1) PRECEDING AND CURRENT ROW
-        ) / $4::float) as ema_long
-    FROM hourly_candles
-),
-macd_calc AS (
-    SELECT 
-        hourly_time,
-        (ema_short - ema_long) as macd_line,
-        ema_short,
-        ema_long
-    FROM ema_calc
-    WHERE ema_short IS NOT NULL AND ema_long IS NOT NULL
-),
-signal_calc AS (
-    SELECT 
-        hourly_time,
-        macd_line,
-        EXP(SUM(LN(ABS(macd_line))) OVER (
-            ORDER BY hourly_time DESC
-            ROWS BETWEEN ($5::integer - 1) PRECEDING AND CURRENT ROW
-        ) / $5::float) 
-            * SIGN(macd_line) as signal_line
-    FROM macd_calc
-)
-SELECT 
-    macd_line as current_macd,
-    signal_line as current_signal,
-    LAG(macd_line) OVER (ORDER BY hourly_time DESC) as prev_macd,
-    LAG(signal_line) OVER (ORDER BY hourly_time DESC) as prev_signal,
-    (macd_line - signal_line) as histogram,
-    LAG(macd_line - signal_line) OVER (ORDER BY hourly_time DESC) as prev_histogram
-FROM signal_calc
-WHERE signal_line IS NOT NULL
-ORDER BY hourly_time DESC
-LIMIT 1;
-`,
-	INSERT_MACD_SIGNAL: `
-    INSERT INTO MacdSignal (
-        signal_id,
-        macd_line,
-        signal_line,
-        histogram,
-        zero_cross,
-        trend_strength,
-        score
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7);
 `,
 	GET_BOLLINGER_BANDS: `
     WITH period_data AS (

@@ -70,6 +70,7 @@ const messages: MSG = {
 	DELETE_48_HOURS_AGO_DATA_ERROR:
 		"⚠️ 48시간 이전 데이터 삭제 중 오류가 발생했습니다",
 	MA_INVALID_DATA: "⚠️ 이동평균 데이터가 유효하지 않습니다",
+	MACD_DATA_ERROR: "⚠️ MACD 데이터 조회 중 오류가 발생했습니다",
 } as const;
 
 export default messages;

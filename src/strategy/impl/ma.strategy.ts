@@ -150,7 +150,7 @@ export class MaStrategy implements iStrategy {
 		const maRatio = (short_ma - long_ma) / long_ma;
 
 		// tanh 특성상 자체 클램핑(-1~1) 적용되지만 추가 보정 필요
-		const baseScore = Math.tanh(maRatio * 2); // 민감도 2배 증가
+		const baseScore = Math.tanh(maRatio * 5); // 민감도 3배 증가
 		const rateOfChange =
 			prev_short_ma > 0 ? (short_ma - prev_short_ma) / prev_short_ma : 0;
 
@@ -186,7 +186,7 @@ export class MaStrategy implements iStrategy {
 		data: iMovingAveragesResult,
 		score: number,
 	): Promise<void> {
-		const { command } = await this.client.query(this.INSERT_MA_SIGNAL, [
+		await this.client.query(this.INSERT_MA_SIGNAL, [
 			this.uuid,
 			data.short_ma,
 			data.long_ma,

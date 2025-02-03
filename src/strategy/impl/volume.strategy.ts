@@ -1,8 +1,7 @@
 import type { PoolClient } from "pg";
-import logger from "../../shared/config/logger";
-import { QUERIES } from "../../shared/const/query.const";
 import type { iVolumeAnalysisResult } from "../../shared/interfaces/iMarketDataResult";
-import { getMsg } from "../../shared/services/i18n/msg/msg.const";
+import i18n from "../../shared/services/i18n";
+import { errorHandler, innerErrorHandler } from "../../shared/services/util";
 import type { iStrategy } from "../iStrategy";
 
 /**
@@ -26,7 +25,6 @@ export class VolumeStrategy implements iStrategy {
 	readonly uuid: string;
 	readonly symbol: string;
 	private readonly period: number = 24; // 24시간 기준
-	private readonly loggerPrefix = "VOLUME-STRATEGY";
 
 	constructor(client: PoolClient, uuid: string, symbol: string, weight = 0.75) {
 		this.client = client;
@@ -35,33 +33,96 @@ export class VolumeStrategy implements iStrategy {
 		this.symbol = symbol;
 	}
 
-	async execute(): Promise<number> {
-		const volumeData = await this.getData();
-		if (!volumeData) {
-			return 0;
-		}
+	private readonly GET_VOLUME_ANALYSIS = `
+		WITH RECURSIVE time_intervals AS (
+			SELECT 
+				NOW() as interval_start
+			UNION ALL
+			SELECT 
+				interval_start - INTERVAL '60 minutes'
+			FROM time_intervals
+			WHERE interval_start > NOW() - ($2 * INTERVAL '60 minutes')
+		),
+		volume_by_interval AS (
+			SELECT
+				ti.interval_start,
+				md.symbol,
+				AVG(md.volume) AS avg_volume
+			FROM time_intervals ti
+			LEFT JOIN Market_Data md ON 
+				md.symbol = $1 AND
+				md.timestamp > ti.interval_start - INTERVAL '60 minutes' AND
+				md.timestamp <= ti.interval_start
+			GROUP BY ti.interval_start, md.symbol
+		),
+		volume_analysis AS (
+			SELECT 
+				symbol,
+				interval_start,
+				avg_volume as current_volume,
+				(
+					SELECT AVG(avg_volume)
+					FROM volume_by_interval
+					WHERE interval_start < NOW() - INTERVAL '60 minutes'
+				) as historical_avg_volume,
+				(
+					SELECT avg_volume
+					FROM volume_by_interval
+					WHERE interval_start = (SELECT MAX(interval_start) FROM volume_by_interval)
+				) as latest_hour_volume
+			FROM volume_by_interval
+			WHERE interval_start = (SELECT MAX(interval_start) FROM volume_by_interval)
+		)
+		SELECT 
+			COALESCE(symbol, $1) as symbol,
+			COALESCE(latest_hour_volume, 0) as latest_hour_volume,
+			COALESCE(historical_avg_volume, 0) as historical_avg_volume
+		FROM volume_analysis;
+	`;
 
-		const score = this.score(volumeData);
-		await this.saveData(volumeData, score);
+	private readonly INSERT_VOLUME_SIGNAL = `
+		INSERT INTO VolumeSignal (signal_id, current_volume, avg_volume, score)
+		VALUES ($1, $2, $3, $4);
+	`;
+
+	async execute(): Promise<number> {
+		let course = "this.getData";
+		let score = 0;
+
+		try {
+			const volumeData = await this.getData();
+
+			course = "this.score";
+			score = this.score(volumeData);
+
+			course = "this.saveData";
+			await this.saveData(volumeData, score);
+		} catch (error) {
+			if (error instanceof Error && "code" in error && error.code === "42P01") {
+				errorHandler(this.client, "TABLE_NOT_FOUND", "VOLUME_SIGNAL", error);
+			} else {
+				innerErrorHandler("SIGNAL_VOLUME_ERROR", error, course);
+			}
+		}
 
 		return score * this.weight;
 	}
 
-	private async getData(): Promise<iVolumeAnalysisResult | null> {
+	private async getData(): Promise<iVolumeAnalysisResult> {
 		try {
 			const result = await this.client.query<iVolumeAnalysisResult>({
 				name: `get_volume_${this.symbol}_${this.uuid}`,
-				text: QUERIES.GET_VOLUME_ANALYSIS,
+				text: this.GET_VOLUME_ANALYSIS,
 				values: [this.symbol, this.period],
 			});
 
 			if (result.rowCount === 0) {
-				throw new Error(String(getMsg("VOLUME_DATA_NOT_FOUND")));
+				throw new Error(i18n.getMessage("VOLUME_DATA_NOT_FOUND"));
 			}
 
 			return result.rows[0];
 		} catch (error) {
-			throw new Error(String(getMsg("VOLUME_DATA_ERROR")));
+			throw new Error(i18n.getMessage("VOLUME_DATA_ERROR"));
 		}
 	}
 
@@ -80,14 +141,15 @@ export class VolumeStrategy implements iStrategy {
 		// 1보다 크게 높을 때는 1에 가까워지고,
 		// 1보다 크게 낮을 때는 -1에 가까워지도록 조정
 		const normalizedRatio = Math.log(volumeRatio); // 로그를 취해 비율의 비대칭성 해결
-		return Math.tanh(normalizedRatio);
+
+		return Number(Math.tanh(normalizedRatio).toFixed(2));
 	}
 
 	private async saveData(
 		data: iVolumeAnalysisResult,
 		score: number,
 	): Promise<void> {
-		await this.client.query(QUERIES.INSERT_VOLUME_SIGNAL, [
+		await this.client.query(this.INSERT_VOLUME_SIGNAL, [
 			this.uuid,
 			data.latest_hour_volume,
 			data.historical_avg_volume,

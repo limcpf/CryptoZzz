@@ -1,4 +1,5 @@
 import type { PoolClient } from "pg";
+import { QUERIES } from "../../shared/const/query.const";
 import i18n from "../../shared/services/i18n";
 import type { iStrategy } from "../iStrategy";
 

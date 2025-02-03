@@ -114,9 +114,6 @@ async function executeOrder(payload: string) {
 	}
 
 	try {
-		const avgBuyPrice = await checkPosition(coin);
-		const thresholds = await calculateDynamicThreshold(client, coin);
-
 		const currentPrices = await API.GET_CANDLE_DATA(
 			coin,
 			1,
@@ -124,6 +121,9 @@ async function executeOrder(payload: string) {
 		);
 
 		const currentPrice = currentPrices[0].candle_acc_trade_price;
+
+		const avgBuyPrice = await checkPosition(coin, currentPrice);
+		const thresholds = await calculateDynamicThreshold(client, coin);
 
 		switch (currentPosition) {
 			case "SELL":
@@ -191,7 +191,7 @@ async function executeOrder(payload: string) {
 	}
 }
 
-async function checkPosition(coin: string) {
+async function checkPosition(coin: string, currentPrice: number) {
 	try {
 		const balances = await getAccountBalance(client, [
 			process.env.UNIT || "KRW",
@@ -204,11 +204,17 @@ async function checkPosition(coin: string) {
 			balances.find((balance) => balance.coin === "KRW")?.balance || 0;
 		coinBalance = coinAccount?.balance || 0;
 
-		if (coinBalance > 0) {
+		const coinValue = coinBalance * currentPrice;
+		const MIN_COIN_VALUE = 100; // 최소 코인 가치 (원)
+
+		if (coinBalance > 0 && coinValue >= MIN_COIN_VALUE) {
 			currentPosition = "BUY";
 		} else if (KRWBalance > 0) {
 			currentPosition = "SELL";
-		} else if (KRWBalance <= 0 && coinBalance <= 0) {
+		} else if (
+			KRWBalance <= 0 &&
+			(coinBalance <= 0 || coinValue < MIN_COIN_VALUE)
+		) {
 			currentPosition = "NONE";
 		}
 

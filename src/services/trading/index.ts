@@ -188,6 +188,8 @@ async function executeOrder(payload: string) {
 		}
 	} catch (error: unknown) {
 		errorHandler(client, "TRADING_EXCUTE_ORDER_ERROR", loggerPrefix, error);
+	} finally {
+		isRunning = false;
 	}
 }
 

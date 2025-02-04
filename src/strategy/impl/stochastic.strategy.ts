@@ -1,5 +1,4 @@
 import type { PoolClient } from "pg";
-import { QUERIES } from "../../shared/const/query.const";
 import i18n from "../../shared/services/i18n";
 import type { iStrategy } from "../iStrategy";
 
@@ -19,7 +18,6 @@ export class StochasticStrategy implements iStrategy {
 	readonly params: {
 		kPeriod: number;
 		dPeriod: number;
-		lookbackDays: number;
 	};
 
 	constructor(
@@ -29,7 +27,6 @@ export class StochasticStrategy implements iStrategy {
 		params?: {
 			kPeriod: number;
 			dPeriod: number;
-			lookbackDays: number;
 		},
 		weight = 0.8,
 	) {
@@ -38,80 +35,63 @@ export class StochasticStrategy implements iStrategy {
 		this.uuid = uuid;
 		this.symbol = symbol;
 		this.params = params ?? {
-			kPeriod: 14,
+			kPeriod: 10,
 			dPeriod: 3,
-			lookbackDays: 3,
 		};
 	}
 
 	private readonly GET_STOCHASTIC_OSCILLATOR = `
-	WITH 
-	daily_data AS (
-		SELECT 
-			symbol,
-			date,
-			high_price,
-			low_price,
-			avg_close_price AS close
-		FROM Daily_Market_Data
-		WHERE symbol = $1
-			AND date < CURRENT_DATE
-	),
-	minute_data AS (
-		SELECT
-			time_bucket(($4::integer || ' minutes')::interval, timestamp) AS bucket,
-			symbol,
-			MAX(high_price) AS high,
-			MIN(low_price) AS low,
-			LAST(close_price, timestamp) AS close
-		FROM Market_Data
-		WHERE symbol = $1
-			AND timestamp >= NOW() - ($4::integer * INTERVAL '1 minute')
-		GROUP BY bucket, symbol
-	),
-	combined_data AS (
-		SELECT 
-			date::timestamp AS bucket, 
-			symbol,
-			high_price AS high,
-			low_price AS low,
-			close
-		FROM daily_data
-		UNION ALL
-		SELECT 
-			bucket,
-			symbol,
-			high,
-			low,
-			close
-		FROM minute_data
-	),
-	raw_k_values AS (
-		SELECT
-			bucket,
-			symbol,
-			close,
-			MIN(low) OVER w AS period_low,
-			MAX(high) OVER w AS period_high,
-			close - MIN(low) OVER w AS numerator,
-			NULLIF(MAX(high) OVER w - MIN(low) OVER w, 0) AS denominator
-		FROM combined_data
-		WINDOW w AS (PARTITION BY symbol ORDER BY bucket ROWS BETWEEN ($2::integer * 1440) PRECEDING AND CURRENT ROW)
-	),
-	k_values AS (
-		SELECT
-			bucket,
-			symbol,
-			(numerator / denominator * 100) AS percent_k
-		FROM raw_k_values
-	)
-	SELECT
-		bucket AS timestamp,
-		ROUND(percent_k::numeric, 2) AS k_value,
-		ROUND(AVG(percent_k) OVER (ORDER BY bucket ROWS BETWEEN $3::integer PRECEDING AND CURRENT ROW)::numeric, 2) AS d_value
-	FROM k_values
-	ORDER BY bucket DESC
-	LIMIT 1;
+WITH RECURSIVE time_series AS (
+    -- 현재 시각부터 15분 단위로 과거 시점들 생성
+    SELECT 
+        date_trunc('minute', NOW()) AS ts
+    UNION ALL
+    SELECT 
+        ts - INTERVAL '15 minutes'
+    FROM time_series
+    WHERE ts > NOW() - INTERVAL '4 hours'
+),
+fifteen_minute_data AS (
+    SELECT
+        time_series.ts AS bucket,
+        md.symbol,
+        MAX(md.high_price) AS high,
+        MIN(md.low_price) AS low,
+        LAST(md.close_price, md.timestamp) AS close
+    FROM time_series
+    LEFT JOIN Market_Data md ON 
+        md.symbol = $1 AND
+        md.timestamp >= time_series.ts - INTERVAL '15 minutes' AND
+        md.timestamp < time_series.ts
+    GROUP BY time_series.ts, md.symbol
+    HAVING COUNT(md.symbol) > 0  -- 데이터가 있는 구간만 선택
+),
+raw_k_values AS (
+    SELECT
+        bucket,
+        symbol,
+        close,
+        MIN(low) OVER w AS period_low,
+        MAX(high) OVER w AS period_high,
+        close - MIN(low) OVER w AS numerator,
+        NULLIF(MAX(high) OVER w - MIN(low) OVER w, 0) AS denominator
+    FROM fifteen_minute_data
+    WINDOW w AS (PARTITION BY symbol ORDER BY bucket ROWS BETWEEN $2 PRECEDING AND CURRENT ROW)
+),
+k_values AS (
+    SELECT
+        bucket,
+        symbol,
+        (numerator / denominator * 100) AS percent_k
+    FROM raw_k_values
+)
+SELECT
+    bucket AS timestamp,
+    ROUND(percent_k::numeric, 2) AS k_value,
+    ROUND(AVG(percent_k) OVER (ORDER BY bucket ROWS BETWEEN $3 PRECEDING AND CURRENT ROW)::numeric, 2) AS d_value
+FROM k_values
+ORDER BY bucket DESC
+LIMIT 1;
 	`;
 
 	private readonly INSERT_STOCHASTIC_SIGNAL = `
@@ -169,12 +149,7 @@ export class StochasticStrategy implements iStrategy {
 		const result = await this.client.query({
 			name: `get_stochastic_${this.symbol}_${this.uuid}`,
 			text: this.GET_STOCHASTIC_OSCILLATOR,
-			values: [
-				this.symbol,
-				this.params.lookbackDays,
-				this.params.kPeriod,
-				this.params.dPeriod,
-			],
+			values: [this.symbol, this.params.kPeriod, this.params.dPeriod],
 		});
 
 		if (result.rows.length === 0) {

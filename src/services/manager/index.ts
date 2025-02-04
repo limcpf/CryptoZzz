@@ -115,20 +115,18 @@ async function delete48HoursAgoData() {
 			"DELETE FROM Market_Data WHERE timestamp < (NOW() - INTERVAL '48 hours');",
 		);
 
-		logger.send(
-			client,
-			`
-**48시간 전 데이터 삭제 완료**
-**삭제된 행 수:** ${result.rowCount}
-		`,
-		);
+		const msg = `
+			**48시간 전 데이터 삭제 완료**
+			**삭제된 행 수:** ${result.rowCount}
+		`;
+
+		logger.send(client, msg);
 	} catch (error: unknown) {
 		errorHandler(client, "DELETE_48_HOURS_AGO_DATA_ERROR", loggerPrefix, error);
 	}
 }
 
 async function send(msg: string) {
-	console.log("[MANAGER] send", msg);
 	webhook.send(msg);
 }
 

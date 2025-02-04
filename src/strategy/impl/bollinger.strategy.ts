@@ -114,48 +114,37 @@ ORDER BY timestamp DESC;
 		bollinger_lower: number;
 		close_price: number;
 	}): number {
-		console.log("========================");
-		console.log("bollinger bands");
-		const { close_price, bollinger_upper, bollinger_middle, bollinger_lower } =
+		console.log("===========");
+		const { bollinger_upper, bollinger_middle, bollinger_lower, close_price } =
 			data;
+		console.log(data);
 
-		console.log("close_price", close_price);
-		console.log("bollinger_upper", bollinger_upper);
-		console.log("bollinger_middle", bollinger_middle);
-		console.log("bollinger_lower", bollinger_lower);
+		// 밴드폭 및 절반 폭 계산
 		const bandWidth = bollinger_upper - bollinger_lower;
 		console.log("bandWidth", bandWidth);
+		const halfBandWidth = bandWidth / 2;
 
-		// 밴드 중간선 대비 현재 가격 위치 (정규화)
-		const normalizedPosition =
-			(close_price - bollinger_middle) / (bollinger_upper - bollinger_middle);
-		console.log("normalizedPosition", normalizedPosition);
+		// 중간선에서의 상대적 위치: 가격이 중간선일 경우 0, 상한이면 +1, 하한이면 -1
+		const normalizedDeviation =
+			(close_price - bollinger_middle) / halfBandWidth;
+		console.log("normalizedDeviation", normalizedDeviation);
 
-		// 밴드 폭 가중치 (밴드가 좁을수록 민감도 증가)
-		const widthFactor = Math.tanh(1 / (bandWidth / bollinger_middle));
+		// 폭 가중치: 밴드폭이 좁을수록 (즉, 변동성이 낮을수록) 민감도를 높임
+		const widthFactor = Math.tanh(bollinger_middle / bandWidth);
 		console.log("widthFactor", widthFactor);
-		// 비선형 스코어 계산
-		const rawScore = Math.tanh(normalizedPosition * 3) * widthFactor;
-		console.log("rawScore", rawScore);
+		// 민감도 조절 인자 (필요에 따라 조정 가능)
+		const sensitivity = 1;
 
-		// 밴드 경계 근처에서 점수를 부드럽게 조정
-		const upperThreshold = (close_price - bollinger_upper) / bollinger_upper;
-		const lowerThreshold = (bollinger_lower - close_price) / bollinger_lower;
+		// tanh 함수를 사용해 부드러운 비선형 스코어 산출
+		// 가격이 중간선보다 위이면 normalizedDeviation > 0 → tanh(양수) > 0,
+		// 그런데 과매수(가격이 너무 높음)는 매도 신호이므로 부호 반전하여 음수를 만듦.
+		let score = -Math.tanh(normalizedDeviation * sensitivity) * widthFactor;
+		console.log("score", score);
+		// -1 ~ 1 사이로 클램프
+		score = Math.max(-1, Math.min(1, score));
+		console.log("score2", score);
 
-		console.log("upperThreshold", upperThreshold);
-		console.log("lowerThreshold", lowerThreshold);
-
-		if (upperThreshold > 0) {
-			console.log("upperThreshold > 0");
-			return Math.min(-0.7, rawScore - upperThreshold);
-		}
-		if (lowerThreshold > 0) {
-			console.log("lowerThreshold > 0");
-			return Math.max(0.7, rawScore + lowerThreshold);
-		}
-
-		console.log("rawScore", rawScore);
-		return Math.max(-1, Math.min(1, rawScore));
+		return score;
 	}
 
 	private async getData(): Promise<{

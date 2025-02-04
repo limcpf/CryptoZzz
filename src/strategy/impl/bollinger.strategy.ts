@@ -33,7 +33,7 @@ export class BollingerStrategy implements iStrategy {
 		uuid: string,
 		symbol: string,
 		period = 20,
-		hours = 24,
+		hours = 10,
 	) {
 		this.client = client;
 		this.uuid = uuid;
@@ -43,35 +43,50 @@ export class BollingerStrategy implements iStrategy {
 	}
 
 	private readonly GET_BOLLINGER_BANDS = `
-	WITH intraday_data AS (
+WITH RECURSIVE time_series AS (
+    -- 현재 시각부터 20분 단위로 과거 시점들 생성
+    SELECT 
+        date_trunc('minute', NOW()) AS ts
+    UNION ALL
+    SELECT 
+        ts - INTERVAL '20 minute'
+    FROM time_series
+    WHERE ts > NOW() - (INTERVAL '1 hour' * $3)
+),
+twenty_minute_data AS (
     SELECT
+        time_series.ts AS bucket,
+        md.symbol,
+        LAST(md.close_price, md.timestamp) AS close_price
+    FROM time_series
+    LEFT JOIN Market_Data md ON 
+        md.symbol = $1 AND
+        md.timestamp >= time_series.ts - INTERVAL '20 minute' AND
+        md.timestamp < time_series.ts
+    GROUP BY time_series.ts, md.symbol
+    HAVING COUNT(md.symbol) > 0  -- 데이터가 있는 구간만 선택
+),
+bollinger_calc AS (
+    SELECT
+        bucket,
         symbol,
-        timestamp,
         close_price,
-        AVG(close_price) OVER (
-            PARTITION BY symbol
-            ORDER BY timestamp
-            ROWS BETWEEN $2::integer - 1 PRECEDING AND CURRENT ROW
-        ) AS moving_avg,
-        STDDEV(close_price) OVER (
-            PARTITION BY symbol
-            ORDER BY timestamp
-            ROWS BETWEEN $2::integer - 1 PRECEDING AND CURRENT ROW
-        ) AS moving_stddev
-    FROM Market_Data
-    WHERE 
-        symbol = $1
-        AND timestamp >= NOW() - INTERVAL '1 hour' * $3::integer
+        AVG(close_price) OVER w AS moving_avg,
+        STDDEV(close_price) OVER w AS moving_stddev
+    FROM twenty_minute_data
+    WINDOW w AS (ORDER BY bucket ROWS BETWEEN $2::integer - 1 PRECEDING AND CURRENT ROW) 
 )
 SELECT
+    bucket AS timestamp,
     symbol,
-    timestamp,
     close_price,
-    ROUND(moving_avg + (2 * moving_stddev), 5) AS bollinger_upper,
-    ROUND(moving_avg, 5) AS bollinger_middle,
-    ROUND(moving_avg - (2 * moving_stddev), 5) AS bollinger_lower
-FROM intraday_data
-ORDER BY timestamp DESC;
+    ROUND((moving_avg + (2 * moving_stddev))::numeric, 5) AS bollinger_upper,
+    ROUND(moving_avg::numeric, 5) AS bollinger_middle,
+    ROUND((moving_avg - (2 * moving_stddev))::numeric, 5) AS bollinger_lower
+FROM bollinger_calc
+WHERE moving_avg IS NOT NULL
+ORDER BY bucket DESC
+LIMIT 1;
 	`;
 
 	private readonly INSERT_BOLLINGER_SIGNAL = `

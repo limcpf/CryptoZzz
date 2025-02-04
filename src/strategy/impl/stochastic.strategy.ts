@@ -76,7 +76,7 @@ raw_k_values AS (
         close - MIN(low) OVER w AS numerator,
         NULLIF(MAX(high) OVER w - MIN(low) OVER w, 0) AS denominator
     FROM fifteen_minute_data
-    WINDOW w AS (PARTITION BY symbol ORDER BY bucket ROWS BETWEEN $2 PRECEDING AND CURRENT ROW)
+    WINDOW w AS (PARTITION BY symbol ORDER BY bucket ROWS BETWEEN $2::integer - 1 PRECEDING AND CURRENT ROW)
 ),
 k_values AS (
     SELECT
@@ -88,7 +88,7 @@ k_values AS (
 SELECT
     bucket AS timestamp,
     ROUND(percent_k::numeric, 2) AS k_value,
-    ROUND(AVG(percent_k) OVER (ORDER BY bucket ROWS BETWEEN $3 PRECEDING AND CURRENT ROW)::numeric, 2) AS d_value
+    ROUND(AVG(percent_k) OVER (ORDER BY bucket ROWS BETWEEN $3::integer - 1 PRECEDING AND CURRENT ROW)::numeric, 2) AS d_value
 FROM k_values
 ORDER BY bucket DESC
 LIMIT 1;

@@ -41,10 +41,10 @@ export class MacdStrategy implements iStrategy {
 		this.uuid = uuid;
 		this.symbol = symbol;
 		this.params = params ?? {
-			lookbackHours: 48,
-			shortPeriod: 12,
-			longPeriod: 26,
-			signalPeriod: 9,
+			lookbackHours: 24,
+			shortPeriod: 6,
+			longPeriod: 13,
+			signalPeriod: 5,
 		};
 	}
 

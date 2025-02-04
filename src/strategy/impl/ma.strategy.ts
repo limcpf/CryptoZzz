@@ -31,81 +31,84 @@ export class MaStrategy implements iStrategy {
 	readonly client: PoolClient;
 	readonly uuid: string;
 	readonly symbol: string;
+	readonly params: {
+		shortPeriod: number;
+		longPeriod: number;
+	};
 
-	constructor(client: PoolClient, uuid: string, symbol: string, weight = 0.9) {
+	constructor(
+		client: PoolClient,
+		uuid: string,
+		symbol: string,
+		params?: {
+			shortPeriod: number;
+			longPeriod: number;
+		},
+		weight = 0.9,
+	) {
 		this.client = client;
 		this.weight = weight;
 		this.uuid = uuid;
 		this.symbol = symbol;
+		this.params = params ?? {
+			shortPeriod: 10,
+			longPeriod: 20,
+		};
 	}
 
 	private readonly GET_MA_SCORE = `
-		WITH
-			-- 실시간(오늘) 데이터 집계
-			today_data AS (
-				SELECT
-					symbol,
-					NOW()::DATE AS date,
-					AVG(close_price) AS avg_close_price,
-					MAX(high_price) AS high_price,  -- Daily_Market_Data 구조에 맞게 추가
-					MIN(low_price) AS low_price,   -- 누락된 컬럼 보완
-					SUM(volume) AS total_volume
-				FROM Market_Data
-				WHERE symbol = $1
-					AND timestamp >= NOW()::DATE
-				GROUP BY symbol
-			),
-			-- 과거 데이터와 실시간 데이터 결합
-			combined_data AS (
-				SELECT symbol, date, avg_close_price, high_price, low_price, total_volume 
-				FROM Daily_Market_Data
-				WHERE symbol = $1
-				UNION ALL
-				SELECT symbol, date, avg_close_price, high_price, low_price, total_volume 
-				FROM today_data
-			),
-			-- MA 계산
-			ma_calculations AS (
-				SELECT
-					symbol,
-					date,
-					avg_close_price,
-					-- 단기 MA (5일)
-					AVG(avg_close_price) OVER (
-						PARTITION BY symbol
-						ORDER BY date
-						ROWS BETWEEN 4 PRECEDING AND CURRENT ROW
-					) AS short_ma,
-					-- 장기 MA (20일)
-					AVG(avg_close_price) OVER (
-						PARTITION BY symbol
-						ORDER BY date
-						ROWS BETWEEN 19 PRECEDING AND CURRENT ROW
-					) AS long_ma
-				FROM combined_data
-			),
-			-- 이전 단기 MA 계산 (분리된 단계에서 처리)
-			prev_ma_calculations AS (
-				SELECT
-					*,
-					COALESCE(
-						LAG(short_ma) OVER (
-							PARTITION BY symbol
-							ORDER BY date
-						),
-						0
-					) AS prev_short_ma
-				FROM ma_calculations
-			)
-		SELECT
-			symbol,
-			date,
-			short_ma,
-			long_ma,
-			prev_short_ma
-		FROM prev_ma_calculations
-		ORDER BY symbol, date DESC
-		LIMIT 1;
+	WITH RECURSIVE time_series AS (
+    -- 현재 시각부터 15분 단위로 과거 시점들 생성
+    SELECT 
+        date_trunc('minute', NOW()) AS ts
+    UNION ALL
+    SELECT 
+        ts - INTERVAL '15 minutes'
+    FROM time_series
+    WHERE ts > NOW() - INTERVAL '6 hours'
+),
+fifteen_minute_data AS (
+    SELECT
+        time_series.ts AS bucket,
+        symbol,
+        AVG(close_price) AS avg_close_price
+    FROM time_series
+    LEFT JOIN Market_Data md ON 
+        md.symbol = $1 AND
+        md.timestamp >= time_series.ts - INTERVAL '15 minutes' AND
+        md.timestamp < time_series.ts
+    GROUP BY time_series.ts, symbol
+    HAVING COUNT(symbol) > 0
+),
+ma_calculations AS (
+    SELECT
+        bucket,
+        symbol,
+        avg_close_price,
+        -- 단기 MA (10봉 = 약 150분)
+        AVG(avg_close_price) OVER (
+            ORDER BY bucket
+            ROWS BETWEEN $2::integer - 1 PRECEDING AND CURRENT ROW
+        ) AS short_ma,
+        -- 장기 MA (20봉 = 약 300분)
+        AVG(avg_close_price) OVER (
+            ORDER BY bucket
+            ROWS BETWEEN $3::integer - 1 PRECEDING AND CURRENT ROW
+        ) AS long_ma
+    FROM fifteen_minute_data
+)
+SELECT
+    symbol,
+    bucket as date,
+    short_ma,
+    long_ma,
+    COALESCE(
+        LAG(short_ma) OVER (ORDER BY bucket),
+        0
+    ) AS prev_short_ma
+FROM ma_calculations
+ORDER BY bucket DESC
+LIMIT 1;
 	`;
 
 	private readonly INSERT_MA_SIGNAL = `
@@ -171,7 +174,7 @@ export class MaStrategy implements iStrategy {
 		const result = await this.client.query<iMovingAveragesResult>({
 			name: `get_ma_${this.symbol}_${this.uuid}`,
 			text: this.GET_MA_SCORE,
-			values: [this.symbol],
+			values: [this.symbol, this.params.shortPeriod, this.params.longPeriod],
 		});
 
 		if (result.rows.length === 0) {

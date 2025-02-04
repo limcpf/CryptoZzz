@@ -42,8 +42,8 @@ const CONDITION_WEIGHTS = {
 	WEAK_DOWNTREND: { buy: 1.1, sell: 0.9, profitTake: 0.8 },
 	STRONG_DOWNTREND: { buy: 1.2, sell: 0.8, profitTake: 0.5 },
 } as const;
-const BASE_BUY = Number(process.env.BASE_BUY) || 2.5;
-const BASE_SELL = Number(process.env.BASE_SELL) || -2.5;
+const BASE_BUY = Number(process.env.BASE_BUY) || 1.5;
+const BASE_SELL = Number(process.env.BASE_SELL) || -1.5;
 const MAX_BUY_THRESHOLD = Number(process.env.MAX_BUY_THRESHOLD) || 5.0;
 // 손절매 임계값 추가 (-5%)
 const STOP_LOSS_THRESHOLD = Number(process.env.STOP_LOSS_THRESHOLD) || -2.0;

@@ -97,7 +97,7 @@ ORDER BY timestamp DESC;
 			score = this.calculateScore(data);
 
 			course = "this.weight";
-			score = score * this.weight;
+			score = Number((score * this.weight).toFixed(2));
 
 			course = "this.saveData";
 			await this.saveData(data, score);

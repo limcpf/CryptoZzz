@@ -295,48 +295,6 @@ export const QUERIES = {
 	WHERE date >= CURRENT_DATE - ($2 || ' days')::INTERVAL
 	ORDER BY symbol, date DESC;
 `,
-	GET_BOLLINGER_BANDS: `
-    WITH period_data AS (
-        SELECT
-            symbol,
-            timestamp,
-            close_price,
-            AVG(close_price) OVER (
-                PARTITION BY symbol
-                ORDER BY timestamp
-                ROWS BETWEEN $2::integer - 1 PRECEDING AND CURRENT ROW
-            ) AS moving_avg,
-            STDDEV(close_price) OVER (
-                PARTITION BY symbol
-                ORDER BY timestamp
-                ROWS BETWEEN $2::integer - 1 PRECEDING AND CURRENT ROW
-            ) AS moving_stddev
-        FROM Market_Data
-        WHERE 
-            symbol = $1 AND
-            timestamp >= NOW() - INTERVAL '1 hour' * $3::integer
-    )
-    SELECT
-        symbol,
-        timestamp,
-        close_price,
-        ROUND((moving_avg + (2 * moving_stddev))::numeric, 5) AS bollinger_upper,
-        ROUND(moving_avg::numeric, 5) AS bollinger_middle,
-        ROUND((moving_avg - (2 * moving_stddev))::numeric, 5) AS bollinger_lower
-    FROM period_data
-    ORDER BY timestamp DESC;
-`,
-	INSERT_BOLLINGER_SIGNAL: `
-    INSERT INTO BollingerSignal (
-        signal_id,
-        upper_band,
-        middle_band,
-        lower_band,
-        close_price,
-        band_width,
-        score
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7);
-`,
 	GET_STOCHASTIC_OSCILLATOR: `
 WITH 
 daily_data AS (

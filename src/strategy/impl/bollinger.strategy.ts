@@ -1,5 +1,4 @@
 import type { PoolClient } from "pg";
-import { QUERIES } from "../../shared/const/query.const";
 import i18n from "../../shared/services/i18n";
 import type { iStrategy } from "../iStrategy";
 /**
@@ -33,8 +32,8 @@ export class BollingerStrategy implements iStrategy {
 		client: PoolClient,
 		uuid: string,
 		symbol: string,
-		period = 50,
-		hours = 2,
+		period = 20,
+		hours = 24,
 	) {
 		this.client = client;
 		this.uuid = uuid;
@@ -43,11 +42,70 @@ export class BollingerStrategy implements iStrategy {
 		this.hours = hours;
 	}
 
+	private readonly GET_BOLLINGER_BANDS = `
+	WITH intraday_data AS (
+    SELECT
+        symbol,
+        timestamp,
+        close_price,
+        AVG(close_price) OVER (
+            PARTITION BY symbol
+            ORDER BY timestamp
+            ROWS BETWEEN $2::integer - 1 PRECEDING AND CURRENT ROW
+        ) AS moving_avg,
+        STDDEV(close_price) OVER (
+            PARTITION BY symbol
+            ORDER BY timestamp
+            ROWS BETWEEN $2::integer - 1 PRECEDING AND CURRENT ROW
+        ) AS moving_stddev
+    FROM Market_Data
+    WHERE 
+        symbol = $1
+        AND timestamp >= NOW() - INTERVAL '1 hour' * $3::integer
+)
+SELECT
+    symbol,
+    timestamp,
+    close_price,
+    ROUND(moving_avg + (2 * moving_stddev), 5) AS bollinger_upper,
+    ROUND(moving_avg, 5) AS bollinger_middle,
+    ROUND(moving_avg - (2 * moving_stddev), 5) AS bollinger_lower
+FROM intraday_data
+ORDER BY timestamp DESC;
+	`;
+
+	private readonly INSERT_BOLLINGER_SIGNAL = `
+		INSERT INTO BollingerSignal (
+			signal_id,
+			upper_band,
+			middle_band,
+			lower_band,
+			close_price,
+			band_width,
+			score
+		) VALUES ($1, $2, $3, $4, $5, $6, $7);
+	`;
+
 	async execute(): Promise<number> {
-		const data = await this.getData();
-		const score = this.calculateScore(data);
-		await this.saveData(data, score);
-		return score * this.weight;
+		let course = "this.getData";
+		let score = 0;
+
+		try {
+			const data = await this.getData();
+
+			course = "this.calculateScore";
+			score = this.calculateScore(data);
+
+			course = "this.weight";
+			score = score * this.weight;
+
+			course = "this.saveData";
+			await this.saveData(data, score);
+
+			return score;
+		} catch (error) {
+			throw new Error(i18n.getMessage("BOLLINGER_DATA_ERROR"));
+		}
 	}
 
 	private calculateScore(data: {
@@ -56,24 +114,47 @@ export class BollingerStrategy implements iStrategy {
 		bollinger_lower: number;
 		close_price: number;
 	}): number {
+		console.log("========================");
+		console.log("bollinger bands");
 		const { close_price, bollinger_upper, bollinger_middle, bollinger_lower } =
 			data;
+
+		console.log("close_price", close_price);
+		console.log("bollinger_upper", bollinger_upper);
+		console.log("bollinger_middle", bollinger_middle);
+		console.log("bollinger_lower", bollinger_lower);
 		const bandWidth = bollinger_upper - bollinger_lower;
+		console.log("bandWidth", bandWidth);
 
 		// 밴드 중간선 대비 현재 가격 위치 (정규화)
 		const normalizedPosition =
 			(close_price - bollinger_middle) / (bollinger_upper - bollinger_middle);
+		console.log("normalizedPosition", normalizedPosition);
 
 		// 밴드 폭 가중치 (밴드가 좁을수록 민감도 증가)
 		const widthFactor = Math.tanh(1 / (bandWidth / bollinger_middle));
-
+		console.log("widthFactor", widthFactor);
 		// 비선형 스코어 계산
 		const rawScore = Math.tanh(normalizedPosition * 3) * widthFactor;
+		console.log("rawScore", rawScore);
 
-		// 상한/하한 경계 강화
-		if (close_price > bollinger_upper * 0.98) return -1;
-		if (close_price < bollinger_lower * 1.02) return 1;
+		// 밴드 경계 근처에서 점수를 부드럽게 조정
+		const upperThreshold = (close_price - bollinger_upper) / bollinger_upper;
+		const lowerThreshold = (bollinger_lower - close_price) / bollinger_lower;
 
+		console.log("upperThreshold", upperThreshold);
+		console.log("lowerThreshold", lowerThreshold);
+
+		if (upperThreshold > 0) {
+			console.log("upperThreshold > 0");
+			return Math.min(-0.7, rawScore - upperThreshold);
+		}
+		if (lowerThreshold > 0) {
+			console.log("lowerThreshold > 0");
+			return Math.max(0.7, rawScore + lowerThreshold);
+		}
+
+		console.log("rawScore", rawScore);
 		return Math.max(-1, Math.min(1, rawScore));
 	}
 
@@ -85,7 +166,7 @@ export class BollingerStrategy implements iStrategy {
 	}> {
 		const result = await this.client.query({
 			name: `get_bollinger_${this.symbol}_${this.uuid}`,
-			text: QUERIES.GET_BOLLINGER_BANDS,
+			text: this.GET_BOLLINGER_BANDS,
 			values: [this.symbol, this.period, this.hours],
 		});
 
@@ -107,7 +188,7 @@ export class BollingerStrategy implements iStrategy {
 	): Promise<void> {
 		const bandWidth = data.bollinger_upper - data.bollinger_lower;
 
-		await this.client.query(QUERIES.INSERT_BOLLINGER_SIGNAL, [
+		await this.client.query(this.INSERT_BOLLINGER_SIGNAL, [
 			this.uuid,
 			data.bollinger_upper,
 			data.bollinger_middle,

@@ -24,7 +24,7 @@ export class VolumeStrategy implements iStrategy {
 	readonly client: PoolClient;
 	readonly uuid: string;
 	readonly symbol: string;
-	private readonly period: number = 24; // 24시간 기준
+	private readonly period: number = 12; // 12시간 기준
 
 	constructor(client: PoolClient, uuid: string, symbol: string, weight = 0.75) {
 		this.client = client;

@@ -114,24 +114,19 @@ ORDER BY timestamp DESC;
 		bollinger_lower: number;
 		close_price: number;
 	}): number {
-		console.log("===========");
 		const { bollinger_upper, bollinger_middle, bollinger_lower, close_price } =
 			data;
-		console.log(data);
 
 		// 밴드폭 및 절반 폭 계산
 		const bandWidth = bollinger_upper - bollinger_lower;
-		console.log("bandWidth", bandWidth);
 		const halfBandWidth = bandWidth / 2;
 
 		// 중간선에서의 상대적 위치: 가격이 중간선일 경우 0, 상한이면 +1, 하한이면 -1
 		const normalizedDeviation =
 			(close_price - bollinger_middle) / halfBandWidth;
-		console.log("normalizedDeviation", normalizedDeviation);
 
 		// 폭 가중치: 밴드폭이 좁을수록 (즉, 변동성이 낮을수록) 민감도를 높임
 		const widthFactor = Math.tanh(bollinger_middle / bandWidth);
-		console.log("widthFactor", widthFactor);
 		// 민감도 조절 인자 (필요에 따라 조정 가능)
 		const sensitivity = 1;
 
@@ -139,10 +134,8 @@ ORDER BY timestamp DESC;
 		// 가격이 중간선보다 위이면 normalizedDeviation > 0 → tanh(양수) > 0,
 		// 그런데 과매수(가격이 너무 높음)는 매도 신호이므로 부호 반전하여 음수를 만듦.
 		let score = -Math.tanh(normalizedDeviation * sensitivity) * widthFactor;
-		console.log("score", score);
 		// -1 ~ 1 사이로 클램프
 		score = Math.max(-1, Math.min(1, score));
-		console.log("score2", score);
 
 		return score;
 	}

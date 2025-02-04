@@ -51,7 +51,7 @@ export class MaStrategy implements iStrategy {
 		this.uuid = uuid;
 		this.symbol = symbol;
 		this.params = params ?? {
-			shortPeriod: 10,
+			shortPeriod: 5,
 			longPeriod: 20,
 		};
 	}
@@ -158,14 +158,14 @@ LIMIT 1;
 		const maRatio = (short_ma - long_ma) / long_ma;
 
 		// tanh 특성상 자체 클램핑(-1~1) 적용되지만 추가 보정 필요
-		const baseScore = Math.tanh(maRatio * 5); // 민감도 3배 증가
+		const baseScore = Math.tanh(maRatio * 10);
 		const rateOfChange =
 			prev_short_ma > 0 ? (short_ma - prev_short_ma) / prev_short_ma : 0;
 
 		// 최종 점수 클램핑 추가
 		const result = Math.max(
 			-1,
-			Math.min(1, Number((baseScore + 0.1 * rateOfChange).toFixed(2))),
+			Math.min(1, Number((baseScore + 0.3 * rateOfChange).toFixed(2))),
 		);
 		return result;
 	}

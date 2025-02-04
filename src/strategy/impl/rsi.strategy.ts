@@ -61,20 +61,32 @@ export class RsiStrategy implements iStrategy {
 	}
 
 	private readonly GET_RSI_QUERY = `
-	WITH PriceChanges AS (
+WITH HourlyData AS (
 		SELECT 
 			symbol,
-			date,
-			avg_close_price,
-			avg_close_price - LAG(avg_close_price) OVER (PARTITION BY symbol ORDER BY date) AS price_change
-		FROM Daily_Market_Data
+			time_bucket('1 hour', timestamp, NOW() - INTERVAL '1 minute' * EXTRACT(MINUTE FROM NOW())) AS hour,
+			FIRST(open_price, timestamp) AS open_price,
+			MAX(high_price) AS high_price,
+			MIN(low_price) AS low_price,
+			LAST(close_price, timestamp) AS close_price,
+			SUM(volume) AS volume
+		FROM Market_Data
 		WHERE symbol = $1
-		AND date >= CURRENT_DATE - INTERVAL '14 days'
+		AND timestamp >= NOW() - INTERVAL '60 minutes' * $2::integer  -- 14시간 대신 14개 60분 간격
+		GROUP BY symbol, hour
+	),
+	PriceChanges AS (
+		SELECT 
+			symbol,
+			hour,
+			close_price,
+			close_price - LAG(close_price) OVER (PARTITION BY symbol ORDER BY hour) AS price_change
+		FROM HourlyData
 	),
 	GainsLosses AS (
 		SELECT
 			symbol,
-			date,
+			hour,
 			CASE WHEN price_change > 0 THEN price_change ELSE 0 END AS gain,
 			CASE WHEN price_change < 0 THEN ABS(price_change) ELSE 0 END AS loss
 		FROM PriceChanges
@@ -82,14 +94,14 @@ export class RsiStrategy implements iStrategy {
 	AvgGainsLosses AS (
 		SELECT
 			symbol,
-			date,
-			AVG(gain) OVER (PARTITION BY symbol ORDER BY date ROWS BETWEEN 13 PRECEDING AND CURRENT ROW) AS avg_gain,
-			AVG(loss) OVER (PARTITION BY symbol ORDER BY date ROWS BETWEEN 13 PRECEDING AND CURRENT ROW) AS avg_loss
+			hour,
+			AVG(gain) OVER (PARTITION BY symbol ORDER BY hour ROWS BETWEEN $3::integer PRECEDING AND CURRENT ROW) AS avg_gain,
+			AVG(loss) OVER (PARTITION BY symbol ORDER BY hour ROWS BETWEEN $3::integer PRECEDING AND CURRENT ROW) AS avg_loss
 		FROM GainsLosses
 	)
 	SELECT
 		symbol,
-		date,
+		hour,
 		CASE 
 		WHEN avg_gain = 0 AND avg_loss = 0 THEN 50
 		WHEN avg_loss = 0 THEN 100
@@ -97,8 +109,8 @@ export class RsiStrategy implements iStrategy {
 		ELSE ROUND(100 - (100 / (1 + avg_gain / avg_loss)), 2)
 		END AS rsi
 	FROM AvgGainsLosses
-	WHERE date >= CURRENT_DATE - INTERVAL '14 days'
-	ORDER BY symbol, date DESC;
+	WHERE hour >= NOW() - INTERVAL '60 minutes' * $2::integer  -- 14시간 대신 14개 60분 간격
+	ORDER BY symbol, hour DESC
 	`;
 
 	private readonly INSERT_RSI_SIGNAL = `
@@ -134,7 +146,7 @@ export class RsiStrategy implements iStrategy {
 			if (error instanceof Error && "code" in error && error.code === "42P01") {
 				errorHandler(this.client, "TABLE_NOT_FOUND", "RSI_SIGNAL", error);
 			} else {
-				innerErrorHandler("RSI_DATA_ERROR", error, course);
+				innerErrorHandler("SIGNAL_RSI_ERROR", error, course);
 			}
 		}
 
@@ -176,7 +188,7 @@ export class RsiStrategy implements iStrategy {
 		const result = await this.client.query<iRSIResult>({
 			name: `get_rsi_${this.symbol}_${this.uuid}`,
 			text: this.GET_RSI_QUERY,
-			values: [this.symbol],
+			values: [this.symbol, this.period, this.period - 1],
 		});
 
 		if (result.rows.length === 0) {

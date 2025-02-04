@@ -44,11 +44,101 @@ export class StochasticStrategy implements iStrategy {
 		};
 	}
 
+	private readonly GET_STOCHASTIC_OSCILLATOR = `
+	WITH 
+	daily_data AS (
+		SELECT 
+			symbol,
+			date,
+			high_price,
+			low_price,
+			avg_close_price AS close
+		FROM Daily_Market_Data
+		WHERE symbol = $1
+			AND date < CURRENT_DATE
+	),
+	minute_data AS (
+		SELECT
+			time_bucket(($4::integer || ' minutes')::interval, timestamp) AS bucket,
+			symbol,
+			MAX(high_price) AS high,
+			MIN(low_price) AS low,
+			LAST(close_price, timestamp) AS close
+		FROM Market_Data
+		WHERE symbol = $1
+			AND timestamp >= NOW() - ($4::integer * INTERVAL '1 minute')
+		GROUP BY bucket, symbol
+	),
+	combined_data AS (
+		SELECT 
+			date::timestamp AS bucket, 
+			symbol,
+			high_price AS high,
+			low_price AS low,
+			close
+		FROM daily_data
+		UNION ALL
+		SELECT 
+			bucket,
+			symbol,
+			high,
+			low,
+			close
+		FROM minute_data
+	),
+	raw_k_values AS (
+		SELECT
+			bucket,
+			symbol,
+			close,
+			MIN(low) OVER w AS period_low,
+			MAX(high) OVER w AS period_high,
+			close - MIN(low) OVER w AS numerator,
+			NULLIF(MAX(high) OVER w - MIN(low) OVER w, 0) AS denominator
+		FROM combined_data
+		WINDOW w AS (PARTITION BY symbol ORDER BY bucket ROWS BETWEEN ($2::integer * 1440) PRECEDING AND CURRENT ROW)
+	),
+	k_values AS (
+		SELECT
+			bucket,
+			symbol,
+			(numerator / denominator * 100) AS percent_k
+		FROM raw_k_values
+	)
+	SELECT
+		bucket AS timestamp,
+		ROUND(percent_k::numeric, 2) AS k_value,
+		ROUND(AVG(percent_k) OVER (ORDER BY bucket ROWS BETWEEN $3::integer PRECEDING AND CURRENT ROW)::numeric, 2) AS d_value
+	FROM k_values
+	ORDER BY bucket DESC
+	LIMIT 1;
+	`;
+
+	private readonly INSERT_STOCHASTIC_SIGNAL = `
+		INSERT INTO StochasticSignal (signal_id, k_value, d_value, score)
+		VALUES ($1, $2, $3, $4);
+	`;
+
 	async execute(): Promise<number> {
-		const data = await this.getData();
-		const score = this.calculateScore(data);
-		await this.saveData(data, score);
-		return Number((score * this.weight).toFixed(2));
+		let course = "this.execute";
+		let score = 0;
+
+		try {
+			const data = await this.getData();
+
+			course = "this.calculateScore";
+			score = this.calculateScore(data);
+
+			course = "this.weight";
+			score = Number((score * this.weight).toFixed(2));
+
+			course = "this.saveData";
+			await this.saveData(data, score);
+
+			return score;
+		} catch (error) {
+			throw new Error(i18n.getMessage("STOCHASTIC_DATA_ERROR"));
+		}
 	}
 
 	private calculateScore(data: {
@@ -78,10 +168,10 @@ export class StochasticStrategy implements iStrategy {
 	}> {
 		const result = await this.client.query({
 			name: `get_stochastic_${this.symbol}_${this.uuid}`,
-			text: QUERIES.GET_STOCHASTIC_OSCILLATOR,
+			text: this.GET_STOCHASTIC_OSCILLATOR,
 			values: [
 				this.symbol,
-				this.params.lookbackDays * 1440, // days to minutes
+				this.params.lookbackDays,
 				this.params.kPeriod,
 				this.params.dPeriod,
 			],
@@ -101,7 +191,7 @@ export class StochasticStrategy implements iStrategy {
 		// 스토캐스틱 신호 저장
 		await this.client.query({
 			name: `insert_sto_sgn_${this.symbol}_${this.uuid}`,
-			text: QUERIES.INSERT_STOCHASTIC_SIGNAL,
+			text: this.INSERT_STOCHASTIC_SIGNAL,
 			values: [
 				this.uuid, // SignalLog ID
 				data.k_value,

@@ -14,7 +14,7 @@ import { applyWeight, handleStrategyError } from "./common.utils";
  *
  * @abstract
  */
-export abstract class BaseStrategy {
+export abstract class CommonStrategy {
 	/**
 	 * 데이터 조회 메서드
 	 *

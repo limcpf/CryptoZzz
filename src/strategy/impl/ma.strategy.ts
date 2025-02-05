@@ -1,8 +1,11 @@
 import type { PoolClient } from "pg";
-import type { iMovingAveragesResult } from "../../shared/interfaces/iMarketDataResult";
+import { CommonStrategy } from "../../shared/indicators/common/common.strategy";
+import {
+	GET_MA_SCORE,
+	INSERT_MA_SIGNAL,
+} from "../../shared/indicators/ma/ma.queries";
+import type { iMAResult } from "../../shared/indicators/ma/ma.types";
 import i18n from "../../shared/services/i18n";
-import { errorHandler, innerErrorHandler } from "../../shared/services/util";
-import type { iStrategy } from "../iStrategy";
 
 /**
  * MA (Moving Average) Strategy Implementation
@@ -26,16 +29,37 @@ import type { iStrategy } from "../iStrategy";
  * @param symbol - 거래 심볼
  * @param weight - 전략 가중치 (기본값: 0.8)
  */
-export class MaStrategy implements iStrategy {
-	readonly weight: number;
-	readonly client: PoolClient;
-	readonly uuid: string;
-	readonly symbol: string;
+export class MaStrategy extends CommonStrategy {
+	/**
+	 * MA calculation parameters
+	 * MA 계산 파라미터
+	 * @property {number} shortPeriod - Short-term MA period (단기 MA 기간)
+	 * @property {number} longPeriod - Long-term MA period (장기 MA 기간)
+	 */
 	readonly params: {
 		shortPeriod: number;
 		longPeriod: number;
 	};
 
+	/**
+	 * Creates a new MA strategy instance
+	 * - Initializes database connection and strategy parameters
+	 * - Sets default values for MA periods if not provided
+	 * - Configures strategy weight for portfolio balance
+	 *
+	 * MA 전략 인스턴스 생성
+	 * - 데이터베이스 연결 및 전략 파라미터 초기화
+	 * - MA 기간이 제공되지 않은 경우 기본값 설정
+	 * - 포트폴리오 균형을 위한 전략 가중치 구성
+	 *
+	 * @param {PoolClient} client - PostgreSQL database connection (PostgreSQL 데이터베이스 연결)
+	 * @param {string} uuid - Unique strategy execution identifier (전략 실행 고유 식별자)
+	 * @param {string} symbol - Trading pair symbol (거래 쌍 심볼)
+	 * @param {Object} [params] - MA calculation parameters (MA 계산 파라미터)
+	 *   @param {number} [params.shortPeriod=5] - Short-term MA period (단기 MA 기간)
+	 *   @param {number} [params.longPeriod=20] - Long-term MA period (장기 MA 기간)
+	 * @param {number} [weight=0.9] - Strategy weight for portfolio balance (포트폴리오 균형을 위한 전략 가중치)
+	 */
 	constructor(
 		client: PoolClient,
 		uuid: string,
@@ -46,109 +70,39 @@ export class MaStrategy implements iStrategy {
 		},
 		weight = 0.9,
 	) {
-		this.client = client;
-		this.weight = weight;
-		this.uuid = uuid;
-		this.symbol = symbol;
+		super(client, uuid, symbol, weight);
 		this.params = params ?? {
 			shortPeriod: 5,
 			longPeriod: 20,
 		};
 	}
 
-	private readonly GET_MA_SCORE = `
-	WITH RECURSIVE time_series AS (
-    -- 현재 시각부터 15분 단위로 과거 시점들 생성
-    SELECT 
-        date_trunc('minute', NOW()) AS ts
-    UNION ALL
-    SELECT 
-        ts - INTERVAL '15 minutes'
-    FROM time_series
-    WHERE ts > NOW() - INTERVAL '6 hours'
-),
-fifteen_minute_data AS (
-    SELECT
-        time_series.ts AS bucket,
-        symbol,
-        AVG(close_price) AS avg_close_price
-    FROM time_series
-    LEFT JOIN Market_Data md ON 
-        md.symbol = $1 AND
-        md.timestamp >= time_series.ts - INTERVAL '15 minutes' AND
-        md.timestamp < time_series.ts
-    GROUP BY time_series.ts, symbol
-    HAVING COUNT(symbol) > 0
-),
-ma_calculations AS (
-    SELECT
-        bucket,
-        symbol,
-        avg_close_price,
-        -- 단기 MA (10봉 = 약 150분)
-        AVG(avg_close_price) OVER (
-            ORDER BY bucket
-            ROWS BETWEEN $2::integer - 1 PRECEDING AND CURRENT ROW
-        ) AS short_ma,
-        -- 장기 MA (20봉 = 약 300분)
-        AVG(avg_close_price) OVER (
-            ORDER BY bucket
-            ROWS BETWEEN $3::integer - 1 PRECEDING AND CURRENT ROW
-        ) AS long_ma
-    FROM fifteen_minute_data
-)
-SELECT
-    symbol,
-    bucket as date,
-    short_ma,
-    long_ma,
-    COALESCE(
-        LAG(short_ma) OVER (ORDER BY bucket),
-        0
-    ) AS prev_short_ma
-FROM ma_calculations
-ORDER BY bucket DESC
-LIMIT 1;
-	`;
-
-	private readonly INSERT_MA_SIGNAL = `
-	    INSERT INTO MaSignal (signal_id, short_ma, long_ma, prev_short_ma, score)
-		VALUES ($1, $2, $3, $4, $5);
-	`;
-
 	async execute(): Promise<number> {
-		let course = "this.getData";
-		let score = 0;
-
-		try {
-			const data = await this.getData();
-
-			course = "this.score";
-			score = await this.score(data);
-
-			course = "score = score * this.weight";
-			score = Number((score * this.weight).toFixed(2));
-
-			course = "this.saveData";
-			await this.saveData(data, score);
-
-			return score;
-		} catch (error) {
-			if (error instanceof Error && "code" in error && error.code === "42P01") {
-				errorHandler(this.client, "TABLE_NOT_FOUND", "MA_SIGNAL", error);
-			} else {
-				innerErrorHandler("SIGNAL_MA_ERROR", error, course);
-			}
-		}
-
-		return 0;
+		return super.execute();
 	}
 
-	private async score(data: {
-		short_ma: number;
-		long_ma: number;
-		prev_short_ma: number;
-	}): Promise<number> {
+	/**
+	 * Calculates the MA strategy signal score
+	 * - Validates MA input values
+	 * - Computes MA crossover ratio for base signal
+	 * - Applies hyperbolic tangent for signal normalization
+	 * - Incorporates momentum using rate of change
+	 * - Clamps final score between -1 and 1
+	 *
+	 * MA 전략 신호 점수 계산
+	 * - MA 입력값 유효성 검증
+	 * - 기본 신호를 위한 MA 크로스오버 비율 계산
+	 * - 신호 정규화를 위한 쌍곡선 탄젠트 적용
+	 * - 변화율을 이용한 모멘텀 반영
+	 * - 최종 점수를 -1에서 1 사이로 제한
+	 *
+	 * @param {iMAResult} data - MA calculation results containing:
+	 *   - short_ma: Short-term moving average (단기 이동평균)
+	 *   - long_ma: Long-term moving average (장기 이동평균)
+	 *   - prev_short_ma: Previous short-term MA (이전 단기 이동평균)
+	 * @returns {Promise<number>} Normalized score between -1 and 1 (정규화된 점수, -1에서 1 사이)
+	 */
+	protected calculateScore(data: iMAResult): number {
 		const { short_ma, long_ma, prev_short_ma } = data;
 		// 유효하지 않은 MA 값 필터링
 		if (short_ma <= 0 || long_ma <= 0) {
@@ -170,10 +124,28 @@ LIMIT 1;
 		return result;
 	}
 
-	private async getData(): Promise<iMovingAveragesResult> {
-		const result = await this.client.query<iMovingAveragesResult>({
+	/**
+	 * Retrieves MA indicator data from the database
+	 * - Executes MA calculation query with symbol and period parameters
+	 * - Validates query results and data integrity
+	 * - Throws errors for missing or invalid data
+	 *
+	 * 데이터베이스에서 MA 지표 데이터 조회
+	 * - 심볼과 기간 파라미터로 MA 계산 쿼리 실행
+	 * - 쿼리 결과 및 데이터 무결성 검증
+	 * - 데이터 누락 또는 유효하지 않은 경우 오류 발생
+	 *
+	 * @throws {Error} MA_DATA_NOT_FOUND - When no data is found (데이터가 없는 경우)
+	 * @throws {Error} MA_INVALID_DATA - When MA values are invalid (MA 값이 유효하지 않은 경우)
+	 * @returns {Promise<iMAResult>} MA calculation results containing:
+	 *   - short_ma: Short-term moving average (단기 이동평균)
+	 *   - long_ma: Long-term moving average (장기 이동평균)
+	 *   - prev_short_ma: Previous short-term MA (이전 단기 이동평균)
+	 */
+	protected async getData(): Promise<iMAResult> {
+		const result = await this.client.query<iMAResult>({
 			name: `get_ma_${this.symbol}_${this.uuid}`,
-			text: this.GET_MA_SCORE,
+			text: GET_MA_SCORE,
 			values: [this.symbol, this.params.shortPeriod, this.params.longPeriod],
 		});
 
@@ -190,11 +162,24 @@ LIMIT 1;
 		return data;
 	}
 
-	private async saveData(
-		data: iMovingAveragesResult,
-		score: number,
-	): Promise<void> {
-		await this.client.query(this.INSERT_MA_SIGNAL, [
+	/**
+	 * Saves MA strategy signal data to the database
+	 * - Stores signal ID, MA values, and calculated score
+	 * - Used for historical analysis and strategy performance tracking
+	 *
+	 * MA 전략 신호 데이터를 데이터베이스에 저장
+	 * - 신호 ID, MA 값들, 계산된 점수를 저장
+	 * - 과거 분석 및 전략 성과 추적에 사용
+	 *
+	 * @param {iMAResult} data - MA calculation results containing:
+	 *   - short_ma: Short-term moving average (단기 이동평균)
+	 *   - long_ma: Long-term moving average (장기 이동평균)
+	 *   - prev_short_ma: Previous short-term MA (이전 단기 이동평균)
+	 * @param {number} score - Normalized strategy score between -1 and 1 (정규화된 전략 점수, -1에서 1 사이)
+	 * @returns {Promise<void>} No return value (반환값 없음)
+	 */
+	protected async saveData(data: iMAResult, score: number): Promise<void> {
+		await this.client.query(INSERT_MA_SIGNAL, [
 			this.uuid,
 			data.short_ma,
 			data.long_ma,

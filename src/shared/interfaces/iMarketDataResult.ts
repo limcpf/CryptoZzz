@@ -4,31 +4,15 @@ interface iRSIResult {
 	rsi: number;
 }
 
-interface iMovingAveragesResult {
-	symbol: string;
-	date: Date;
-	short_ma: number;
-	long_ma: number;
-	prev_short_ma: number;
-}
-
 interface iVolumeAnalysisResult {
 	symbol: string;
 	latest_hour_volume: number;
 	historical_avg_volume: number;
 }
 
-interface iMarketDataResult
-	extends iRSIResult,
-		iMovingAveragesResult,
-		iVolumeAnalysisResult {}
+interface iMarketDataResult extends iRSIResult, iVolumeAnalysisResult {}
 
-export type {
-	iRSIResult,
-	iMovingAveragesResult,
-	iVolumeAnalysisResult,
-	iMarketDataResult,
-};
+export type { iRSIResult, iVolumeAnalysisResult, iMarketDataResult };
 
 export interface iMACDParams {
 	shortPeriod: number; // 단기 EMA 기간

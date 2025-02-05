@@ -82,6 +82,7 @@ const messages: MSG = {
 	BOLLINGER_DATA_ERROR: "⚠️ Error occurred while fetching Bollinger data",
 	SIGNAL_MACD_ERROR: "⚠️ Error occurred while executing MACD strategy",
 	STOCHASTIC_DATA_ERROR: "⚠️ Error occurred while fetching stochastic data",
+	STRATEGY_ERROR: "⚠️ Error occurred while executing strategy",
 } as const;
 
 export default messages;

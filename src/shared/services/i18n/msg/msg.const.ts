@@ -74,6 +74,7 @@ export interface MSG {
 	BOLLINGER_DATA_ERROR: string;
 	SIGNAL_MACD_ERROR: string;
 	STOCHASTIC_DATA_ERROR: string;
+	STRATEGY_ERROR: string;
 }
 
 export const getMsg = (language: string) => {

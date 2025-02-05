@@ -77,6 +77,7 @@ const messages: MSG = {
 	BOLLINGER_DATA_ERROR: "⚠️ 볼린저 밴드 데이터 조회 중 오류가 발생했습니다",
 	SIGNAL_MACD_ERROR: "⚠️ MACD 전략 실행 중 오류가 발생했습니다",
 	STOCHASTIC_DATA_ERROR: "⚠️ 스토캐스틱 데이터 조회 중 오류가 발생했습니다",
+	STRATEGY_ERROR: "⚠️ 전략 실행 중 오류가 발생했습니다",
 } as const;
 
 export default messages;

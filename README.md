@@ -2,7 +2,8 @@
 
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Bun Version](https://img.shields.io/badge/Bun-v1.1.42-ff69b4)
-![한국어로된 문서 보기](https://github.com/limcpf/CryptoZzz/blob/main/README.ko.md)
+
+[한국어로된 문서 보기](https://github.com/limcpf/CryptoZzz/blob/main/README.ko.md)
 
 A cryptocurrency automatic trading system based on exchange APIs. Provides microservice architecture for real-time data collection, multi-strategy analysis, and automated trading execution.
 

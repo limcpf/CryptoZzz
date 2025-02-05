@@ -46,7 +46,7 @@ bun run start:test
 ```mermaid
 graph TD
     subgraph 마이크로서비스 그룹
-        A[Candle-Save\n1분 간격 데이터 수집\n(코인별 다중 인스턴스)]
+        A[Candle-Save\n1분 간격 데이터 수집\n코인별 다중 인스턴스]
         B[Analysis\n다중 전략 조합 분석]
         C[Trading\n동적 위험 관리]
         D[Account\n실시간 자산 모니터링]

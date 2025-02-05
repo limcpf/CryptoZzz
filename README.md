@@ -1,7 +1,8 @@
-# Money - Cryptocurrency Automatic Trading System
+# CryptoZzz - Cryptocurrency Automatic Trading System
 
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Bun Version](https://img.shields.io/badge/Bun-v1.1.42-ff69b4)
+![한국어로된 문서 보기](https://github.com/limcpf/CryptoZzz/blob/main/README.ko.md)
 
 A cryptocurrency automatic trading system based on exchange APIs. Provides microservice architecture for real-time data collection, multi-strategy analysis, and automated trading execution.
 
@@ -42,10 +43,11 @@ bun run start:test
 ```
 
 ## 🏗 System Architecture
+
 ```mermaid
 graph TD
     subgraph Microservice Group
-        A[Candle-Save\n1-minute interval data collection\n(Multiple instances per coin)]
+        A[Candle-Save\n1-minute interval data collection\nMultiple instances per coin]
         B[Analysis\nMulti-strategy combination analysis]
         C[Trading\nDynamic risk management]
         D[Account\nReal-time asset monitoring]

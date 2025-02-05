@@ -112,7 +112,7 @@ export class MaStrategy extends CommonStrategy {
 		const maRatio = (short_ma - long_ma) / long_ma;
 
 		// tanh 특성상 자체 클램핑(-1~1) 적용되지만 추가 보정 필요
-		const baseScore = Math.tanh(maRatio * 800);
+		const baseScore = Math.tanh(maRatio * 100);
 		const rateOfChange =
 			prev_short_ma > 0 ? (short_ma - prev_short_ma) / prev_short_ma : 0;
 

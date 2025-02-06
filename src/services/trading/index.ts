@@ -108,12 +108,6 @@ async function setup() {
 async function executeOrder(payload: string) {
 	const { coin, score } = JSON.parse(payload) as iTradingSignal;
 
-	const isLog = score > BASE_BUY;
-
-	if (isLog) {
-		console.log("score", score);
-	}
-
 	if (!coin) {
 		logger.error(client, "COIN_NOT_FOUND", loggerPrefix);
 		return;
@@ -127,28 +121,28 @@ async function executeOrder(payload: string) {
 		);
 
 		const currentPrice = currentPrices[0].candle_acc_trade_price;
-		console.log("currentPrice", currentPrice);
 
 		const avgBuyPrice = await checkPosition(coin, currentPrice);
-		console.log("avgBuyPrice", avgBuyPrice);
 		const thresholds = await calculateDynamicThreshold(client, coin);
-		console.log("thresholds", thresholds);
-
-		console.log("currentPosition", currentPosition);
 
 		switch (currentPosition) {
 			case "WAIT":
-				console.log("thresholds.buy", thresholds.buy);
 				if (score >= thresholds.buy) {
-					console.log("score >= thresholds.buy", score, thresholds.buy);
 					// 비선형 가중치 조정 (하이퍼볼릭 탄젠트 함수 적용)
 					const normalizedScore =
 						(score - thresholds.buy) / (thresholds.max - thresholds.buy);
-					console.log("normalizedScore", normalizedScore);
-					const buyRatio = Math.tanh(normalizedScore * 2) * MAX_POSITION_RATIO;
-					console.log("buyRatio", buyRatio);
-					const adjustedAmount =
-						KRWBalance * Math.min(buyRatio, MAX_POSITION_RATIO);
+
+					// 기존 하이퍼볼릭 탄젠트 계산 결과 (0 ~ 0.5 범위)
+					// 여기에 최소값 0.3을 적용
+					const rawBuyRatio =
+						Math.tanh(normalizedScore * 2) * MAX_POSITION_RATIO;
+					const MIN_BUY_RATIO = 0.3; // 최소 매수 비율 30%
+					const buyRatio = Math.min(
+						MAX_POSITION_RATIO,
+						Math.max(rawBuyRatio, MIN_BUY_RATIO),
+					);
+
+					const adjustedAmount = KRWBalance * buyRatio;
 
 					const MIN_ORDER_AMOUNT = 5000;
 					if (adjustedAmount < MIN_ORDER_AMOUNT) {
@@ -161,8 +155,6 @@ async function executeOrder(payload: string) {
 				}
 				break;
 			case "BUY": {
-				console.log("avgBuyPrice", avgBuyPrice);
-				console.log("thresholds.sell", thresholds.sell);
 				if (!avgBuyPrice)
 					throw new Error(i18n.getMessage("AVG_BUY_PRICE_NOT_FOUND"));
 
@@ -212,10 +204,7 @@ async function executeOrder(payload: string) {
 
 async function checkPosition(coin: string, currentPrice: number) {
 	try {
-		const balances = await getAccountBalance(client, [
-			process.env.UNIT || "KRW",
-			coin,
-		]);
+		const balances = await getAccountBalance([process.env.UNIT || "KRW", coin]);
 
 		const coinAccount = balances.find((balance) => balance.coin === coin);
 
@@ -237,8 +226,6 @@ async function checkPosition(coin: string, currentPrice: number) {
 			currentPosition = "NONE";
 		}
 
-		console.log("currentPosition", currentPosition);
-
 		if (currentPosition === "BUY") {
 			return coinAccount?.avg_buy_price;
 		}
@@ -254,17 +241,13 @@ async function calculateDynamicThreshold(
 	try {
 		// 1. 장기적 추세 분석용 RSI (14 period)
 		const longTermRsi = await getRsi(client, coin, 14);
-		console.log("longTermRsi", longTermRsi);
 
 		// 2. 단기적 과매수/과매도 분석용 RSI (9 period)
 		const shortTermRsi = await getRsi(client, coin, 9);
-		console.log("shortTermRsi", shortTermRsi);
 		// 3. RSI 기반 시장 상태 분류
 		const marketCondition = classifyMarket(longTermRsi, shortTermRsi);
-		console.log("marketCondition", marketCondition);
 
 		const weights = CONDITION_WEIGHTS[marketCondition];
-		console.log("weights", weights);
 
 		return {
 			buy: BASE_BUY * weights.buy,

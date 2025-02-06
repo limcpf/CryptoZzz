@@ -58,3 +58,49 @@ export function validateQueryResult<T extends QueryResultRow>(
 	}
 	return result.rows[0];
 }
+
+/**
+ * Normalizes a value using hyperbolic tangent function
+ * 쌍곡선 탄젠트 함수를 사용하여 값을 정규화합니다
+ *
+ * @param {number} value - The value to normalize (정규화할 값)
+ * @param {number} [factor=1] - Scaling factor for normalization (정규화를 위한 스케일링 팩터)
+ * @returns {number} - Normalized value between -1 and 1 (-1과 1 사이로 정규화된 값)
+ */
+export function normalizeWithTanh(value: number, factor = 1): number {
+	return Math.tanh(value * factor);
+}
+
+/**
+ * Clamps a value between -1 and 1 with optional decimal places
+ * 값을 -1과 1 사이로 제한하고 선택적으로 소수점 자릿수를 지정합니다
+ *
+ * @param {number} value - The value to clamp (제한할 값)
+ * @param {number} [decimals=2] - Number of decimal places (소수점 자릿수)
+ * @returns {number} - Clamped value between -1 and 1 (-1과 1 사이로 제한된 값)
+ */
+export function clampScore(value: number, decimals = 2): number {
+	return Number(Math.max(-1, Math.min(1, value)).toFixed(decimals));
+}
+
+/**
+ * Combines multiple signals with optional weights
+ * 여러 신호를 선택적 가중치와 함께 결합합니다
+ *
+ * @param {Array<{value: number, weight?: number}>} signals - Array of signals with optional weights (선택적 가중치가 있는 신호 배열)
+ * @returns {number} - Combined and normalized signal (-1과 1 사이로 정규화된 결합된 신호)
+ */
+export function combineSignals(
+	signals: Array<{ value: number; weight?: number }>,
+): number {
+	const totalWeight = signals.reduce(
+		(sum, signal) => sum + (signal.weight ?? 1),
+		0,
+	);
+	const weightedSum = signals.reduce(
+		(sum, signal) => sum + signal.value * (signal.weight ?? 1),
+		0,
+	);
+
+	return clampScore(weightedSum / totalWeight);
+}

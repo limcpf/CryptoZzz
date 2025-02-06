@@ -27,7 +27,7 @@ let isRunning = false;
  * SELL: 매도
  * NONE: 포지션이 없는 상태
  */
-let currentPosition: "BUY" | "SELL" | "NONE" = "NONE";
+let currentPosition: "BUY" | "WAIT" | "NONE" = "NONE";
 let KRWBalance = 0;
 let coinBalance = 0;
 
@@ -108,6 +108,12 @@ async function setup() {
 async function executeOrder(payload: string) {
 	const { coin, score } = JSON.parse(payload) as iTradingSignal;
 
+	const isLog = score > BASE_BUY;
+
+	if (isLog) {
+		console.log("score", score);
+	}
+
 	if (!coin) {
 		logger.error(client, "COIN_NOT_FOUND", loggerPrefix);
 		return;
@@ -121,23 +127,30 @@ async function executeOrder(payload: string) {
 		);
 
 		const currentPrice = currentPrices[0].candle_acc_trade_price;
+		console.log("currentPrice", currentPrice);
 
 		const avgBuyPrice = await checkPosition(coin, currentPrice);
+		console.log("avgBuyPrice", avgBuyPrice);
 		const thresholds = await calculateDynamicThreshold(client, coin);
+		console.log("thresholds", thresholds);
+
+		console.log("currentPosition", currentPosition);
 
 		switch (currentPosition) {
-			case "SELL":
-			case "NONE":
+			case "WAIT":
+				console.log("thresholds.buy", thresholds.buy);
 				if (score >= thresholds.buy) {
+					console.log("score >= thresholds.buy", score, thresholds.buy);
 					// 비선형 가중치 조정 (하이퍼볼릭 탄젠트 함수 적용)
 					const normalizedScore =
 						(score - thresholds.buy) / (thresholds.max - thresholds.buy);
+					console.log("normalizedScore", normalizedScore);
 					const buyRatio = Math.tanh(normalizedScore * 2) * MAX_POSITION_RATIO;
+					console.log("buyRatio", buyRatio);
 					const adjustedAmount =
 						KRWBalance * Math.min(buyRatio, MAX_POSITION_RATIO);
 
-					// 최소 주문 금액 검증 (10,000원 이상)
-					const MIN_ORDER_AMOUNT = 10000;
+					const MIN_ORDER_AMOUNT = 5000;
 					if (adjustedAmount < MIN_ORDER_AMOUNT) {
 						logger.error(client, "MIN_ORDER_AMOUNT_ERROR", loggerPrefix);
 						return;
@@ -148,6 +161,8 @@ async function executeOrder(payload: string) {
 				}
 				break;
 			case "BUY": {
+				console.log("avgBuyPrice", avgBuyPrice);
+				console.log("thresholds.sell", thresholds.sell);
 				if (!avgBuyPrice)
 					throw new Error(i18n.getMessage("AVG_BUY_PRICE_NOT_FOUND"));
 
@@ -185,6 +200,8 @@ async function executeOrder(payload: string) {
 				}
 				break;
 			}
+			case "NONE":
+				break;
 		}
 	} catch (error: unknown) {
 		errorHandler(client, "TRADING_EXCUTE_ORDER_ERROR", loggerPrefix, error);
@@ -212,13 +229,15 @@ async function checkPosition(coin: string, currentPrice: number) {
 		if (coinBalance > 0 && coinValue >= MIN_COIN_VALUE) {
 			currentPosition = "BUY";
 		} else if (KRWBalance > 0) {
-			currentPosition = "SELL";
+			currentPosition = "WAIT";
 		} else if (
 			KRWBalance <= 0 &&
 			(coinBalance <= 0 || coinValue < MIN_COIN_VALUE)
 		) {
 			currentPosition = "NONE";
 		}
+
+		console.log("currentPosition", currentPosition);
 
 		if (currentPosition === "BUY") {
 			return coinAccount?.avg_buy_price;

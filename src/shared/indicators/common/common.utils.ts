@@ -62,10 +62,6 @@ export function validateQueryResult<T extends QueryResultRow>(
 /**
  * Normalizes a value using hyperbolic tangent function
  * 쌍곡선 탄젠트 함수를 사용하여 값을 정규화합니다
- *
- * @param {number} value - The value to normalize (정규화할 값)
- * @param {number} [factor=1] - Scaling factor for normalization (정규화를 위한 스케일링 팩터)
- * @returns {number} - Normalized value between -1 and 1 (-1과 1 사이로 정규화된 값)
  */
 export function normalizeWithTanh(value: number, factor = 1): number {
 	return Math.tanh(value * factor);
@@ -74,10 +70,6 @@ export function normalizeWithTanh(value: number, factor = 1): number {
 /**
  * Clamps a value between -1 and 1 with optional decimal places
  * 값을 -1과 1 사이로 제한하고 선택적으로 소수점 자릿수를 지정합니다
- *
- * @param {number} value - The value to clamp (제한할 값)
- * @param {number} [decimals=2] - Number of decimal places (소수점 자릿수)
- * @returns {number} - Clamped value between -1 and 1 (-1과 1 사이로 제한된 값)
  */
 export function clampScore(value: number, decimals = 2): number {
 	return Number(Math.max(-1, Math.min(1, value)).toFixed(decimals));
@@ -103,4 +95,86 @@ export function combineSignals(
 	);
 
 	return clampScore(weightedSum / totalWeight);
+}
+
+/**
+ * MACD 크로스오버 점수 계산
+ * @param currentValue 현재 MACD 값
+ * @param currentSignal 현재 시그널 값
+ * @param prevValue 이전 MACD 값
+ * @param prevSignal 이전 시그널 값
+ * @param maxWeight 최대 가중치 (기본값: 0.4)
+ * @returns 크로스오버 점수
+ */
+export function calculateCrossoverScore(
+	currentValue: number,
+	currentSignal: number,
+	prevValue: number,
+	prevSignal: number,
+	maxWeight = 0.4,
+): number {
+	const currentCross = currentValue - currentSignal;
+	const prevCross = prevValue - prevSignal;
+
+	if (Math.sign(currentCross) === Math.sign(prevCross)) return 0;
+
+	const crossStrength =
+		Math.abs(currentCross - prevCross) / Math.abs(currentSignal);
+	return Math.sign(currentCross) * maxWeight * Math.min(1, crossStrength);
+}
+
+/**
+ * 히스토그램 변화 점수 계산
+ * @param currentHistogram 현재 히스토그램 값
+ * @param prevHistogram 이전 히스토그램 값
+ * @param maxWeight 최대 가중치 (기본값: 0.3)
+ * @returns 히스토그램 변화 점수
+ */
+export function calculateHistogramScore(
+	currentHistogram: number,
+	prevHistogram: number,
+	maxWeight = 0.3,
+): number {
+	const histogramChange = currentHistogram - prevHistogram;
+	const strength = Math.abs(histogramChange) / Math.abs(prevHistogram);
+	return Math.sign(histogramChange) * maxWeight * Math.min(1, strength);
+}
+
+/**
+ * 제로라인 크로스 점수 계산
+ * @param currentValue 현재 값
+ * @param prevValue 이전 값
+ * @param crossWeight 크로스 가중치 (기본값: 0.3)
+ * @param approachWeight 접근 가중치 (기본값: 0.15)
+ * @returns 제로라인 관련 점수
+ */
+export function calculateZeroLineScore(
+	currentValue: number,
+	prevValue: number,
+	crossWeight = 0.3,
+	approachWeight = 0.15,
+): number {
+	const zeroLineDistance = Math.abs(currentValue);
+	const strength = Math.min(1, zeroLineDistance / Math.abs(prevValue));
+
+	return (
+		Math.sign(currentValue) *
+		(Math.sign(currentValue) !== Math.sign(prevValue)
+			? crossWeight * strength
+			: approachWeight * (1 - strength))
+	);
+}
+
+/**
+ * 추세 강도 계수 계산
+ * @param histogram 현재 히스토그램 값
+ * @param referenceValue 참조 값 (일반적으로 시그널 값)
+ * @returns 추세 강도 계수
+ */
+export function calculateTrendStrength(
+	histogram: number,
+	referenceValue: number,
+): number {
+	const trendStrength = Math.abs(histogram) / Math.abs(referenceValue);
+	return 1 + Math.tanh(trendStrength);
 }

@@ -27,18 +27,21 @@ export async function excuteBuy(
 	const order = await API.ORDER(client, orderProps);
 
 	// order가 정상적으로 처리되었을 때만 INSERT_TRADE 실행
-	if (order?.price && order?.volume) {
+	if (order?.price || order?.volume) {
 		await client.query(QUERIES.INSERT_TRADE, [
 			uuid,
 			"BUY",
 			coin,
-			order.price,
-			order.volume,
+			Number(order.price) || 0,
+			Number(order.volume) || 0,
 			false,
-			Number(order.paid_fee),
+			Number(order.paid_fee) || 0,
 		]);
 		return uuid;
 	}
+
+	/** 추후 동일 에러 발생 시 분석 후 주석 해제 */
+	console.error(order);
 
 	throw new Error(i18n.getMessage("BUY_ORDER_ERROR"));
 }

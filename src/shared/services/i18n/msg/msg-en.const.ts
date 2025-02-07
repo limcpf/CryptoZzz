@@ -83,6 +83,7 @@ const messages: MSG = {
 	SIGNAL_MACD_ERROR: "⚠️ Error occurred while executing MACD strategy",
 	STOCHASTIC_DATA_ERROR: "⚠️ Error occurred while fetching stochastic data",
 	STRATEGY_ERROR: "⚠️ Error occurred while executing strategy",
+	MACD_DATA_NOT_FOUND: "⚠️ MACD data not found",
 } as const;
 
 export default messages;

@@ -78,6 +78,7 @@ const messages: MSG = {
 	SIGNAL_MACD_ERROR: "⚠️ MACD 전략 실행 중 오류가 발생했습니다",
 	STOCHASTIC_DATA_ERROR: "⚠️ 스토캐스틱 데이터 조회 중 오류가 발생했습니다",
 	STRATEGY_ERROR: "⚠️ 전략 실행 중 오류가 발생했습니다",
+	MACD_DATA_NOT_FOUND: "⚠️ MACD 데이터를 찾을 수 없습니다",
 } as const;
 
 export default messages;

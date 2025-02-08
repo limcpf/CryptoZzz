@@ -1,198 +1,91 @@
 import type { PoolClient } from "pg";
-import i18n from "../../shared/services/i18n";
-import type { iStrategy } from "../iStrategy";
-/**
- * Bollinger Bands Strategy Implementation
- * Generates trading signals based on price position relative to volatility bands
- * - Calculates score using hyperbolic tangent function for nonlinear normalization
- * - Adjusts sensitivity based on band width changes
- * - Implements boundary enforcement for upper/lower bands
- *
- * 볼린저 밴드 전략 구현
- * 가격의 변동성 밴드 상대 위치를 기반으로 거래 신호 생성
- * - 비선형 정규화를 위해 쌍곡탄젠트 함수 사용
- * - 밴드 폭 변화에 따른 민감도 조절
- * - 상한/하한 밴드 경계 강화
- *
- * @param client - PostgreSQL 데이터베이스 연결
- * @param uuid - 전략 실행 식별자
- * @param symbol - 거래 심볼
- * @param period - 볼린저 밴드 계산 기간 (기본값: 50)
- * @param hours - 데이터 분석 시간 창 (기본값: 2)
- */
-export class BollingerStrategy implements iStrategy {
-	readonly weight = 0.85;
-	readonly client: PoolClient;
-	readonly uuid: string;
-	readonly symbol: string;
-	readonly period: number;
-	readonly hours: number;
+import { BollingerRepository } from "../../shared/indicators/bollinger/bollinger.repository";
+import type {
+	iBollingerData,
+	iBollingerParams,
+} from "../../shared/indicators/bollinger/bollinger.types";
+import {
+	calculateBandWidth,
+	calculateBollingerScore,
+} from "../../shared/indicators/bollinger/bollinger.utils";
+import { CommonStrategy } from "../../shared/indicators/common/common.strategy";
 
+/**
+ * Bollinger Bands 기반의 거래 전략을 구현하는 클래스
+ * Trading strategy class based on Bollinger Bands indicator
+ */
+export class BollingerStrategy extends CommonStrategy {
+	private readonly repository: BollingerRepository;
+	readonly params: iBollingerParams;
+
+	/**
+	 * 볼린저 밴드 전략 클래스의 생성자
+	 * Constructor for the Bollinger Bands strategy class
+	 *
+	 * @param {PoolClient} client - 데이터베이스 연결 클라이언트 / Database connection client
+	 * @param {string} uuid - 전략 식별자 / Strategy identifier
+	 * @param {string} symbol - 분석할 암호화폐 심볼 / Cryptocurrency symbol to analyze
+	 * @param {Partial<iBollingerParams>} params - 볼린저 밴드 파라미터 (선택적) / Bollinger Bands parameters (optional)
+	 * @param {number} weight - 전략 가중치 (기본값: 0.85) / Strategy weight (default: 0.85)
+	 */
 	constructor(
 		client: PoolClient,
 		uuid: string,
 		symbol: string,
-		period = 20,
-		hours = 10,
+		params?: Partial<iBollingerParams>,
+		weight = 0.85,
 	) {
-		this.client = client;
-		this.uuid = uuid;
-		this.symbol = symbol;
-		this.period = period;
-		this.hours = hours;
+		super(client, uuid, symbol, weight);
+		this.repository = new BollingerRepository(client);
+		this.params = {
+			period: params?.period ?? 20,
+			hours: params?.hours ?? 10,
+		};
 	}
 
-	private readonly GET_BOLLINGER_BANDS = `
-WITH RECURSIVE time_series AS (
-    -- 현재 시각부터 20분 단위로 과거 시점들 생성
-    SELECT 
-        date_trunc('minute', NOW()) AS ts
-    UNION ALL
-    SELECT 
-        ts - INTERVAL '20 minute'
-    FROM time_series
-    WHERE ts > NOW() - (INTERVAL '1 hour' * $3)
-),
-twenty_minute_data AS (
-    SELECT
-        time_series.ts AS bucket,
-        md.symbol,
-        LAST(md.close_price, md.timestamp) AS close_price
-    FROM time_series
-    LEFT JOIN Market_Data md ON 
-        md.symbol = $1 AND
-        md.timestamp >= time_series.ts - INTERVAL '20 minute' AND
-        md.timestamp < time_series.ts
-    GROUP BY time_series.ts, md.symbol
-    HAVING COUNT(md.symbol) > 0  -- 데이터가 있는 구간만 선택
-),
-bollinger_calc AS (
-    SELECT
-        bucket,
-        symbol,
-        close_price,
-        AVG(close_price) OVER w AS moving_avg,
-        STDDEV(close_price) OVER w AS moving_stddev
-    FROM twenty_minute_data
-    WINDOW w AS (ORDER BY bucket ROWS BETWEEN $2::integer - 1 PRECEDING AND CURRENT ROW) 
-)
-SELECT
-    bucket AS timestamp,
-    symbol,
-    close_price,
-    ROUND((moving_avg + (2 * moving_stddev))::numeric, 5) AS bollinger_upper,
-    ROUND(moving_avg::numeric, 5) AS bollinger_middle,
-    ROUND((moving_avg - (2 * moving_stddev))::numeric, 5) AS bollinger_lower
-FROM bollinger_calc
-WHERE moving_avg IS NOT NULL
-ORDER BY bucket DESC
-LIMIT 1;
-	`;
-
-	private readonly INSERT_BOLLINGER_SIGNAL = `
-		INSERT INTO BollingerSignal (
-			signal_id,
-			upper_band,
-			middle_band,
-			lower_band,
-			close_price,
-			band_width,
-			score
-		) VALUES ($1, $2, $3, $4, $5, $6, $7);
-	`;
-
-	async execute(): Promise<number> {
-		let course = "this.getData";
-		let score = 0;
-
-		try {
-			const data = await this.getData();
-
-			course = "this.calculateScore";
-			score = this.calculateScore(data);
-
-			course = "this.weight";
-			score = Number((score * this.weight).toFixed(2));
-
-			course = "this.saveData";
-			await this.saveData(data, score);
-
-			return score;
-		} catch (error) {
-			throw new Error(i18n.getMessage("BOLLINGER_DATA_ERROR"));
-		}
+	/**
+	 * 볼린저 밴드 데이터를 기반으로 매매 신호 점수를 계산
+	 * Calculates trading signal score based on Bollinger Bands data
+	 *
+	 * @param {iBollingerData} data - 볼린저 밴드 데이터 / Bollinger Bands data
+	 * @returns {number} 계산된 매매 신호 점수 (-1 ~ 1) / Calculated trading signal score (-1 to 1)
+	 */
+	protected calculateScore(data: iBollingerData): number {
+		return calculateBollingerScore(data);
 	}
 
-	private calculateScore(data: {
-		bollinger_upper: number;
-		bollinger_middle: number;
-		bollinger_lower: number;
-		close_price: number;
-	}): number {
-		const { bollinger_upper, bollinger_middle, bollinger_lower, close_price } =
-			data;
-
-		// 밴드폭 및 절반 폭 계산
-		const bandWidth = bollinger_upper - bollinger_lower;
-		const halfBandWidth = bandWidth / 2;
-
-		// 중간선에서의 상대적 위치: 가격이 중간선일 경우 0, 상한이면 +1, 하한이면 -1
-		const normalizedDeviation =
-			(close_price - bollinger_middle) / halfBandWidth;
-
-		// 폭 가중치: 밴드폭이 좁을수록 (즉, 변동성이 낮을수록) 민감도를 높임
-		const widthFactor = Math.tanh(bollinger_middle / bandWidth);
-		// 민감도 조절 인자 (필요에 따라 조정 가능)
-		const sensitivity = 1;
-
-		// tanh 함수를 사용해 부드러운 비선형 스코어 산출
-		// 가격이 중간선보다 위이면 normalizedDeviation > 0 → tanh(양수) > 0,
-		// 그런데 과매수(가격이 너무 높음)는 매도 신호이므로 부호 반전하여 음수를 만듦.
-		let score = -Math.tanh(normalizedDeviation * sensitivity) * widthFactor;
-		// -1 ~ 1 사이로 클램프
-		score = Math.max(-1, Math.min(1, score));
-
-		return score;
+	/**
+	 * 지정된 심볼의 볼린저 밴드 데이터를 조회
+	 * Retrieves Bollinger Bands data for the specified symbol
+	 *
+	 * @returns {Promise<iBollingerData>} 볼린저 밴드 데이터 / Bollinger Bands data
+	 */
+	protected async getData(): Promise<iBollingerData> {
+		return this.repository.getBollingerBands(
+			this.symbol,
+			this.params.period,
+			this.params.hours,
+		);
 	}
 
-	private async getData(): Promise<{
-		bollinger_upper: number;
-		bollinger_middle: number;
-		bollinger_lower: number;
-		close_price: number;
-	}> {
-		const result = await this.client.query({
-			name: `get_bollinger_${this.symbol}_${this.uuid}`,
-			text: this.GET_BOLLINGER_BANDS,
-			values: [this.symbol, this.period, this.hours],
-		});
-
-		if (result.rows.length === 0) {
-			throw new Error(i18n.getMessage("BOLLINGER_DATA_ERROR"));
-		}
-
-		return result.rows[0];
-	}
-
-	private async saveData(
-		data: {
-			bollinger_upper: number;
-			bollinger_middle: number;
-			bollinger_lower: number;
-			close_price: number;
-		},
-		score: number,
-	): Promise<void> {
-		const bandWidth = data.bollinger_upper - data.bollinger_lower;
-
-		await this.client.query(this.INSERT_BOLLINGER_SIGNAL, [
-			this.uuid,
+	/**
+	 * 계산된 볼린저 밴드 신호를 데이터베이스에 저장
+	 * Saves calculated Bollinger Bands signal to the database
+	 *
+	 * @param {iBollingerData} data - 볼린저 밴드 데이터 / Bollinger Bands data
+	 * @param {number} score - 계산된 신호 점수 / Calculated signal score
+	 * @returns {Promise<void>}
+	 */
+	protected async saveData(data: iBollingerData, score: number): Promise<void> {
+		const bandWidth = calculateBandWidth(
 			data.bollinger_upper,
-			data.bollinger_middle,
 			data.bollinger_lower,
-			data.close_price,
-			bandWidth,
+		);
+
+		await this.repository.saveBollingerSignal(this.uuid, {
+			...data,
+			band_width: bandWidth,
 			score,
-		]);
+		});
 	}
 }

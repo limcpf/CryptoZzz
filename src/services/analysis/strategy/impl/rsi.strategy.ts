@@ -1,12 +1,12 @@
 import type { PoolClient } from "pg";
-import { CommonStrategy } from "../../shared/indicators/common/common.strategy";
-import { RSIRepository } from "../../shared/indicators/rsi/rsi.repository";
-import type { iRSIParams } from "../../shared/indicators/rsi/rsi.types";
+import { CommonStrategy } from "../../indicators/common/common.strategy";
+import { RSIRepository } from "../../indicators/rsi/rsi.repository";
+import type { iRSIParams } from "../../indicators/rsi/rsi.types";
 import {
 	calculateFinalScore,
 	calculateMomentumScore,
 	calculateRSIScore,
-} from "../../shared/indicators/rsi/rsi.utils";
+} from "../../indicators/rsi/rsi.utils";
 
 /**
  * RSI(Relative Strength Index) 기반의 거래 전략을 구현하는 클래스입니다.

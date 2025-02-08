@@ -1,14 +1,14 @@
 import type { PoolClient } from "pg";
-import { CommonStrategy } from "../../shared/indicators/common/common.strategy";
-import { clampScore } from "../../shared/indicators/common/common.utils";
+import { CommonStrategy } from "../../indicators/common/common.strategy";
+import { clampScore } from "../../indicators/common/common.utils";
 import {
 	calculateCrossoverScore,
 	calculateHistogramScore,
 	calculateTrendStrength,
 	calculateZeroLineScore,
-} from "../../shared/indicators/common/common.utils";
-import { MACDRepository } from "../../shared/indicators/macd/macd.repository";
-import type { iMACDResult } from "../../shared/indicators/macd/macd.types";
+} from "../../indicators/common/common.utils";
+import { MACDRepository } from "../../indicators/macd/macd.repository";
+import type { iMACDResult } from "../../indicators/macd/macd.types";
 
 /**
  * MACD (Moving Average Convergence Divergence) Strategy Implementation

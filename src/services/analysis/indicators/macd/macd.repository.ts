@@ -1,5 +1,5 @@
 import type { PoolClient } from "pg";
-import i18n from "../../services/i18n";
+import i18n from "../../../../shared/services/i18n";
 import { GET_MACD_ANALYSIS, INSERT_MACD_SIGNAL } from "./macd.queries";
 import type { iMACDResult } from "./macd.types";
 

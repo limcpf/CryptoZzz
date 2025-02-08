@@ -1,8 +1,8 @@
 import type { PoolClient } from "pg";
-import { CommonStrategy } from "../../shared/indicators/common/common.strategy";
-import { VolumeRepository } from "../../shared/indicators/volume/volume.repository";
-import type { iVolumeAnalysisResult } from "../../shared/indicators/volume/volume.types";
-import { calculateVolumeScore } from "../../shared/indicators/volume/volume.utils";
+import { CommonStrategy } from "../../indicators/common/common.strategy";
+import { VolumeRepository } from "../../indicators/volume/volume.repository";
+import type { iVolumeAnalysisResult } from "../../indicators/volume/volume.types";
+import { calculateVolumeScore } from "../../indicators/volume/volume.utils";
 
 /**
  * 거래량 분석 기반의 거래 전략을 구현하는 클래스

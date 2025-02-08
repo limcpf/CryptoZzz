@@ -12,7 +12,7 @@ import i18n from "../../shared/services/i18n";
 import { setupProcessHandlers } from "../../shared/services/process-handler";
 import { developmentLog, errorHandler } from "../../shared/services/util";
 import webhook from "../../shared/services/webhook";
-import { StrategyFactory } from "../../strategy/strategy.factory";
+import { StrategyFactory } from "./strategy/strategy.factory";
 
 const loggerPrefix = "[ANALYZE]";
 

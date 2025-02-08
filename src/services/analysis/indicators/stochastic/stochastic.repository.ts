@@ -1,5 +1,5 @@
 import type { PoolClient } from "pg";
-import i18n from "../../../shared/services/i18n";
+import i18n from "../../../../shared/services/i18n";
 import { validateQueryResult } from "../common/common.utils";
 import {
 	GET_STOCHASTIC_OSCILLATOR,

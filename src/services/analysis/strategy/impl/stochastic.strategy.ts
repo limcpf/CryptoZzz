@@ -1,11 +1,11 @@
 import type { PoolClient } from "pg";
-import { CommonStrategy } from "../../shared/indicators/common/common.strategy";
-import { StochasticRepository } from "../../shared/indicators/stochastic/stochastic.repository";
+import { CommonStrategy } from "../../indicators/common/common.strategy";
+import { StochasticRepository } from "../../indicators/stochastic/stochastic.repository";
 import type {
 	iStochasticParams,
 	iStochasticResult,
-} from "../../shared/indicators/stochastic/stochastic.types";
-import { calculateStochasticScore } from "../../shared/indicators/stochastic/stochastic.utils";
+} from "../../indicators/stochastic/stochastic.types";
+import { calculateStochasticScore } from "../../indicators/stochastic/stochastic.utils";
 
 /**
  * Stochastic Oscillator 기반의 거래 전략을 구현하는 클래스

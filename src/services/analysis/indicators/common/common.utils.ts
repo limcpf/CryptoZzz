@@ -1,6 +1,9 @@
 import type { PoolClient, QueryResult, QueryResultRow } from "pg";
-import type { MSG } from "../../services/i18n/msg/msg.const";
-import { errorHandler, innerErrorHandler } from "../../services/util";
+import type { MSG } from "../../../../shared/services/i18n/msg/msg.const";
+import {
+	errorHandler,
+	innerErrorHandler,
+} from "../../../../shared/services/util";
 
 /**
  * Applies a weight to a score and rounds the result to two decimal places.

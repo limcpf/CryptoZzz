@@ -1,5 +1,5 @@
 import type { PoolClient } from "pg";
-import type { MSG } from "../../services/i18n/msg/msg.const";
+import type { MSG } from "../../../../shared/services/i18n/msg/msg.const";
 import { applyWeight, handleStrategyError } from "./common.utils";
 
 /**

@@ -1,5 +1,5 @@
 import type { PoolClient } from "pg";
-import i18n from "../../../shared/services/i18n";
+import i18n from "../../../../shared/services/i18n";
 import { GET_RSI_QUERY, INSERT_RSI_SIGNAL } from "./rsi.queries";
 import type { iRSIResult } from "./rsi.types";
 

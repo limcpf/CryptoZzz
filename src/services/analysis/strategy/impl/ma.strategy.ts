@@ -1,11 +1,11 @@
 import type { PoolClient } from "pg";
-import { CommonStrategy } from "../../shared/indicators/common/common.strategy";
+import { CommonStrategy } from "../../indicators/common/common.strategy";
 import {
 	clampScore,
 	normalizeWithTanh,
-} from "../../shared/indicators/common/common.utils";
-import { MARepository } from "../../shared/indicators/ma/ma.repository";
-import type { iMAResult } from "../../shared/indicators/ma/ma.types";
+} from "../../indicators/common/common.utils";
+import { MARepository } from "../../indicators/ma/ma.repository";
+import type { iMAResult } from "../../indicators/ma/ma.types";
 
 /**
  * MA (Moving Average) Strategy Implementation

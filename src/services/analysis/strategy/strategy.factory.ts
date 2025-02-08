@@ -1,6 +1,6 @@
 import type { PoolClient } from "pg";
-import i18n from "../shared/services/i18n";
-import type { iStrategy } from "./iStrategy";
+import i18n from "../../../shared/services/i18n";
+import type { CommonStrategy } from "../indicators/common/common.strategy";
 import { BollingerStrategy } from "./impl/bollinger.strategy";
 import { MaStrategy } from "./impl/ma.strategy";
 import { MacdStrategy } from "./impl/macd.strategy";
@@ -22,7 +22,7 @@ export class StrategyFactory {
 		private symbol: string,
 	) {}
 
-	createStrategy(strategyName: string): iStrategy {
+	createStrategy(strategyName: string): CommonStrategy {
 		switch (strategyName) {
 			case StrategyName.RSI:
 				return new RsiStrategy(this.client, this.uuid, this.symbol);

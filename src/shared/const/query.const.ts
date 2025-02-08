@@ -1,4 +1,4 @@
-import { StochasticStrategy } from "../../strategy/impl/stochastic.strategy";
+import { StochasticStrategy } from "../../services/analysis/strategy/impl/stochastic.strategy";
 
 // 테이블별 모듈식 정의
 const TABLE_DEFINITIONS: Record<

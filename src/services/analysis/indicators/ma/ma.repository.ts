@@ -1,5 +1,5 @@
 import type { PoolClient } from "pg";
-import i18n from "../../services/i18n";
+import i18n from "../../../../shared/services/i18n";
 import { GET_MA_SCORE, INSERT_MA_SIGNAL } from "./ma.queries";
 import type { iMAResult } from "./ma.types";
 

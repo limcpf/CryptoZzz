@@ -1,14 +1,14 @@
 import type { PoolClient } from "pg";
-import { BollingerRepository } from "../../shared/indicators/bollinger/bollinger.repository";
+import { BollingerRepository } from "../../indicators/bollinger/bollinger.repository";
 import type {
 	iBollingerData,
 	iBollingerParams,
-} from "../../shared/indicators/bollinger/bollinger.types";
+} from "../../indicators/bollinger/bollinger.types";
 import {
 	calculateBandWidth,
 	calculateBollingerScore,
-} from "../../shared/indicators/bollinger/bollinger.utils";
-import { CommonStrategy } from "../../shared/indicators/common/common.strategy";
+} from "../../indicators/bollinger/bollinger.utils";
+import { CommonStrategy } from "../../indicators/common/common.strategy";
 
 /**
  * Bollinger Bands 기반의 거래 전략을 구현하는 클래스

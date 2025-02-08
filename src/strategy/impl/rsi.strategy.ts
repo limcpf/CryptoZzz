@@ -1,204 +1,97 @@
 import type { PoolClient } from "pg";
-import type { iRSIResult } from "../../shared/interfaces/iMarketDataResult";
-import i18n from "../../shared/services/i18n";
-import { errorHandler, innerErrorHandler } from "../../shared/services/util";
-import type { iStrategy } from "../iStrategy";
+import { CommonStrategy } from "../../shared/indicators/common/common.strategy";
+import { RSIRepository } from "../../shared/indicators/rsi/rsi.repository";
+import type { iRSIParams } from "../../shared/indicators/rsi/rsi.types";
+import {
+	calculateFinalScore,
+	calculateMomentumScore,
+	calculateRSIScore,
+} from "../../shared/indicators/rsi/rsi.utils";
 
 /**
- * RSI (Relative Strength Index) Strategy Implementation
- * Analyzes market data using RSI indicator to generate trading signals with weighted scoring
- * - Calculates buy signals when RSI falls below 30 (oversold) using sigmoid function
- * - Calculates sell signals when RSI rises above 70 (overbought) with linear scaling
- * - Implements neutral zone scoring between 30-70 range
- * - Incorporates historical RSI momentum by analyzing recent signal changes
- * - Applies configurable strategy weight for portfolio balance
+ * RSI(Relative Strength Index) 기반의 거래 전략을 구현하는 클래스입니다.
+ * CommonStrategy를 상속받아 RSI 지표를 사용한 매매 신호를 생성합니다.
  *
- * RSI (상대강도지수) 전략 구현
- * RSI 지표를 사용하여 가중치가 적용된 거래 신호를 생성
- * - RSI가 30 이하일 때 시그모이드 함수를 사용하여 매수 신호 계산 (과매도)
- * - RSI가 70 이상일 때 선형 스케일링으로 매도 신호 계산 (과매수)
- * - 30-70 구간에서는 중립 구간 점수 계산
- * - 최근 RSI 변화량을 분석하여 모멘텀 반영
- * - 포트폴리오 균형을 위한 전략 가중치 적용
- *
- * @param client - PostgreSQL 데이터베이스 연결
- * @param uuid - 전략 실행 식별자
- * @param symbol - 거래 심볼
- * @param weight - 전략 가중치 (기본값: 0.8)
- * @param period - RSI 계산 기간 (기본값: 14)
- * @param oversoldThreshold - 과매도 임계값 (기본값: 30)
- * @param overboughtThreshold - 과매수 임계값 (기본값: 70)
- * @param momentumWeight - 모멘텀 가중치 (기본값: 0.1)
+ * A trading strategy class based on RSI (Relative Strength Index).
+ * Extends CommonStrategy to generate trading signals using the RSI indicator.
  */
-export class RsiStrategy implements iStrategy {
-	private readonly period: number = 14;
-	readonly weight: number;
-	readonly client: PoolClient;
-	readonly uuid: string;
-	readonly symbol: string;
-	private readonly oversoldThreshold: number = 30;
-	private readonly overboughtThreshold: number = 70;
-	private readonly momentumWeight: number = 0.1;
+export class RsiStrategy extends CommonStrategy {
+	private readonly repository: RSIRepository;
+	private readonly params: iRSIParams;
 
+	/**
+	 * RSI 전략 클래스의 생성자
+	 * Constructor for the RSI strategy class
+	 *
+	 * @param {PoolClient} client - 데이터베이스 연결 클라이언트 / Database connection client
+	 * @param {string} uuid - 전략 식별자 / Strategy identifier
+	 * @param {string} symbol - 분석할 암호화폐 심볼 / Cryptocurrency symbol to analyze
+	 * @param {Partial<iRSIParams>} params - RSI 전략 파라미터 (선택적) / RSI strategy parameters (optional)
+	 * @param {number} weight - 전략 가중치 (기본값: 1) / Strategy weight (default: 1)
+	 */
 	constructor(
 		client: PoolClient,
 		uuid: string,
 		symbol: string,
+		params?: Partial<iRSIParams>,
 		weight = 1,
-		period = 14,
-		oversoldThreshold = 30,
-		overboughtThreshold = 70,
-		momentumWeight = 0.1,
 	) {
-		this.client = client;
-		this.weight = weight;
-		this.period = period;
-		this.uuid = uuid;
-		this.symbol = symbol;
-		this.oversoldThreshold = oversoldThreshold;
-		this.overboughtThreshold = overboughtThreshold;
-		this.momentumWeight = momentumWeight;
+		super(client, uuid, symbol, weight);
+		this.repository = new RSIRepository(client);
+		this.params = {
+			period: params?.period ?? 14,
+			oversoldThreshold: params?.oversoldThreshold ?? 30,
+			overboughtThreshold: params?.overboughtThreshold ?? 70,
+			momentumWeight: params?.momentumWeight ?? 0.1,
+		};
 	}
 
-	private readonly GET_RSI_QUERY = `
-WITH HourlyData AS (
-		SELECT 
-			symbol,
-			time_bucket('1 hour', timestamp, NOW() - INTERVAL '1 minute' * EXTRACT(MINUTE FROM NOW())) AS hour,
-			FIRST(open_price, timestamp) AS open_price,
-			MAX(high_price) AS high_price,
-			MIN(low_price) AS low_price,
-			LAST(close_price, timestamp) AS close_price,
-			SUM(volume) AS volume
-		FROM Market_Data
-		WHERE symbol = $1
-		AND timestamp >= NOW() - INTERVAL '60 minutes' * $2::integer  -- 14시간 대신 14개 60분 간격
-		GROUP BY symbol, hour
-	),
-	PriceChanges AS (
-		SELECT 
-			symbol,
-			hour,
-			close_price,
-			close_price - LAG(close_price) OVER (PARTITION BY symbol ORDER BY hour) AS price_change
-		FROM HourlyData
-	),
-	GainsLosses AS (
-		SELECT
-			symbol,
-			hour,
-			CASE WHEN price_change > 0 THEN price_change ELSE 0 END AS gain,
-			CASE WHEN price_change < 0 THEN ABS(price_change) ELSE 0 END AS loss
-		FROM PriceChanges
-	),
-	AvgGainsLosses AS (
-		SELECT
-			symbol,
-			hour,
-			AVG(gain) OVER (PARTITION BY symbol ORDER BY hour ROWS BETWEEN $3::integer PRECEDING AND CURRENT ROW) AS avg_gain,
-			AVG(loss) OVER (PARTITION BY symbol ORDER BY hour ROWS BETWEEN $3::integer PRECEDING AND CURRENT ROW) AS avg_loss
-		FROM GainsLosses
-	)
-	SELECT
-		symbol,
-		hour,
-		CASE 
-		WHEN avg_gain = 0 AND avg_loss = 0 THEN 50
-		WHEN avg_loss = 0 THEN 100
-		WHEN avg_gain = 0 THEN 0
-		ELSE ROUND(100 - (100 / (1 + avg_gain / avg_loss)), 2)
-		END AS rsi
-	FROM AvgGainsLosses
-	WHERE hour >= NOW() - INTERVAL '60 minutes' * $2::integer  -- 14시간 대신 14개 60분 간격
-	ORDER BY symbol, hour DESC
-	`;
+	/**
+	 * RSI 값을 기반으로 매매 신호 점수를 계산합니다.
+	 * Calculates trading signal score based on RSI values.
+	 *
+	 * @param {unknown} data - RSI 값 배열 / Array of RSI values
+	 * @returns {number} 계산된 매매 신호 점수 (-1 ~ 1) / Calculated trading signal score (-1 to 1)
+	 */
+	protected calculateScore(data: unknown): number {
+		const rsiValues = data as number[];
+		const currentRsi = rsiValues[0];
+		const prevRsiValues = rsiValues.slice(1);
 
-	private readonly INSERT_RSI_SIGNAL = `
-		INSERT INTO RsiSignal (signal_id, rsi, score)
-		VALUES ($1, $2, $3);
-	`;
+		const baseScore = calculateRSIScore(
+			currentRsi,
+			this.params.oversoldThreshold,
+			this.params.overboughtThreshold,
+		);
 
-	async execute(): Promise<number> {
-		let course = "this.getData";
-		let score = 0;
-		let rsi: number;
-		let prevRsi: number[] = [];
+		const momentumScore = calculateMomentumScore(
+			currentRsi,
+			prevRsiValues,
+			this.params.momentumWeight,
+		);
 
-		try {
-			const result = await this.getData();
-			rsi = result[0];
-
-			if (result.length > 1) {
-				prevRsi = result.slice(1);
-			}
-
-			course = "this.score";
-			score = await this.score(rsi, prevRsi);
-
-			course = "score = score * this.weight";
-			score = Number((score * this.weight).toFixed(2));
-
-			course = "this.saveData";
-			this.saveData(rsi, score);
-
-			return score;
-		} catch (error: unknown) {
-			if (error instanceof Error && "code" in error && error.code === "42P01") {
-				errorHandler(this.client, "TABLE_NOT_FOUND", "RSI_SIGNAL", error);
-			} else {
-				innerErrorHandler("SIGNAL_RSI_ERROR", error, course);
-			}
-		}
-
-		return 0;
+		return calculateFinalScore(baseScore, momentumScore);
 	}
 
-	private async score(rsi: number, prevRsi: number[]): Promise<number> {
-		let score = 0;
-
-		// RSI 기반 기본 점수 계산 (TANH 적용으로 자연스러운 범위 제한)
-		if (rsi <= this.oversoldThreshold) {
-			score = Math.tanh((this.oversoldThreshold - rsi) / 10); // -1 ~ 1 범위
-		} else if (rsi >= this.overboughtThreshold) {
-			score = -Math.tanh((rsi - this.overboughtThreshold) / 10); // -1 ~ 1 범위
-		} else {
-			score = Math.tanh((rsi - 50) / 20); // -1 ~ 1 범위
-		}
-
-		// 모멘텀 가중치 계산 (변화율 정규화)
-		if (prevRsi.length > 0) {
-			const averageDelta = this.calculateAverageDelta(rsi, prevRsi);
-			// 모멘텀 변화율을 TANH로 정규화 (-0.2 ~ 0.2 범위)
-			score += this.momentumWeight * Math.tanh(averageDelta / 10);
-		}
-
-		// 최종 점수 클램핑
-		return Math.max(-1, Math.min(1, score));
+	/**
+	 * 지정된 심볼의 RSI 값들을 조회합니다.
+	 * Retrieves RSI values for the specified symbol.
+	 *
+	 * @returns {Promise<number[]>} RSI 값 배열 / Array of RSI values
+	 */
+	protected async getData(): Promise<number[]> {
+		return this.repository.getRSIValues(this.symbol, this.params.period);
 	}
 
-	private calculateAverageDelta(
-		currentRsi: number,
-		prevRsiValues: number[],
-	): number {
-		const deltas = prevRsiValues.map((prevRsi) => currentRsi - prevRsi);
-		return deltas.reduce((sum, delta) => sum + delta, 0) / deltas.length;
-	}
-
-	private async getData(): Promise<number[]> {
-		const result = await this.client.query<iRSIResult>({
-			name: `get_rsi_${this.symbol}_${this.uuid}`,
-			text: this.GET_RSI_QUERY,
-			values: [this.symbol, this.period, this.period - 1],
-		});
-
-		if (result.rows.length === 0) {
-			throw new Error(i18n.getMessage("SIGNAL_RSI_ERROR_NO_DATA"));
-		}
-
-		return result.rows.filter((row) => row.rsi !== null).map((row) => row.rsi);
-	}
-
-	private async saveData(data: number, score: number): Promise<void> {
-		await this.client.query(this.INSERT_RSI_SIGNAL, [this.uuid, data, score]);
+	/**
+	 * 계산된 RSI 신호를 데이터베이스에 저장합니다.
+	 * Saves the calculated RSI signal to the database.
+	 *
+	 * @param {number[]} data - RSI 값 배열 / Array of RSI values
+	 * @param {number} score - 계산된 매매 신호 점수 / Calculated trading signal score
+	 * @returns {Promise<void>}
+	 */
+	protected async saveData(data: number[], score: number): Promise<void> {
+		await this.repository.saveRSISignal(this.uuid, data[0], score);
 	}
 }

@@ -1,15 +1,6 @@
 /**
  * Calculates Moving Average scores for trading signals
- * - Generates 15-minute interval time series for the last 6 hours
- * - Aggregates market data into 15-minute buckets
- * - Computes short-term and long-term moving averages
- * - Returns the most recent MA values with previous short MA for momentum
- *
  * 거래 신호를 위한 이동평균(MA) 점수 계산
- * - 최근 6시간 동안의 15분 간격 시계열 생성
- * - 시장 데이터를 15분 단위로 집계
- * - 단기 및 장기 이동평균 계산
- * - 모멘텀 계산을 위한 이전 단기 MA를 포함한 최신 MA 값 반환
  *
  * @param {string} $1 - Trading symbol (거래 심볼)
  * @param {number} $2 - Short-term MA period (단기 MA 기간)
@@ -20,6 +11,12 @@
  *   - short_ma: Short-term moving average
  *   - long_ma: Long-term moving average
  *   - prev_short_ma: Previous short-term MA value
+ *
+ * 쿼리 처리 과정 / Query Processing Steps:
+ * 1. time_series: 15분 간격 시계열 생성 (6시간) / Generate 15-min intervals (6 hours)
+ * 2. fifteen_minute_data: 시장 데이터 집계 / Aggregate market data
+ * 3. ma_calculations: MA 계산 (단기/장기) / Calculate MAs (short/long)
+ * 4. 최종 선택: MA 값과 이전 단기 MA / Select: MA values with previous short MA
  */
 export const GET_MA_SCORE = `
     WITH RECURSIVE time_series AS (

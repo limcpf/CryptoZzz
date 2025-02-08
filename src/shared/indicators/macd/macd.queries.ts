@@ -25,6 +25,15 @@
  *   - prev_signal: Previous signal line value
  *   - histogram: Current MACD histogram value
  *   - prev_histogram: Previous MACD histogram value
+ *
+ * 쿼리 처리 과정 / Query Processing Steps:
+ * 1. time_intervals: 시간별 간격 생성 / Generate hourly intervals
+ * 2. hourly_candles: OHLCV 데이터 집계 / Aggregate OHLCV data
+ * 3. initial_ema: 초기 EMA 계산 / Calculate initial EMAs
+ * 4. ema_calc: EMA 계산 (단기/장기) / Calculate EMAs (short/long)
+ * 5. macd_calc: MACD 라인 계산 / Calculate MACD line
+ * 6. signal_calc: 시그널 라인, 히스토그램 / Calculate signal line, histogram
+ * 7. 최종 선택: MACD 지표 / Select: MACD indicators
  */
 export const GET_MACD_ANALYSIS = `
     WITH RECURSIVE time_intervals AS (

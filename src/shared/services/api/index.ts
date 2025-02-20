@@ -23,6 +23,7 @@ const API = {
 	ORDER: (client: PoolClient, orderProps: iOrderProps) =>
 		api.order(client, orderProps),
 	GET_ACCOUNT_STATUS: (coin = "BTC") => api.getAccountStatus(coin),
+	GET_ORDER: (uuid: string) => api.getOrder(uuid),
 };
 
 export default API;

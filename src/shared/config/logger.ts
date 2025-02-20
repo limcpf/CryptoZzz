@@ -6,10 +6,10 @@ import { notify } from "./database";
 
 const getMessage = (msg: keyof MSG, prefix?: string, suffix?: string) =>
 	`${prefix ? `${prefix} ` : ""}${i18n.getMessage(msg)}${
-		suffix ? ` ${suffix}` : ""
+		suffix ? `\n${suffix}` : ""
 	}`;
 const getMessageStr = (msg: string, prefix?: string, suffix?: string) =>
-	`${prefix ? `${prefix} ` : ""}${msg}${suffix ? ` ${suffix}` : ""}`;
+	`${prefix ? `${prefix} ` : ""}${msg}${suffix ? `\n${suffix}` : ""}`;
 
 const logger = {
 	info(msg: keyof MSG, prefix?: string, suffix?: string) {

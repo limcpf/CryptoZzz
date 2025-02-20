@@ -1,4 +1,3 @@
-import type { iAccount } from "../../../shared/interfaces/iAccount";
 import type { iTradingBalance } from "../../../shared/interfaces/iTrading";
 import API from "../../../shared/services/api";
 
@@ -7,21 +6,20 @@ export async function getAccountBalance(
 ): Promise<iTradingBalance[]> {
 	const account = await API.GET_ACCOUNT();
 
-	let coins: iAccount[] = account;
+	const filteredCoins = includesCoin
+		? account.filter((acc) => includesCoin.includes(acc.currency))
+		: account;
 
-	if (includesCoin) {
-		coins = account.filter((account) =>
-			includesCoin.includes(account.currency),
-		);
-	}
-
-	const balances: iTradingBalance[] = coins
+	const balances = filteredCoins
 		.map((coin) => ({
 			coin: coin.currency,
-			balance: Number(coin.balance),
+			balance: coin.balance,
 			avg_buy_price: Number(coin.avg_buy_price),
 		}))
-		.filter((coin) => coin.balance > 100);
+		.filter(
+			(coin) =>
+				coin.coin === "KRW" || Number(coin.balance) * coin.avg_buy_price > 100,
+		);
 
 	return balances;
 }

@@ -76,6 +76,8 @@ export interface MSG {
 	STOCHASTIC_DATA_ERROR: string;
 	STRATEGY_ERROR: string;
 	MACD_DATA_NOT_FOUND: string;
+	INSERT_TRADE_ERROR: string;
+	ORDER_UPDATE_ERROR: string;
 }
 
 export const getMsg = (language: string) => {

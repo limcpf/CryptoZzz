@@ -5,6 +5,6 @@ export interface iTradingSignal {
 
 export interface iTradingBalance {
 	coin: string;
-	balance: number;
+	balance: string;
 	avg_buy_price: number;
 }

@@ -3,21 +3,17 @@ import querystring from "node:querystring";
 import jwt from "jsonwebtoken";
 import type { PoolClient } from "pg";
 import { v4 as uuidv4 } from "uuid";
-import logger from "../../../config/logger";
 import type { iAccount, iAccountStatus } from "../../../interfaces/iAccount";
 import type { iCandle } from "../../../interfaces/iCandle";
 import type {
+	GetOrderResponse,
 	OrderResponse,
-	iOrder,
 	iOrderProps,
 } from "../../../interfaces/iOrder";
-import { developmentLog } from "../../../services/util";
-import i18n from "../../i18n";
 import type { Api } from "../api.interface";
 
 export class UpbitApi implements Api {
 	MARKET_URL: string;
-	private loggerPrefix = "UPBIT";
 
 	constructor() {
 		this.MARKET_URL = process.env.UPBIT_API_URL || "https://api.upbit.com";
@@ -69,9 +65,9 @@ export class UpbitApi implements Api {
 		});
 
 		if (!response.ok) {
-			throw new Error(
-				`[${new Date().toLocaleString()}] [UPBIT-GET_ACCOUNT] ${i18n.getMessage("ANALYZE_API_ERROR")} : ${response.status}`,
-			);
+			const errorData = await response.json();
+			this.logError("GET_ACCOUNT", {}, errorData);
+			throw new Error(`[UPBIT-GET_ACCOUNT] ${response.status}`);
 		}
 
 		const data = (await response.json()) as iAccount[];
@@ -95,9 +91,9 @@ export class UpbitApi implements Api {
 		});
 
 		if (!response.ok) {
-			throw new Error(
-				`[${new Date().toLocaleString()}] [UPBIT-GET_CANDLE_DATA] ${i18n.getMessage("CANDLE_SAVE_API_ERROR")} : ${response.status}`,
-			);
+			const errorData = await response.json();
+			this.logError("GET_CANDLE_DATA", {}, errorData);
+			throw new Error(`[UPBIT-GET_CANDLE_DATA] ${response.status}`);
 		}
 
 		const data = (await response.json()) as iCandle[];
@@ -121,6 +117,18 @@ export class UpbitApi implements Api {
 		return 0.00000001;
 	};
 
+	private logError(
+		methodName: string,
+		data: unknown,
+		errorData: unknown,
+	): void {
+		console.log("================================================");
+		console.error(`[UPBIT-${methodName}] Error Occurred`);
+		console.error("Request Data:", data);
+		console.error("Error Response:", errorData);
+		console.log("================================================");
+	}
+
 	async order(
 		client: PoolClient,
 		orderProps: iOrderProps,
@@ -143,7 +151,6 @@ export class UpbitApi implements Api {
 					)
 				: null,
 			ord_type: ord_type,
-			identifier: identifier,
 		};
 
 		const token = this.getAuthToken(body);
@@ -158,13 +165,11 @@ export class UpbitApi implements Api {
 		});
 
 		if (!response.ok) {
-			logger.error(
-				client,
-				"ORDER_API_ERROR",
-				this.loggerPrefix,
-				response.statusText,
-			);
-			throw new Error(response.statusText);
+			const errorData = await response.json();
+			const errorMessage = `Status: ${response.status}, Message: ${errorData.error?.message || response.statusText}, Code: ${errorData.error?.name || "UNKNOWN"}`;
+
+			this.logError("ORDER", body, errorData);
+			throw new Error(errorMessage);
 		}
 
 		const data = (await response.json()) as OrderResponse;
@@ -196,5 +201,30 @@ export class UpbitApi implements Api {
 					? "매도 전략 실행중"
 					: "매수 전략 실행중",
 		};
+	}
+
+	async getOrder(uuid: string): Promise<GetOrderResponse> {
+		const body = { uuid };
+		const query = querystring.encode(body);
+		const endpoint = `/v1/order?${query}`;
+		const url = `${this.MARKET_URL}${endpoint}`;
+
+		const response = await fetch(url, {
+			method: "GET",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${this.getAuthToken(body)}`,
+			},
+		});
+
+		if (!response.ok) {
+			const errorData = await response.json();
+			this.logError("GET_ORDER", { uuid }, errorData);
+			throw new Error(`[UPBIT-GET_ORDER] ${response.status}`);
+		}
+
+		const data = (await response.json()) as GetOrderResponse;
+
+		return data;
 	}
 }

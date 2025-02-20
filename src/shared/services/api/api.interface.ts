@@ -1,7 +1,11 @@
 import type { PoolClient } from "pg";
 import type { iAccount, iAccountStatus } from "../../interfaces/iAccount";
 import type { iCandle } from "../../interfaces/iCandle";
-import type { OrderResponse, iOrderProps } from "../../interfaces/iOrder";
+import type {
+	GetOrderResponse,
+	OrderResponse,
+	iOrderProps,
+} from "../../interfaces/iOrder";
 export interface Api {
 	MARKET_URL: string;
 
@@ -20,4 +24,5 @@ export interface Api {
 		>,
 	): string;
 	getAccountStatus(): Promise<iAccountStatus>;
+	getOrder(uuid: string): Promise<GetOrderResponse>;
 }

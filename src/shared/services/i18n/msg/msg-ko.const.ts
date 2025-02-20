@@ -79,6 +79,8 @@ const messages: MSG = {
 	STOCHASTIC_DATA_ERROR: "⚠️ 스토캐스틱 데이터 조회 중 오류가 발생했습니다",
 	STRATEGY_ERROR: "⚠️ 전략 실행 중 오류가 발생했습니다",
 	MACD_DATA_NOT_FOUND: "⚠️ MACD 데이터를 찾을 수 없습니다",
+	INSERT_TRADE_ERROR: "⚠️ 거래 내역 저장에 실패했습니다",
+	ORDER_UPDATE_ERROR: "⚠️ 주문 업데이트 중 오류가 발생했습니다",
 } as const;
 
 export default messages;

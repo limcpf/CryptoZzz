@@ -84,6 +84,8 @@ const messages: MSG = {
 	STOCHASTIC_DATA_ERROR: "⚠️ Error occurred while fetching stochastic data",
 	STRATEGY_ERROR: "⚠️ Error occurred while executing strategy",
 	MACD_DATA_NOT_FOUND: "⚠️ MACD data not found",
+	INSERT_TRADE_ERROR: "⚠️ Failed to save trade record",
+	ORDER_UPDATE_ERROR: "⚠️ Error occurred while updating order",
 } as const;
 
 export default messages;

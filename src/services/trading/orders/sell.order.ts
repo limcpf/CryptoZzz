@@ -1,53 +1,71 @@
 import type { PoolClient } from "pg";
 import { v4 as uuidv4 } from "uuid";
+import { notify } from "../../../shared/config/database";
 import { QUERIES } from "../../../shared/const/query.const";
-import type { iOrderProps } from "../../../shared/interfaces/iOrder";
+import type {
+	OrderResponse,
+	iOrderProps,
+} from "../../../shared/interfaces/iOrder";
 import API from "../../../shared/services/api";
 import i18n from "../../../shared/services/i18n";
 export async function excuteSell(
 	client: PoolClient,
 	coin: string,
-	coinBalance: number,
-	uuid?: string,
+	coinBalance: string,
+	tradingUuid: string,
 ): Promise<void> {
 	if (process.env.NODE_ENV === "development") {
-		await excuteSellDev(client, coin, coinBalance, uuid);
+		await excuteSellDev(client, coin, coinBalance);
 		return;
 	}
+
+	const uuid = tradingUuid || uuidv4();
 
 	const orderProps: iOrderProps = {
 		market: coin,
 		side: "ask",
-		volume: coinBalance.toString(),
+		volume: coinBalance,
 		price: null,
 		ord_type: "market",
-		identifier: uuid || uuidv4(),
 	};
 
-	const order = await API.ORDER(client, orderProps);
+	let order: OrderResponse | undefined;
 
-	if (order?.price && order?.volume) {
-		await client.query(QUERIES.INSERT_TRADE, [
-			uuid || order.identifier,
-			"SELL",
-			coin,
-			order.price,
-			order.volume,
-			false,
-			Number(order.paid_fee),
-		]);
+	try {
+		order = await API.ORDER(client, orderProps);
+	} catch (error) {
+		console.error(error);
+		throw new Error(i18n.getMessage("SELL_ORDER_ERROR"));
 	}
 
-	throw new Error(i18n.getMessage("SELL_ORDER_ERROR"));
+	try {
+		if (order?.price || order?.volume) {
+			const result = await client.query(QUERIES.INSERT_TRADE, [
+				uuid,
+				"SELL",
+				coin,
+				order.price || -1,
+				order.volume || -1,
+				false,
+				Number(order.paid_fee),
+			]);
+
+			if (result.rowCount !== 0) {
+				notify(client, "MANAGER_CHANNEL", `ORDER_UPDATE:${order.uuid},${uuid}`);
+			}
+		}
+	} catch (error) {
+		console.error(error);
+		throw new Error(i18n.getMessage("INSERT_TRADE_ERROR"));
+	}
 }
 
 async function excuteSellDev(
 	client: PoolClient,
 	coin: string,
-	coinBalance: number,
-	uuid?: string,
+	coinBalance: string,
 ): Promise<string> {
-	const u = uuid || uuidv4();
+	const uuid = uuidv4();
 
 	const currentPrices = await API.GET_CANDLE_DATA(
 		coin,
@@ -59,16 +77,16 @@ async function excuteSellDev(
 
 	if (currentPrice) {
 		await client.query(QUERIES.INSERT_TRADE, [
-			u,
+			uuid,
 			"SELL",
 			coin,
 			currentPrice,
 			coinBalance,
-			false,
+			true,
 			0,
 		]);
 
-		return u;
+		return uuid;
 	}
 
 	throw new Error(i18n.getMessage("SELL_ORDER_DEV_ERROR"));

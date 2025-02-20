@@ -28,19 +28,29 @@ let isRunning = false;
  * NONE: 포지션이 없는 상태
  */
 let currentPosition: "BUY" | "WAIT" | "NONE" = "NONE";
-let KRWBalance = 0;
-let coinBalance = 0;
+let KRWBalance = "0";
+let coinBalance = "0";
+const tradingUuids = new Map<string, string>();
 
 // 시장 상태 타입 정의
 type MarketCondition = keyof typeof CONDITION_WEIGHTS;
 
+// Threshold 인터페이스 추가
+interface IThreshold {
+	buy: number;
+	sell: number;
+	max: number;
+	profitTake: number;
+	stopLoss: number;
+}
+
 // 가중치 상수 객체
 const CONDITION_WEIGHTS = {
-	STRONG_UPTREND: { buy: 0.8, sell: 1.2, profitTake: 1.5 },
-	WEAK_UPTREND: { buy: 0.9, sell: 1.1, profitTake: 1.2 },
-	SIDEWAYS: { buy: 1.0, sell: 1.0, profitTake: 1.0 },
-	WEAK_DOWNTREND: { buy: 1.1, sell: 0.9, profitTake: 0.8 },
-	STRONG_DOWNTREND: { buy: 1.2, sell: 0.8, profitTake: 0.5 },
+	STRONG_UPTREND: { buy: 0.8, sell: 1.2, profitTake: 1.5, stopLoss: 1.2 },
+	WEAK_UPTREND: { buy: 0.9, sell: 1.1, profitTake: 1.2, stopLoss: 1.1 },
+	SIDEWAYS: { buy: 1.0, sell: 1.0, profitTake: 1.0, stopLoss: 1.0 },
+	WEAK_DOWNTREND: { buy: 1.1, sell: 0.9, profitTake: 0.8, stopLoss: 0.9 },
+	STRONG_DOWNTREND: { buy: 1.2, sell: 0.8, profitTake: 0.5, stopLoss: 0.8 },
 } as const;
 const BASE_BUY = Number(process.env.BASE_BUY) || 1.5;
 const BASE_SELL = Number(process.env.BASE_SELL) || -1.5;
@@ -51,8 +61,6 @@ const STOP_LOSS_THRESHOLD = Number(process.env.STOP_LOSS_THRESHOLD) || -2.0;
 const PROFIT_TAKE_THRESHOLD = Number(process.env.PROFIT_TAKE_THRESHOLD) || 5.0;
 // 최대 매수 비율 상수 추가 (50%)
 const MAX_POSITION_RATIO = 0.5;
-
-const tradingUuids = new Map<string, string>();
 
 const loggerPrefix = "[TRADING]";
 
@@ -119,79 +127,23 @@ async function executeOrder(payload: string) {
 			1,
 			new Date().toISOString(),
 		);
-
-		const currentPrice = currentPrices[0].candle_acc_trade_price;
-
+		const currentPrice = currentPrices[0].trade_price;
 		const avgBuyPrice = await checkPosition(coin, currentPrice);
 		const thresholds = await calculateDynamicThreshold(client, coin);
 
 		switch (currentPosition) {
 			case "WAIT":
-				if (score >= thresholds.buy) {
-					// 비선형 가중치 조정 (하이퍼볼릭 탄젠트 함수 적용)
-					const normalizedScore =
-						(score - thresholds.buy) / (thresholds.max - thresholds.buy);
-
-					// 기존 하이퍼볼릭 탄젠트 계산 결과 (0 ~ 0.5 범위)
-					// 여기에 최소값 0.3을 적용
-					const rawBuyRatio =
-						Math.tanh(normalizedScore * 2) * MAX_POSITION_RATIO;
-					const MIN_BUY_RATIO = 0.3; // 최소 매수 비율 30%
-					const buyRatio = Math.min(
-						MAX_POSITION_RATIO,
-						Math.max(rawBuyRatio, MIN_BUY_RATIO),
-					);
-
-					const adjustedAmount = KRWBalance * buyRatio;
-
-					const MIN_ORDER_AMOUNT = 5000;
-					if (adjustedAmount < MIN_ORDER_AMOUNT) {
-						logger.error(client, "MIN_ORDER_AMOUNT_ERROR", loggerPrefix);
-						return;
-					}
-
-					const uuid = await excuteBuy(client, coin, adjustedAmount);
-					tradingUuids.set(coin, uuid);
-				}
+				await handleWaitPosition(score, thresholds, coin);
 				break;
-			case "BUY": {
-				if (!avgBuyPrice)
-					throw new Error(i18n.getMessage("AVG_BUY_PRICE_NOT_FOUND"));
-
-				const priceChangePercentage =
-					((avgBuyPrice - currentPrice) / currentPrice) * 100;
-
-				const shouldSell =
-					score <= thresholds.sell ||
-					priceChangePercentage <= STOP_LOSS_THRESHOLD ||
-					priceChangePercentage >= thresholds.profitTake;
-
-				if (shouldSell) {
-					const sellReason =
-						priceChangePercentage <= STOP_LOSS_THRESHOLD
-							? "STOP_LOSS_TRIGGERED"
-							: priceChangePercentage >= thresholds.profitTake
-								? "PROFIT_TAKE_TRIGGERED"
-								: "REGULAR_SELL";
-
-					logger.warn(
-						client,
-						sellReason,
-						loggerPrefix,
-						JSON.stringify({
-							coin,
-							avgBuyPrice,
-							currentPrice,
-							changePercentage: priceChangePercentage.toFixed(2),
-							profitTakeThreshold: thresholds.profitTake,
-						}),
-					);
-
-					await excuteSell(client, coin, coinBalance, tradingUuids.get(coin));
-					tradingUuids.delete(coin);
-				}
+			case "BUY":
+				await handleBuyPosition(
+					avgBuyPrice,
+					currentPrice,
+					score,
+					thresholds,
+					coin,
+				);
 				break;
-			}
 			case "NONE":
 				break;
 		}
@@ -202,33 +154,97 @@ async function executeOrder(payload: string) {
 	}
 }
 
+async function handleWaitPosition(
+	score: number,
+	thresholds: IThreshold,
+	coin: string,
+) {
+	if (score >= thresholds.buy) {
+		const normalizedScore =
+			(score - thresholds.buy) / (thresholds.max - thresholds.buy);
+		const rawBuyRatio = Math.tanh(normalizedScore * 2) * MAX_POSITION_RATIO;
+
+		const MIN_BUY_RATIO = 0.3;
+		const buyRatio = Math.min(
+			MAX_POSITION_RATIO,
+			Math.max(rawBuyRatio, MIN_BUY_RATIO),
+		);
+
+		const adjustedAmount = Number(KRWBalance) * buyRatio;
+		const MIN_ORDER_AMOUNT = 5000;
+
+		if (adjustedAmount < MIN_ORDER_AMOUNT) {
+			logger.error(client, "MIN_ORDER_AMOUNT_ERROR", loggerPrefix);
+			return;
+		}
+
+		const uuid = await excuteBuy(client, coin, adjustedAmount);
+		tradingUuids.set(coin, uuid);
+	}
+}
+
+async function handleBuyPosition(
+	avgBuyPrice: number | undefined,
+	currentPrice: number,
+	score: number,
+	thresholds: IThreshold,
+	coin: string,
+) {
+	if (!avgBuyPrice) {
+		throw new Error(i18n.getMessage("AVG_BUY_PRICE_NOT_FOUND"));
+	}
+
+	const priceChangePercentage =
+		((currentPrice - avgBuyPrice) / avgBuyPrice) * 100;
+
+	const shouldSell =
+		score <= thresholds.sell ||
+		priceChangePercentage <= thresholds.stopLoss ||
+		priceChangePercentage >= thresholds.profitTake;
+
+	if (shouldSell) {
+		const sellReason =
+			priceChangePercentage <= thresholds.stopLoss
+				? "STOP_LOSS_TRIGGERED"
+				: priceChangePercentage >= thresholds.profitTake
+					? "PROFIT_TAKE_TRIGGERED"
+					: "REGULAR_SELL";
+
+		logger.warn(client, sellReason, loggerPrefix);
+
+		await excuteSell(client, coin, coinBalance, tradingUuids.get(coin) || "");
+	}
+}
+
 async function checkPosition(coin: string, currentPrice: number) {
 	try {
-		const balances = await getAccountBalance([process.env.UNIT || "KRW", coin]);
+		const coinName = coin.replaceAll("KRW-", "");
+		const unit = process.env.UNIT || "KRW";
 
-		const coinAccount = balances.find((balance) => balance.coin === coin);
+		const balances = await getAccountBalance([unit, coinName]);
+		const coinAccount = balances.find((balance) => balance.coin === coinName);
 
 		KRWBalance =
-			balances.find((balance) => balance.coin === "KRW")?.balance || 0;
-		coinBalance = coinAccount?.balance || 0;
+			balances.find((balance) => balance.coin === "KRW")?.balance || "0";
+		coinBalance = coinAccount?.balance || "0";
+		const numKRWBalance = Number(KRWBalance);
+		const numCoinBalance = Number(coinBalance);
 
-		const coinValue = coinBalance * currentPrice;
-		const MIN_COIN_VALUE = 100; // 최소 코인 가치 (원)
+		const coinValue = numCoinBalance * currentPrice;
+		const MIN_COIN_VALUE = 100;
 
-		if (coinBalance > 0 && coinValue >= MIN_COIN_VALUE) {
+		if (numCoinBalance > 0 && coinValue >= MIN_COIN_VALUE) {
 			currentPosition = "BUY";
-		} else if (KRWBalance > 0) {
+		} else if (numKRWBalance > 0) {
 			currentPosition = "WAIT";
 		} else if (
-			KRWBalance <= 0 &&
-			(coinBalance <= 0 || coinValue < MIN_COIN_VALUE)
+			numKRWBalance <= 0 &&
+			(numCoinBalance <= 0 || coinValue < MIN_COIN_VALUE)
 		) {
 			currentPosition = "NONE";
 		}
 
-		if (currentPosition === "BUY") {
-			return coinAccount?.avg_buy_price;
-		}
+		return currentPosition === "BUY" ? coinAccount?.avg_buy_price : undefined;
 	} catch (error: unknown) {
 		throw new Error(i18n.getMessage("GET_CURRENT_POSITION_ERROR"));
 	}
@@ -237,7 +253,7 @@ async function checkPosition(coin: string, currentPrice: number) {
 async function calculateDynamicThreshold(
 	client: PoolClient,
 	coin: string,
-): Promise<{ buy: number; sell: number; max: number; profitTake: number }> {
+): Promise<IThreshold> {
 	try {
 		// 1. 장기적 추세 분석용 RSI (14 period)
 		const longTermRsi = await getRsi(client, coin, 14);
@@ -254,6 +270,7 @@ async function calculateDynamicThreshold(
 			sell: BASE_SELL * weights.sell,
 			max: MAX_BUY_THRESHOLD * weights.buy,
 			profitTake: PROFIT_TAKE_THRESHOLD * weights.profitTake,
+			stopLoss: STOP_LOSS_THRESHOLD * weights.stopLoss,
 		};
 	} catch (error: unknown) {
 		console.error(error);

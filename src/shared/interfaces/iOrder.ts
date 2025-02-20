@@ -49,5 +49,34 @@ interface iOrderProps {
 	identifier?: string;
 }
 
+export interface Trade {
+	market: string;
+	uuid: string;
+	price: string;
+	volume: string;
+	funds: string;
+	trend: string;
+	created_at: string;
+	side: string;
+}
+
+export interface GetOrderResponse {
+	uuid: string;
+	side: string;
+	ord_type: string;
+	state: string;
+	market: string;
+	created_at: string;
+	volume: string;
+	remaining_volume: string;
+	reserved_fee: string;
+	remaining_fee: string;
+	paid_fee: string;
+	locked: string;
+	executed_volume: string;
+	trades_count: number;
+	trades: Trade[];
+}
+
 export type { iOrder, OrderResponse, iOrderProps };
 export { OrderType, OrderStatus };

@@ -9,10 +9,7 @@ import {
 import logger from "../../shared/config/logger";
 import { CHANNEL } from "../../shared/const/channel.const";
 import { QUERIES } from "../../shared/const/query.const";
-import type {
-	GetOrderResponse,
-	OrderResponse,
-} from "../../shared/interfaces/iOrder";
+import type { GetOrderResponse } from "../../shared/interfaces/iOrder";
 import API from "../../shared/services/api";
 import i18n from "../../shared/services/i18n";
 import { setupProcessHandlers } from "../../shared/services/process-handler";

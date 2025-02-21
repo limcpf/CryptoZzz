@@ -9,14 +9,14 @@ const UPDATE_TRADE = `
 UPDATE Trades 
 SET 
     price = CASE 
-        WHEN $4::NUMERIC IS NOT NULL THEN $4::NUMERIC 
+        WHEN $4::NUMERIC IS NOT NULL THEN price + $4::NUMERIC 
         ELSE price 
     END,
     quantity = CASE 
-        WHEN $5::NUMERIC IS NOT NULL THEN $5::NUMERIC 
+        WHEN $5::NUMERIC IS NOT NULL THEN quantity + $5::NUMERIC 
         ELSE quantity 
     END,
-    fee = $6::NUMERIC,
+    fee = fee + $6::NUMERIC,
     sequence = sequence + 1
 WHERE 
     uuid = $1 
@@ -48,7 +48,7 @@ export async function updateOrder(
 
 	const order = await getOrder(orderId);
 
-	if (!(order.trades_count > 0)) {
+	if (!(order.trades.length > 0) || order.state !== "done") {
 		return await updateOrder(msg, client, retryCount + 1);
 	}
 
@@ -87,22 +87,36 @@ async function getOrder(orderId: string): Promise<GetOrderResponse> {
 	}
 }
 
-// TODO: 만약 2개 이상으로 쪼개서 들어오면?
-// TODO: trades에 맞게...done인 경우에만?
+/**
+ * 주문의 거래 내역을 데이터베이스에 업데이트합니다.
+ * 여러 거래(trades)의 총 거래대금(funds)과 거래량(volume)을 계산하여
+ * 데이터베이스의 Trades 테이블을 갱신합니다.
+ *
+ * @throws {Error} 데이터베이스 쿼리 실행 중 오류 발생 시 "UPDATE_ORDER_QUERY_ERROR" 메시지와 함께 예외를 발생시킵니다.
+ */
 async function update(
 	client: PoolClient,
 	order: GetOrderResponse,
 	rowId: string,
 ): Promise<UpdateOrderResponse> {
 	try {
-		const trade = order.trades[0];
+		const trades = order.trades;
+		const firstTrade = trades[0];
+		const totalFunds = trades.reduce(
+			(sum, trade) => sum + (Number(trade.funds) || 0),
+			0,
+		);
+		const totalVolume = trades.reduce(
+			(sum, trade) => sum + (Number(trade.volume) || 0),
+			0,
+		);
 
 		const result = await client.query<UpdateOrderResponse>(UPDATE_TRADE, [
 			rowId,
-			trade.side === "bid" ? "BUY" : "SELL",
-			trade.market,
-			trade.funds,
-			trade.volume,
+			firstTrade.side === "bid" ? "BUY" : "SELL",
+			firstTrade.market,
+			totalFunds,
+			totalVolume,
 			order.paid_fee,
 		]);
 

@@ -318,23 +318,4 @@ export const QUERIES = {
             close_price = EXCLUDED.close_price,
             volume = EXCLUDED.volume;
     `,
-	UPDATE_TRADE: `
-        UPDATE Trades 
-        SET 
-            price = CASE 
-                WHEN $4::NUMERIC IS NOT NULL THEN $4::NUMERIC 
-                ELSE price 
-            END,
-            quantity = CASE 
-                WHEN $5::NUMERIC IS NOT NULL THEN $5::NUMERIC 
-                ELSE quantity 
-            END,
-            fee = $6::NUMERIC,
-            sequence = sequence + 1
-        WHERE 
-            uuid = $1 
-            AND type = $2 
-            AND symbol = $3
-        RETURNING uuid, type, sequence;
-    `,
 };

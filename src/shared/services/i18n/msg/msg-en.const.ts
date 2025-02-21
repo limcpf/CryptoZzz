@@ -86,6 +86,10 @@ const messages: MSG = {
 	MACD_DATA_NOT_FOUND: "⚠️ MACD data not found",
 	INSERT_TRADE_ERROR: "⚠️ Failed to save trade record",
 	ORDER_UPDATE_ERROR: "⚠️ Error occurred while updating order",
+	UUID_LENGTH_ERROR: "⚠️ Invalid number of UUIDs. Two UUIDs are required.",
+	UUID_INVALID_ERROR: "⚠️ Invalid UUID format.",
+	UPDATE_ORDER_FAILED: "⚠️ Failed to update order after maximum retries",
+	UPDATE_ORDER_QUERY_ERROR: "⚠️ Database error while updating order",
 } as const;
 
 export default messages;

@@ -81,6 +81,11 @@ const messages: MSG = {
 	MACD_DATA_NOT_FOUND: "⚠️ MACD 데이터를 찾을 수 없습니다",
 	INSERT_TRADE_ERROR: "⚠️ 거래 내역 저장에 실패했습니다",
 	ORDER_UPDATE_ERROR: "⚠️ 주문 업데이트 중 오류가 발생했습니다",
+	UUID_LENGTH_ERROR: "⚠️ UUID 개수가 잘못되었습니다. 2개의 UUID가 필요합니다.",
+	UUID_INVALID_ERROR: "⚠️ 유효하지 않은 UUID 형식입니다.",
+	UPDATE_ORDER_FAILED: "⚠️ 최대 재시도 횟수 초과로 주문 업데이트에 실패했습니다",
+	UPDATE_ORDER_QUERY_ERROR:
+		"⚠️ 주문 업데이트 중 데이터베이스 오류가 발생했습니다",
 } as const;
 
 export default messages;

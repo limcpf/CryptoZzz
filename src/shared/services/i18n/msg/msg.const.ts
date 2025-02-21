@@ -78,6 +78,10 @@ export interface MSG {
 	MACD_DATA_NOT_FOUND: string;
 	INSERT_TRADE_ERROR: string;
 	ORDER_UPDATE_ERROR: string;
+	UUID_LENGTH_ERROR: string;
+	UUID_INVALID_ERROR: string;
+	UPDATE_ORDER_FAILED: string;
+	UPDATE_ORDER_QUERY_ERROR: string;
 }
 
 export const getMsg = (language: string) => {

@@ -61,11 +61,15 @@ export class BollingerStrategy extends CommonStrategy {
 	 * @returns {Promise<iBollingerData>} 볼린저 밴드 데이터 / Bollinger Bands data
 	 */
 	protected async getData(): Promise<iBollingerData> {
-		return this.repository.getBollingerBands(
+		const data = await this.repository.getBollingerBands(
 			this.symbol,
 			this.params.period,
 			this.params.hours,
 		);
+
+		console.log(data);
+
+		return data;
 	}
 
 	/**

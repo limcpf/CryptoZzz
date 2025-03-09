@@ -43,6 +43,7 @@ export async function updateOrder(
 		if (retryCount >= MAX_RETRIES)
 			throw new Error(i18n.getMessage("UPDATE_ORDER_FAILED"));
 
+		console.log(new Date().toISOString(), "retryCount", retryCount);
 		/** 거래 완료 대기를 위해 3초 대기 */
 		sleepSync(3000);
 
@@ -50,7 +51,6 @@ export async function updateOrder(
 
 		const order = await getOrder(orderId);
 
-		console.log("retryCount", retryCount);
 		console.log("order", order);
 
 		if (!(order.trades.length > 0) || order.state !== "done") {

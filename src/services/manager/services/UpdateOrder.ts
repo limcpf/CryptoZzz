@@ -49,6 +49,7 @@ export async function updateOrder(
 		const [orderId, rowId] = getUuid(msg);
 
 		const order = await getOrder(orderId);
+		console.log(order);
 
 		if (
 			(order.trades && order.trades.length === 0) ||

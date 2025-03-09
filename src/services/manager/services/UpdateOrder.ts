@@ -10,14 +10,14 @@ const UPDATE_TRADE = `
 UPDATE Trades 
 SET 
     price = CASE 
-        WHEN $4::NUMERIC IS NOT NULL THEN price + $4::NUMERIC 
+        WHEN $4::NUMERIC IS NOT NULL THEN $4::NUMERIC 
         ELSE price 
     END,
     quantity = CASE 
-        WHEN $5::NUMERIC IS NOT NULL THEN quantity + $5::NUMERIC 
+        WHEN $5::NUMERIC IS NOT NULL THEN $5::NUMERIC 
         ELSE quantity 
     END,
-    fee = fee + $6::NUMERIC,
+    fee = $6::NUMERIC,
     sequence = sequence + 1
 WHERE 
     uuid = $1 
@@ -49,7 +49,6 @@ export async function updateOrder(
 		const [orderId, rowId] = getUuid(msg);
 
 		const order = await getOrder(orderId);
-		console.log(order);
 
 		if (
 			(order.trades && order.trades.length === 0) ||

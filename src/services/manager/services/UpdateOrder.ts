@@ -38,21 +38,31 @@ export async function updateOrder(
 	client: PoolClient,
 	retryCount = 0,
 ) {
-	if (retryCount >= MAX_RETRIES)
+	try {
+		if (retryCount >= MAX_RETRIES)
+			throw new Error(i18n.getMessage("UPDATE_ORDER_FAILED"));
+
+		/** 거래 완료 대기를 위해 3초 대기 */
+		sleepSync(3000);
+
+		const [orderId, rowId] = getUuid(msg);
+
+		const order = await getOrder(orderId);
+
+		if (!(order.trades.length > 0) || order.state !== "done") {
+			return await updateOrder(msg, client, retryCount + 1);
+		}
+
+		return await update(client, order, rowId);
+	} catch (error: unknown) {
+		console.error(error);
+
+		if (error instanceof Error) {
+			throw new Error(error.message);
+		}
+
 		throw new Error(i18n.getMessage("UPDATE_ORDER_FAILED"));
-
-	/** 거래 완료 대기를 위해 3초 대기 */
-	sleepSync(3000);
-
-	const [orderId, rowId] = getUuid(msg);
-
-	const order = await getOrder(orderId);
-
-	if (!(order.trades.length > 0) || order.state !== "done") {
-		return await updateOrder(msg, client, retryCount + 1);
 	}
-
-	return await update(client, order, rowId);
 }
 
 function getUuid(msg: string): [string, string] {

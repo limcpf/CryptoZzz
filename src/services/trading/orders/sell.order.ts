@@ -1,6 +1,7 @@
 import type { PoolClient } from "pg";
 import { v4 as uuidv4 } from "uuid";
 import { notify } from "../../../shared/config/database";
+import logger from "../../../shared/config/logger";
 import { QUERIES } from "../../../shared/const/query.const";
 import type {
 	OrderResponse,
@@ -51,6 +52,10 @@ export async function excuteSell(
 			]);
 
 			if (result.rowCount !== 0) {
+				logger.send(
+					client,
+					`🔴 ${coin} 매도 완료! 💰\n💵 매도 금액 ${order.price.toLocaleString()}원}`,
+				);
 				notify(client, "MANAGER_CHANNEL", `ORDER_UPDATE:${order.uuid},${uuid}`);
 			}
 		}

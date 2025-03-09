@@ -55,7 +55,7 @@ export async function excuteBuy(
 			if (result.rowCount !== 0) {
 				logger.send(
 					client,
-					`${coin} 매수, 매수 금액 - ${order.price}, score - ${score}, buyThreshold - ${buyThreshold.toFixed(2)}`,
+					`🔵 ${coin} 매수 완료! 💰\n💵 매수 금액 ${order.price.toLocaleString()}원\n📊 스코어 ${score}\n📈 매수 임계값 ${buyThreshold.toFixed(2)}`,
 				);
 
 				notify(client, "MANAGER_CHANNEL", `ORDER_UPDATE:${order.uuid},${uuid}`);

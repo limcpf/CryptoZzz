@@ -67,8 +67,6 @@ export class BollingerStrategy extends CommonStrategy {
 			this.params.hours,
 		);
 
-		console.log(data);
-
 		return data;
 	}
 

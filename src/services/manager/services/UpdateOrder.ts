@@ -3,6 +3,7 @@ import type { PoolClient } from "pg";
 import type { GetOrderResponse } from "../../../shared/interfaces/iOrder";
 import API from "../../../shared/services/api";
 import i18n from "../../../shared/services/i18n";
+import { errorHandler } from "../../../shared/services/util";
 
 const MAX_RETRIES = 3;
 const UPDATE_TRADE = `
@@ -49,19 +50,19 @@ export async function updateOrder(
 
 		const order = await getOrder(orderId);
 
+		console.log("retryCount", retryCount);
+		console.log("order", order);
+
 		if (!(order.trades.length > 0) || order.state !== "done") {
 			return await updateOrder(msg, client, retryCount + 1);
 		}
 
 		return await update(client, order, rowId);
 	} catch (error: unknown) {
-		console.error(error);
-
 		if (error instanceof Error) {
-			throw new Error(error.message);
+			console.error(error);
+			errorHandler(client, "UPDATE_ORDER_FAILED", "UpdateOrder", error.message);
 		}
-
-		throw new Error(i18n.getMessage("UPDATE_ORDER_FAILED"));
 	}
 }
 

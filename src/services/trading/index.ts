@@ -178,7 +178,13 @@ async function handleWaitPosition(
 			return;
 		}
 
-		const uuid = await excuteBuy(client, coin, adjustedAmount);
+		const uuid = await excuteBuy(
+			client,
+			coin,
+			adjustedAmount,
+			score,
+			thresholds.buy,
+		);
 		tradingUuids.set(coin, uuid);
 	}
 }

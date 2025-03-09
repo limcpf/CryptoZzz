@@ -1,6 +1,7 @@
 import type { PoolClient } from "pg";
 import { v4 as uuidv4 } from "uuid";
 import { notify } from "../../../shared/config/database";
+import logger from "../../../shared/config/logger";
 import { QUERIES } from "../../../shared/const/query.const";
 import type {
 	OrderResponse,
@@ -12,6 +13,8 @@ export async function excuteBuy(
 	client: PoolClient,
 	coin: string,
 	KRWBalance: number,
+	score: number,
+	buyThreshold: number,
 ): Promise<string> {
 	if (process.env.NODE_ENV === "development") {
 		await excuteBuyDev(client, coin, KRWBalance);
@@ -50,6 +53,9 @@ export async function excuteBuy(
 			]);
 
 			if (result.rowCount !== 0) {
+				logger.send(client, `${coin} 매수, 매수 금액: ${order.price}`);
+				logger.send(client, `score: ${score}, buyThreshold: ${buyThreshold}`);
+
 				notify(client, "MANAGER_CHANNEL", `ORDER_UPDATE:${order.uuid},${uuid}`);
 			}
 		}
